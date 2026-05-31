@@ -1,0 +1,1 @@
+- [ATL DUPR Pickleball App Architecture](atl-dupr-arch.md) — key quirks for session, password, CSV upload, and proxy setup in this app

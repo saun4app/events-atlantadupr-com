@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Atlanta DUPR Pickleball Events"
+version = "1.0.0"
+id = "artifacts/atl-dupr-pickleball"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20563
+
+[services.development]
+run = "pnpm --filter @workspace/atl-dupr-pickleball run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/atl-dupr-pickleball", "run", "build" ]
+publicDir = "artifacts/atl-dupr-pickleball/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20563"
+BASE_PATH = "/"
