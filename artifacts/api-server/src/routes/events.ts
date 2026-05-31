@@ -76,7 +76,7 @@ router.get("/", async (req, res) => {
   return res.json(rows);
 });
 
-router.post("/", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
   const {
     name, description, startDatetime, endDatetime, locationName, locationAddress,
     formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled,

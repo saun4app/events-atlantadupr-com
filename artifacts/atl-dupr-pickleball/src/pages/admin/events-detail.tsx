@@ -3,7 +3,7 @@ import { useParams, useLocation, Link } from "wouter";
 import {
   useGetEvent, useListRegistrations, useUpdateEvent,
   useApproveRegistration, useRejectRegistration, usePromoteFromWaitlist,
-  useDeleteRegistration, useCreateRegistration,
+  useDeleteRegistration, useCreateRegistration, useListUsers,
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
   getListEventsQueryKey
 } from "@workspace/api-client-react";
@@ -18,11 +18,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, MapPin, Calendar } from "lucide-react";
+import { ChevronLeft, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, MapPin, Calendar, Pencil, UserCog, X } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
 function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; className: string }> = {
@@ -39,6 +42,17 @@ function isNonNumeric(rating: string | null | undefined): boolean {
   if (!rating) return false;
   return isNaN(parseFloat(rating)) || rating === "NR";
 }
+
+function toLocalInput(dt: string | null | undefined): string {
+  if (!dt) return "";
+  try {
+    return new Date(dt).toISOString().slice(0, 16);
+  } catch {
+    return "";
+  }
+}
+
+type Assignment = { userId: number; eventId: number; assignedAt: string; userName: string; userUsername: string; userRole: string };
 
 export default function AdminEventDetail() {
   const { id } = useParams<{ id: string }>();
@@ -59,6 +73,9 @@ export default function AdminEventDetail() {
   const { data: registrations, isLoading: regLoading } = useListRegistrations(eventId, {
     query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventId) }
   });
+  const isAdminOrOrganizer = user?.role === "admin" || user?.role === "event_organizer";
+
+  const { data: allUsers } = useListUsers({ query: { enabled: isAdminOrOrganizer, queryKey: ["listUsers"] } });
 
   const updateEvent = useUpdateEvent();
   const approveReg = useApproveRegistration();
@@ -71,9 +88,125 @@ export default function AdminEventDetail() {
   const [addDuprId, setAddDuprId] = useState("");
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
 
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [editForm, setEditForm] = useState<Record<string, any>>({});
+
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
+  const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [assignUserId, setAssignUserId] = useState<string>("");
+
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
     queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
+  }
+
+  function invalidateEvent() {
+    queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(eventId) });
+    queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
+  }
+
+  async function loadAssignments() {
+    setAssignmentsLoading(true);
+    try {
+      const res = await fetch(`/api/events/${eventId}/assignments`, { credentials: "include" });
+      if (res.ok) setAssignments(await res.json());
+    } catch { /* ignore */ }
+    setAssignmentsLoading(false);
+  }
+
+  useEffect(() => {
+    if (eventId && isAdminOrOrganizer) loadAssignments();
+  }, [eventId, isAdminOrOrganizer]);
+
+  function openEditDialog() {
+    if (!event) return;
+    setEditForm({
+      name: event.name ?? "",
+      description: event.description ?? "",
+      startDatetime: toLocalInput(event.startDatetime),
+      endDatetime: toLocalInput(event.endDatetime),
+      locationName: event.locationName ?? "",
+      locationAddress: event.locationAddress ?? "",
+      formatType: event.formatType ?? "rotating",
+      ratingTypeRequired: event.ratingTypeRequired ?? "none",
+      minParticipants: String(event.minParticipants ?? ""),
+      maxParticipants: String(event.maxParticipants ?? ""),
+      waitlistEnabled: event.waitlistEnabled ?? false,
+      requireApproval: event.requireApproval ?? false,
+      signupStartDatetime: toLocalInput(event.signupStartDatetime),
+      signupEndDatetime: toLocalInput(event.signupEndDatetime),
+      status: event.status ?? "upcoming",
+    });
+    setShowEditDialog(true);
+  }
+
+  function handleEditSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    updateEvent.mutate({
+      id: eventId,
+      data: {
+        name: editForm.name || undefined,
+        description: editForm.description || null,
+        startDatetime: editForm.startDatetime ? new Date(editForm.startDatetime).toISOString() : undefined,
+        endDatetime: editForm.endDatetime ? new Date(editForm.endDatetime).toISOString() : undefined,
+        locationName: editForm.locationName || undefined,
+        locationAddress: editForm.locationAddress || undefined,
+        formatType: editForm.formatType || undefined,
+        ratingTypeRequired: editForm.ratingTypeRequired || undefined,
+        minParticipants: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
+        maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
+        waitlistEnabled: editForm.waitlistEnabled,
+        requireApproval: editForm.requireApproval,
+        signupStartDatetime: editForm.signupStartDatetime ? new Date(editForm.signupStartDatetime).toISOString() : undefined,
+        signupEndDatetime: editForm.signupEndDatetime ? new Date(editForm.signupEndDatetime).toISOString() : undefined,
+        status: editForm.status || undefined,
+      }
+    }, {
+      onSuccess: () => { toast({ title: "Event updated" }); invalidateEvent(); setShowEditDialog(false); },
+      onError: () => toast({ title: "Failed to update event", variant: "destructive" }),
+    });
+  }
+
+  async function handleAddAssignment(e: React.FormEvent) {
+    e.preventDefault();
+    if (!assignUserId) return;
+    try {
+      const res = await fetch(`/api/events/${eventId}/assignments`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: Number(assignUserId) }),
+      });
+      if (res.ok) {
+        toast({ title: "Captain/leader assigned" });
+        setShowAssignDialog(false);
+        setAssignUserId("");
+        loadAssignments();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        toast({ title: err.error || "Failed to assign", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to assign", variant: "destructive" });
+    }
+  }
+
+  async function handleRemoveAssignment(userId: number) {
+    try {
+      const res = await fetch(`/api/events/${eventId}/assignments/${userId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+      if (res.ok) {
+        toast({ title: "Assignment removed" });
+        loadAssignments();
+      } else {
+        toast({ title: "Failed to remove assignment", variant: "destructive" });
+      }
+    } catch {
+      toast({ title: "Failed to remove assignment", variant: "destructive" });
+    }
   }
 
   function handleApprove(regId: number) {
@@ -85,7 +218,7 @@ export default function AdminEventDetail() {
   function handlePromote(regId: number) {
     promoteReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Promoted from waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
   }
-  function handleDelete() {
+  function handleDeleteReg() {
     if (deleteRegId === null) return;
     deleteReg.mutate({ id: eventId, regId: deleteRegId }, { onSuccess: () => { toast({ title: "Removed" }); invalidate(); setDeleteRegId(null); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
   }
@@ -100,23 +233,14 @@ export default function AdminEventDetail() {
     );
   }
 
-  function handleStatusChange(newStatus: string) {
-    updateEvent.mutate({ id: eventId, data: { status: newStatus as any } }, {
-      onSuccess: () => {
-        toast({ title: "Status updated" });
-        queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(eventId) });
-        queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
-      },
-      onError: () => toast({ title: "Failed to update status", variant: "destructive" }),
-    });
-  }
-
-  const isAdmin = user?.role === "admin";
-
   const confirmed = registrations?.filter(r => r.status === "confirmed") ?? [];
   const waitlisted = registrations?.filter(r => r.status === "waitlisted") ?? [];
   const pending = registrations?.filter(r => r.status === "pending_approval") ?? [];
   const rejected = registrations?.filter(r => r.status === "rejected") ?? [];
+
+  const assignableUsers = (allUsers ?? []).filter(u => u.role === "event_captain" || u.role === "court_leader");
+  const assignedUserIds = new Set(assignments.map(a => a.userId));
+  const unassignedUsers = assignableUsers.filter(u => !assignedUserIds.has(u.id));
 
   return (
     <div className="min-h-screen bg-background">
@@ -133,7 +257,7 @@ export default function AdminEventDetail() {
           <>
             <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
               <div className="flex items-start justify-between gap-4">
-                <div>
+                <div className="flex-1 min-w-0">
                   <h1 className="text-xl font-bold text-foreground">{event.name}</h1>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
                     <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{format(new Date(event.startDatetime), "MMM d, yyyy 'at' h:mm a")}</span>
@@ -146,7 +270,17 @@ export default function AdminEventDetail() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Select value={event.status} onValueChange={handleStatusChange}>
+                  <Button
+                    data-testid="button-edit-event"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={openEditDialog}
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit
+                  </Button>
+                  <Select value={event.status} onValueChange={(v) => updateEvent.mutate({ id: eventId, data: { status: v as any } }, { onSuccess: () => { toast({ title: "Status updated" }); invalidateEvent(); } })}>
                     <SelectTrigger data-testid="select-event-status" className="w-36">
                       <SelectValue />
                     </SelectTrigger>
@@ -165,6 +299,54 @@ export default function AdminEventDetail() {
                 <span className="text-muted-foreground">/ {event.maxParticipants} max</span>
               </div>
             </div>
+
+            {isAdminOrOrganizer && (
+              <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
+                    <UserCog className="w-4 h-4" />
+                    Event Captains / Court Leaders
+                  </h2>
+                  <Button
+                    data-testid="button-assign-captain"
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={() => setShowAssignDialog(true)}
+                    disabled={unassignedUsers.length === 0}
+                  >
+                    <UserPlus className="w-3.5 h-3.5" />
+                    Assign
+                  </Button>
+                </div>
+                {assignmentsLoading ? (
+                  <Skeleton className="h-8 w-full" />
+                ) : assignments.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No captains or court leaders assigned to this event.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {assignments.map(a => (
+                      <div key={a.userId} data-testid={`row-assignment-${a.userId}`} className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-md">
+                        <div>
+                          <span className="font-medium text-sm">{a.userName}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">@{a.userUsername}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">({a.userRole.replace("_", " ")})</span>
+                        </div>
+                        <Button
+                          data-testid={`button-remove-assignment-${a.userId}`}
+                          variant="ghost"
+                          size="sm"
+                          className="text-muted-foreground hover:text-destructive h-7 w-7 p-0"
+                          onClick={() => handleRemoveAssignment(a.userId)}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>
@@ -288,10 +470,147 @@ export default function AdminEventDetail() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteReg} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Event</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEditSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="edit-name">Event Name *</Label>
+                <Input id="edit-name" data-testid="input-edit-event-name" value={editForm.name ?? ""} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="edit-description">Description</Label>
+                <Input id="edit-description" value={editForm.description ?? ""} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} placeholder="Optional description" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-start">Start Date/Time *</Label>
+                <Input id="edit-start" data-testid="input-edit-event-start" type="datetime-local" value={editForm.startDatetime ?? ""} onChange={e => setEditForm(f => ({ ...f, startDatetime: e.target.value }))} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-end">End Date/Time *</Label>
+                <Input id="edit-end" type="datetime-local" value={editForm.endDatetime ?? ""} onChange={e => setEditForm(f => ({ ...f, endDatetime: e.target.value }))} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-loc-name">Location Name *</Label>
+                <Input id="edit-loc-name" value={editForm.locationName ?? ""} onChange={e => setEditForm(f => ({ ...f, locationName: e.target.value }))} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-loc-addr">Location Address</Label>
+                <Input id="edit-loc-addr" value={editForm.locationAddress ?? ""} onChange={e => setEditForm(f => ({ ...f, locationAddress: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Format</Label>
+                <Select value={editForm.formatType ?? "rotating"} onValueChange={v => setEditForm(f => ({ ...f, formatType: v }))}>
+                  <SelectTrigger data-testid="select-edit-format">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="rotating">Rotating</SelectItem>
+                    <SelectItem value="fixed_partner">Fixed Partner</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Rating Required</Label>
+                <Select value={editForm.ratingTypeRequired ?? "none"} onValueChange={v => setEditForm(f => ({ ...f, ratingTypeRequired: v }))}>
+                  <SelectTrigger data-testid="select-edit-rating">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">None</SelectItem>
+                    <SelectItem value="dupr">DUPR</SelectItem>
+                    <SelectItem value="national">National</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-min">Min Participants</Label>
+                <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm(f => ({ ...f, minParticipants: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-max">Max Participants *</Label>
+                <Input id="edit-max" type="number" min={1} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm(f => ({ ...f, maxParticipants: e.target.value }))} required />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Signup Opens</Label>
+                <Input type="datetime-local" value={editForm.signupStartDatetime ?? ""} onChange={e => setEditForm(f => ({ ...f, signupStartDatetime: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Signup Closes</Label>
+                <Input type="datetime-local" value={editForm.signupEndDatetime ?? ""} onChange={e => setEditForm(f => ({ ...f, signupEndDatetime: e.target.value }))} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Status</Label>
+                <Select value={editForm.status ?? "upcoming"} onValueChange={v => setEditForm(f => ({ ...f, status: v }))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="closed">Closed</SelectItem>
+                    <SelectItem value="ended">Ended</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2 col-span-2 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-primary" checked={!!editForm.waitlistEnabled} onChange={e => setEditForm(f => ({ ...f, waitlistEnabled: e.target.checked }))} />
+                  <span className="text-sm">Enable Waitlist</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" className="w-4 h-4 accent-primary" checked={!!editForm.requireApproval} onChange={e => setEditForm(f => ({ ...f, requireApproval: e.target.checked }))} />
+                  <span className="text-sm">Require Approval for Registrations</span>
+                </label>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
+              <Button type="submit" data-testid="button-submit-edit-event" disabled={updateEvent.isPending}>
+                {updateEvent.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Assign Captain / Court Leader</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddAssignment} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label>Select User</Label>
+              <Select value={assignUserId} onValueChange={setAssignUserId}>
+                <SelectTrigger data-testid="select-assign-user">
+                  <SelectValue placeholder="Choose a user…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {unassignedUsers.map(u => (
+                    <SelectItem key={u.id} value={String(u.id)}>
+                      {u.name} ({u.role.replace("_", " ")})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
+              <Button type="submit" data-testid="button-submit-assignment" disabled={!assignUserId}>
+                Assign
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

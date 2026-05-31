@@ -1,10 +1,10 @@
-import { createHash } from "crypto";
+import bcrypt from "bcryptjs";
 import { db } from "./index.js";
 import { usersTable, eventsTable, membersTable, registrationsTable } from "./schema/index.js";
 import { sql } from "drizzle-orm";
 
-function hashPassword(password: string): string {
-  return createHash("sha256").update(password + "atl_dupr_salt").digest("hex");
+async function hashPassword(password: string): Promise<string> {
+  return bcrypt.hash(password, 12);
 }
 
 async function seed() {
@@ -13,9 +13,9 @@ async function seed() {
   await db.execute(sql`TRUNCATE registrations, events, event_assignments, atl_dupr_member_list, users RESTART IDENTITY CASCADE`);
 
   await db.insert(usersTable).values([
-    { name: "Admin User", username: "admin", passwordHash: hashPassword("admin123"), role: "admin" },
-    { name: "Organizer One", username: "organizer1", passwordHash: hashPassword("org123"), role: "event_organizer" },
-    { name: "Participant User", username: "participant1", passwordHash: hashPassword("part123"), role: "event_participant" },
+    { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: "admin" },
+    { name: "Organizer One", username: "organizer1", passwordHash: await hashPassword("org123"), role: "event_organizer" },
+    { name: "Participant User", username: "participant1", passwordHash: await hashPassword("part123"), role: "event_participant" },
   ]);
 
   const [ev1, ev2, ev3] = await db.insert(eventsTable).values([

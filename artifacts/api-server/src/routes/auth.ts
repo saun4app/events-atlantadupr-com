@@ -2,7 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { hashPassword, verifyPassword } from "../lib/auth.js";
+import { verifyPassword } from "../lib/auth.js";
 import { deleteSession } from "../lib/session.js";
 
 const router = Router();
@@ -14,7 +14,7 @@ router.post("/login", async (req, res) => {
   }
 
   const [user] = await db.select().from(usersTable).where(eq(usersTable.username, username));
-  if (!user || !verifyPassword(password, user.passwordHash)) {
+  if (!user || !(await verifyPassword(password, user.passwordHash))) {
     return res.status(401).json({ error: "Invalid credentials" });
   }
 

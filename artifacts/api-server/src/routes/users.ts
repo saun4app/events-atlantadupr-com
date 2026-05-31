@@ -2,8 +2,7 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireRole } from "../lib/auth.js";
-import { hashPassword } from "../lib/auth.js";
+import { requireRole, hashPassword } from "../lib/auth.js";
 
 const router = Router();
 
@@ -24,7 +23,7 @@ router.post("/", requireRole("admin"), async (req, res) => {
 
   const [user] = await db
     .insert(usersTable)
-    .values({ name, username, passwordHash: hashPassword(password), role })
+    .values({ name, username, passwordHash: await hashPassword(password), role })
     .returning();
 
   return res.status(201).json(toPublicUser(user));
@@ -38,7 +37,7 @@ router.patch("/:id", requireRole("admin"), async (req, res) => {
   if (req.body.name !== undefined) updates.name = req.body.name;
   if (req.body.username !== undefined) updates.username = req.body.username;
   if (req.body.role !== undefined) updates.role = req.body.role;
-  if (req.body.password) updates.passwordHash = hashPassword(req.body.password);
+  if (req.body.password) updates.passwordHash = await hashPassword(req.body.password);
 
   const [updated] = await db
     .update(usersTable)

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import {
   useListMembers, useCreateMember, useDeleteMember, useClearAllMembers, useUploadMembersCsv,
+  useUpdateMember,
   getListMembersQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Search, Trash2, Upload, AlertCircle, Users } from "lucide-react";
+import { Plus, Search, Trash2, Upload, AlertCircle, Users, Pencil } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,6 +21,10 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+
+type MemberRow = { duprId: string; playerName: string; doubleRating?: string | null; doubleReliability?: number | null; singleRating?: string | null; singleReliability?: number | null; selfRating?: string | null };
+
+const emptyForm = { duprId: "", playerName: "", doubleRating: "", doubleReliability: "", singleRating: "", singleReliability: "", selfRating: "" };
 
 export default function AdminMembers() {
   const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
@@ -39,6 +44,7 @@ export default function AdminMembers() {
   );
 
   const createMember = useCreateMember();
+  const updateMember = useUpdateMember();
   const deleteMember = useDeleteMember();
   const clearAll = useClearAllMembers();
   const uploadCsv = useUploadMembersCsv();
@@ -49,7 +55,9 @@ export default function AdminMembers() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [addForm, setAddForm] = useState({ duprId: "", playerName: "", doubleRating: "", doubleReliability: "", singleRating: "", singleReliability: "", selfRating: "" });
+  const [addForm, setAddForm] = useState(emptyForm);
+  const [editMember, setEditMember] = useState<MemberRow | null>(null);
+  const [editForm, setEditForm] = useState(emptyForm);
 
   function invalidate() {
     queryClient.invalidateQueries({ queryKey: getListMembersQueryKey({}) });
@@ -88,8 +96,40 @@ export default function AdminMembers() {
         selfRating: addForm.selfRating.trim() || null,
       }
     }, {
-      onSuccess: () => { toast({ title: "Member added" }); invalidate(); setShowAddDialog(false); setAddForm({ duprId: "", playerName: "", doubleRating: "", doubleReliability: "", singleRating: "", singleReliability: "", selfRating: "" }); },
+      onSuccess: () => { toast({ title: "Member added" }); invalidate(); setShowAddDialog(false); setAddForm(emptyForm); },
       onError: (err: any) => toast({ title: err?.data?.error || "Failed to add member", variant: "destructive" }),
+    });
+  }
+
+  function openEdit(m: MemberRow) {
+    setEditMember(m);
+    setEditForm({
+      duprId: m.duprId,
+      playerName: m.playerName,
+      doubleRating: m.doubleRating ?? "",
+      doubleReliability: m.doubleReliability != null ? String(m.doubleReliability) : "",
+      singleRating: m.singleRating ?? "",
+      singleReliability: m.singleReliability != null ? String(m.singleReliability) : "",
+      selfRating: m.selfRating ?? "",
+    });
+  }
+
+  function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editMember) return;
+    updateMember.mutate({
+      duprId: editMember.duprId,
+      data: {
+        playerName: editForm.playerName.trim(),
+        doubleRating: editForm.doubleRating.trim() || null,
+        doubleReliability: editForm.doubleReliability ? Number(editForm.doubleReliability) : null,
+        singleRating: editForm.singleRating.trim() || null,
+        singleReliability: editForm.singleReliability ? Number(editForm.singleReliability) : null,
+        selfRating: editForm.selfRating.trim() || null,
+      }
+    }, {
+      onSuccess: () => { toast({ title: "Member updated" }); invalidate(); setEditMember(null); },
+      onError: (err: any) => toast({ title: err?.data?.error || "Failed to update member", variant: "destructive" }),
     });
   }
 
@@ -222,15 +262,26 @@ export default function AdminMembers() {
                       <td className="px-4 py-3">{m.singleReliability != null ? `${m.singleReliability}%` : "—"}</td>
                       <td className="px-4 py-3">{m.selfRating ?? "—"}</td>
                       <td className="px-4 py-3 text-right">
-                        <Button
-                          data-testid={`button-delete-member-${m.duprId}`}
-                          variant="ghost"
-                          size="sm"
-                          className="text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeleteId(m.duprId)}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            data-testid={`button-edit-member-${m.duprId}`}
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => openEdit(m)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            data-testid={`button-delete-member-${m.duprId}`}
+                            variant="ghost"
+                            size="sm"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeleteId(m.duprId)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -307,6 +358,48 @@ export default function AdminMembers() {
               <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
               <Button type="submit" data-testid="button-submit-add-member" disabled={createMember.isPending}>
                 {createMember.isPending ? "Adding..." : "Add Member"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editMember} onOpenChange={open => !open && setEditMember(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit Member — {editMember?.duprId}</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="edit-player-name">Player Name *</Label>
+                <Input id="edit-player-name" data-testid="input-edit-member-name" value={editForm.playerName} onChange={e => setEditForm(f => ({ ...f, playerName: e.target.value }))} required placeholder="Jane Smith" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-double-rating">Double Rating</Label>
+                <Input id="edit-double-rating" value={editForm.doubleRating} onChange={e => setEditForm(f => ({ ...f, doubleRating: e.target.value }))} placeholder="4.25 or NR" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-d-rel">D. Reliability %</Label>
+                <Input id="edit-d-rel" type="number" min={0} max={100} value={editForm.doubleReliability} onChange={e => setEditForm(f => ({ ...f, doubleReliability: e.target.value }))} placeholder="75" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-single-rating">Single Rating</Label>
+                <Input id="edit-single-rating" value={editForm.singleRating} onChange={e => setEditForm(f => ({ ...f, singleRating: e.target.value }))} placeholder="4.10 or NR" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-s-rel">S. Reliability %</Label>
+                <Input id="edit-s-rel" type="number" min={0} max={100} value={editForm.singleReliability} onChange={e => setEditForm(f => ({ ...f, singleReliability: e.target.value }))} placeholder="60" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="edit-self-rating">Self-Rating</Label>
+                <Input id="edit-self-rating" value={editForm.selfRating} onChange={e => setEditForm(f => ({ ...f, selfRating: e.target.value }))} placeholder="3.5" />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditMember(null)}>Cancel</Button>
+              <Button type="submit" data-testid="button-submit-edit-member" disabled={updateMember.isPending}>
+                {updateMember.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>
