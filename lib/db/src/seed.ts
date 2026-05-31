@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { db } from "./index.js";
-import { usersTable, eventsTable, membersTable, registrationsTable } from "./schema/index.js";
+import { usersTable, eventsTable, membersTable, registrationsTable, appSettingsTable } from "./schema/index.js";
 import { sql } from "drizzle-orm";
 
 async function hashPassword(password: string): Promise<string> {
@@ -10,7 +10,17 @@ async function hashPassword(password: string): Promise<string> {
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE registrations, events, event_assignments, atl_dupr_member_list, users RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE registrations, events, event_assignments, atl_dupr_member_list, users, app_settings RESTART IDENTITY CASCADE`);
+
+  await db.insert(appSettingsTable).values({
+    id: 1,
+    defaultTimezone: "America/New_York",
+    rotatingPartnersDescription: "Players rotate partners each round. A great way to meet new people and play with a variety of skill levels.",
+    fixedPartnerDescription: "Register with your doubles partner. You will play all rounds together as a team.",
+    minParticipants: 8,
+    maxParticipants: 24,
+    contactPersons: [{ name: "Admin User", email: "admin@atldupr.com" }],
+  });
 
   await db.insert(usersTable).values([
     { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: "admin" },
@@ -94,7 +104,7 @@ async function seed() {
     { eventId: ev3.id, memberDuprId: "DUPR-007", status: "confirmed" },
   ]);
 
-  console.log("Seed complete: 3 users, 10 members, 3 events, 6 registrations.");
+  console.log("Seed complete: 1 app_settings row, 3 users, 10 members, 3 events, 6 registrations.");
   process.exit(0);
 }
 
