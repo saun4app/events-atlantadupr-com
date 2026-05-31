@@ -107,7 +107,13 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (minParticipants !== undefined) updates.minParticipants = minParticipants;
   if (maxParticipants !== undefined) updates.maxParticipants = maxParticipants;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
-  if (defaultLocations !== undefined) updates.defaultLocations = defaultLocations;
+  if (defaultLocations !== undefined) {
+    updates.defaultLocations = (defaultLocations as any[]).map((loc: any) => ({
+      id: String(loc.id).trim(),
+      name: String(loc.name).trim(),
+      address: String(loc.address ?? "").trim(),
+    }));
+  }
 
   const [updated] = await db
     .insert(appSettingsTable)
