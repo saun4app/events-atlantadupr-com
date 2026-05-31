@@ -27,14 +27,15 @@ function generateRecurringDates(
 }
 
 async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
-  const user = (req as any).user;
-  if (!user) return false;
-  if (user.role === "admin" || user.role === "event_organizer") return true;
-  if (user.role === "event_captain" || user.role === "court_leader") {
+  const session = (req as any).session;
+  if (!session?.userId) return false;
+  const role: string = session.role ?? "";
+  if (role === "admin" || role === "event_organizer") return true;
+  if (role === "event_captain" || role === "court_leader") {
     const [assignment] = await db
       .select()
       .from(eventAssignmentsTable)
-      .where(and(eq(eventAssignmentsTable.userId, user.id), eq(eventAssignmentsTable.eventId, eventId)));
+      .where(and(eq(eventAssignmentsTable.userId, Number(session.userId)), eq(eventAssignmentsTable.eventId, eventId)));
     return !!assignment;
   }
   return false;

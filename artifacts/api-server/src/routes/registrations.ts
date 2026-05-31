@@ -34,14 +34,15 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
 }
 
 async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
-  const user = (req as any).user;
-  if (!user) return false;
-  if (user.role === "admin" || user.role === "event_organizer") return true;
-  if (user.role === "event_captain" || user.role === "court_leader") {
+  const session = (req as any).session;
+  if (!session?.userId) return false;
+  const role: string = session.role ?? "";
+  if (role === "admin" || role === "event_organizer") return true;
+  if (role === "event_captain" || role === "court_leader") {
     const [assignment] = await db
       .select()
       .from(eventAssignmentsTable)
-      .where(and(eq(eventAssignmentsTable.userId, user.id), eq(eventAssignmentsTable.eventId, eventId)));
+      .where(and(eq(eventAssignmentsTable.userId, Number(session.userId)), eq(eventAssignmentsTable.eventId, eventId)));
     return !!assignment;
   }
   return false;
@@ -69,8 +70,21 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "Event is not open for registration" });
   }
 
+  const now = new Date();
+  if (now < event.signupStartDatetime || now > event.signupEndDatetime) {
+    return res.status(400).json({ error: "Registration is outside the signup window" });
+  }
+
   const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, memberDuprId));
   if (!member) return res.status(404).json({ error: "Member not found" });
+
+  if (event.formatType === "fixed_partner") {
+    if (!partnerDuprId) {
+      return res.status(400).json({ error: "partnerDuprId is required for fixed-partner events" });
+    }
+    const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprId));
+    if (!partner) return res.status(404).json({ error: "Partner member not found in member list" });
+  }
 
   const [existingReg] = await db
     .select()

@@ -10,7 +10,7 @@ function hashPassword(password: string): string {
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE registrations, events, members, users RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE registrations, events, event_assignments, atl_dupr_member_list, users RESTART IDENTITY CASCADE`);
 
   await db.insert(usersTable).values([
     { name: "Admin User", username: "admin", passwordHash: hashPassword("admin123"), role: "admin" },
