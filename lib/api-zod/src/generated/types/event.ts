@@ -20,7 +20,7 @@ export interface Event {
   locationName: string;
   locationAddress: string;
   formatType: EventFormatType;
-  ratingTypeRequired: boolean;
+  ratingTypeRequired: 'dupr' | 'national' | 'none';
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;

@@ -137,6 +137,15 @@ export const EventStatus = {
   ended: 'ended',
 } as const;
 
+export type EventRatingTypeRequired = typeof EventRatingTypeRequired[keyof typeof EventRatingTypeRequired];
+
+
+export const EventRatingTypeRequired = {
+  dupr: 'dupr',
+  national: 'national',
+  none: 'none',
+} as const;
+
 export interface Event {
   id: number;
   /** @nullable */
@@ -149,7 +158,7 @@ export interface Event {
   locationName: string;
   locationAddress: string;
   formatType: EventFormatType;
-  ratingTypeRequired: boolean;
+  ratingTypeRequired: EventRatingTypeRequired;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
@@ -195,7 +204,7 @@ export interface EventInput {
   locationName: string;
   locationAddress: string;
   formatType: EventInputFormatType;
-  ratingTypeRequired: boolean;
+  ratingTypeRequired: EventRatingTypeRequired;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
@@ -204,6 +213,11 @@ export interface EventInput {
   signupEndDatetime: string;
   recurrence?: RecurrenceInput;
 }
+
+export interface EventCloneInput {
+  name?: string;
+}
+
 
 export type EventUpdateFormatType = typeof EventUpdateFormatType[keyof typeof EventUpdateFormatType];
 
@@ -231,7 +245,7 @@ export interface EventUpdate {
   locationName?: string;
   locationAddress?: string;
   formatType?: EventUpdateFormatType;
-  ratingTypeRequired?: boolean;
+  ratingTypeRequired?: EventRatingTypeRequired;
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;

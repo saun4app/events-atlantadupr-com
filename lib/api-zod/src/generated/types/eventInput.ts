@@ -17,7 +17,7 @@ export interface EventInput {
   locationName: string;
   locationAddress: string;
   formatType: EventInputFormatType;
-  ratingTypeRequired: boolean;
+  ratingTypeRequired: 'dupr' | 'national' | 'none';
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;

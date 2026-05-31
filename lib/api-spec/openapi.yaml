@@ -336,6 +336,33 @@ paths:
         "404":
           description: Event not found
 
+  /events/{id}/clone:
+    post:
+      operationId: cloneEvent
+      tags: [events]
+      summary: Clone an event as a new draft (Admin/Organizer)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCloneInput"
+      responses:
+        "201":
+          description: Cloned event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Source event not found
+
   /events/{id}/close:
     post:
       operationId: closeEvent
@@ -799,7 +826,8 @@ components:
           type: string
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
-          type: boolean
+          type: string
+          enum: [dupr, national, none]
         minParticipants:
           type: integer
         maxParticipants:
@@ -820,6 +848,13 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    EventCloneInput:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Override name for the cloned event (default appends " (Copy)")
 
     RecurrenceInput:
       type: object
@@ -855,7 +890,8 @@ components:
           type: string
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
-          type: boolean
+          type: string
+          enum: [dupr, national, none]
         minParticipants:
           type: integer
         maxParticipants:
@@ -894,7 +930,8 @@ components:
           type: string
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
-          type: boolean
+          type: string
+          enum: [dupr, national, none]
         minParticipants:
           type: integer
         maxParticipants:

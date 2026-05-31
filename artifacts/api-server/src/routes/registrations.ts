@@ -106,7 +106,7 @@ router.get("/:regId", async (req, res) => {
   return res.json(await buildRosterEntry(reg));
 });
 
-router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const [existing] = await db
     .select()
     .from(registrationsTable)
@@ -128,7 +128,7 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer"), as
   return res.json(await buildRosterEntry(updated));
 });
 
-router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const [deleted] = await db
     .delete(registrationsTable)
     .where(
@@ -139,7 +139,7 @@ router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer"), a
   return res.status(204).send();
 });
 
-router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const [reg] = await db
     .select()
     .from(registrationsTable)
@@ -158,7 +158,7 @@ router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organize
   return res.json(await buildRosterEntry(updated));
 });
 
-router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const [reg] = await db
     .select()
     .from(registrationsTable)
@@ -176,7 +176,7 @@ router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer
   return res.json(await buildRosterEntry(updated));
 });
 
-router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const eventId = Number(req.params.id);
   const [reg] = await db
     .select()

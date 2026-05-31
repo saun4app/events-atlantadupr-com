@@ -17,7 +17,7 @@ export interface EventUpdate {
   locationName?: string;
   locationAddress?: string;
   formatType?: EventUpdateFormatType;
-  ratingTypeRequired?: boolean;
+  ratingTypeRequired?: 'dupr' | 'national' | 'none';
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;

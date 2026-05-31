@@ -40,7 +40,7 @@ const defaultForm = {
   locationName: "",
   locationAddress: "",
   formatType: "rotating",
-  ratingTypeRequired: true,
+  ratingTypeRequired: "dupr" as "dupr" | "national" | "none",
   minParticipants: 8,
   maxParticipants: 24,
   waitlistEnabled: true,
@@ -274,13 +274,18 @@ export default function AdminEventNew() {
               </div>
             </div>
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>DUPR Rating Required</Label>
-                <Switch
-                  data-testid="switch-rating-required"
-                  checked={form.ratingTypeRequired}
-                  onCheckedChange={v => setField("ratingTypeRequired", v)}
-                />
+              <div className="space-y-1.5">
+                <Label>Rating Requirement</Label>
+                <Select value={form.ratingTypeRequired} onValueChange={v => setField("ratingTypeRequired", v)}>
+                  <SelectTrigger data-testid="select-rating-required">
+                    <SelectValue placeholder="Select requirement..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="dupr">DUPR Required</SelectItem>
+                    <SelectItem value="national">National Rating Required</SelectItem>
+                    <SelectItem value="none">All Levels (No Rating Required)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="flex items-center justify-between">
                 <Label>Enable Waitlist</Label>

@@ -61,7 +61,7 @@ router.get("/", async (req, res) => {
   return res.json(rows);
 });
 
-router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.post("/", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const {
     name, description, startDatetime, endDatetime, locationName, locationAddress,
     formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled,
@@ -122,7 +122,7 @@ router.get("/:id", async (req, res) => {
   return res.json(event);
 });
 
-router.patch("/:id", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
   const [existing] = await db.select().from(eventsTable).where(eq(eventsTable.id, Number(req.params.id)));
   if (!existing) return res.status(404).json({ error: "Event not found" });
 
@@ -147,6 +147,23 @@ router.delete("/:id", requireAuth, requireRole("admin", "event_organizer"), asyn
   const [deleted] = await db.delete(eventsTable).where(eq(eventsTable.id, Number(req.params.id))).returning();
   if (!deleted) return res.status(404).json({ error: "Event not found" });
   return res.status(204).send();
+});
+
+router.post("/:id/clone", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+  const [source] = await db.select().from(eventsTable).where(eq(eventsTable.id, Number(req.params.id)));
+  if (!source) return res.status(404).json({ error: "Source event not found" });
+
+  const { name } = req.body ?? {};
+  const { id: _id, createdAt: _c, seriesId: _s, ...rest } = source;
+  const [cloned] = await db
+    .insert(eventsTable)
+    .values({
+      ...rest,
+      name: name ?? `${source.name} (Copy)`,
+      status: "upcoming",
+    })
+    .returning();
+  return res.status(201).json(cloned);
 });
 
 router.post("/:id/close", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {

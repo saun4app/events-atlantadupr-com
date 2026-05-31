@@ -141,7 +141,7 @@ export default function AdminEventDetail() {
                   </div>
                   <div className="flex gap-2 mt-3">
                     <Badge variant="outline" className="text-xs">{event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating"}</Badge>
-                    {event.ratingTypeRequired && <Badge variant="outline" className="text-xs">DUPR Required</Badge>}
+                    {event.ratingTypeRequired !== "none" && <Badge variant="outline" className="text-xs">DUPR Required</Badge>}
                     {event.requireApproval && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>}
                   </div>
                 </div>

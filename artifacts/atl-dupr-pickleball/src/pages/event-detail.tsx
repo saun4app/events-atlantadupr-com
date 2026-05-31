@@ -150,7 +150,7 @@ export default function EventDetail() {
 
           <div className="flex flex-wrap gap-2 mb-4">
             <Badge variant="outline" className="text-xs">{event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}</Badge>
-            {event.ratingTypeRequired && <Badge variant="outline" className="text-xs">DUPR Required</Badge>}
+            {event.ratingTypeRequired !== "none" && <Badge variant="outline" className="text-xs">DUPR Required</Badge>}
             {event.requireApproval && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>}
             {event.waitlistEnabled && <Badge variant="outline" className="text-xs">Waitlist Enabled</Badge>}
           </div>

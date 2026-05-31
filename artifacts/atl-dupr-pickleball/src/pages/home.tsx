@@ -38,7 +38,7 @@ function EventCard({ event }: { event: any }) {
               {sig.label}
             </Badge>
             <span className="text-xs font-medium text-muted-foreground">
-              {event.ratingTypeRequired ? "DUPR Required" : "All Levels"}
+              {event.ratingTypeRequired !== "none" ? "DUPR Required" : "All Levels"}
             </span>
           </div>
         </div>
