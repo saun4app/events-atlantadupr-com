@@ -121,7 +121,10 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
           />
         </div>
       </div>
-      <div className="relative">
+      <div
+        style={{ resize: "vertical", overflow: "auto", minHeight: "120px" }}
+        className="relative"
+      >
         {!editor.getText() && placeholder && (
           <p className="absolute top-2 left-3 text-sm text-muted-foreground pointer-events-none select-none">
             {placeholder}

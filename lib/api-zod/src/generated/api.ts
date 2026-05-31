@@ -208,8 +208,9 @@ export const CreateEventBody = zod.object({
   "signupStartDatetime": zod.coerce.date(),
   "signupEndDatetime": zod.coerce.date(),
   "recurrence": zod.object({
-  "frequency": zod.enum(['daily', 'weekly', 'monthly']),
-  "occurrences": zod.number().min(createEventBodyRecurrenceOccurrencesMin).max(createEventBodyRecurrenceOccurrencesMax)
+  "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
+  "occurrences": zod.number().min(createEventBodyRecurrenceOccurrencesMin).max(createEventBodyRecurrenceOccurrencesMax).optional(),
+  "dates": zod.array(zod.coerce.date()).optional().describe('Explicit ISO datetimes for additional occurrences (after the start event)')
 }).optional()
 })
 
@@ -551,7 +552,9 @@ export const GetSettingsResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "address": zod.string()
-}))
+})),
+  "maintenanceMode": zod.boolean(),
+  "defaultEventNames": zod.array(zod.string()).describe('Preset event names available for selection when creating events')
 })
 
 
@@ -574,7 +577,9 @@ export const UpdateSettingsBody = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "address": zod.string()
-})).optional()
+})).optional(),
+  "maintenanceMode": zod.boolean().optional(),
+  "defaultEventNames": zod.array(zod.string()).optional()
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -593,7 +598,9 @@ export const UpdateSettingsResponse = zod.object({
   "id": zod.string(),
   "name": zod.string(),
   "address": zod.string()
-}))
+})),
+  "maintenanceMode": zod.boolean(),
+  "defaultEventNames": zod.array(zod.string()).describe('Preset event names available for selection when creating events')
 })
 
 

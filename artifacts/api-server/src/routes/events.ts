@@ -89,28 +89,39 @@ router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (re
     waitlistEnabled, requireApproval, status: "upcoming" as const,
   };
 
-  if (recurrence && recurrence.frequency && recurrence.occurrences > 1) {
+  if (recurrence) {
     const seriesId = randomUUID();
-    const dates = generateRecurringDates(
-      new Date(startDatetime),
-      new Date(endDatetime),
-      recurrence.frequency,
-      recurrence.occurrences,
-    );
+    const startMs = new Date(startDatetime).getTime();
+    const duration = new Date(endDatetime).getTime() - startMs;
+    const signupStartOffset = startMs - new Date(signupStartDatetime).getTime();
+    const signupEndOffset = startMs - new Date(signupEndDatetime).getTime();
 
-    const signupDuration =
-      new Date(signupEndDatetime).getTime() - new Date(signupStartDatetime).getTime();
+    let additionalStarts: Date[] = [];
+
+    if (Array.isArray(recurrence.dates) && recurrence.dates.length > 0) {
+      additionalStarts = recurrence.dates.map((d: string) => new Date(d));
+    } else if (recurrence.frequency && recurrence.occurrences > 1) {
+      const allDates = generateRecurringDates(
+        new Date(startDatetime),
+        new Date(endDatetime),
+        recurrence.frequency,
+        recurrence.occurrences,
+      );
+      additionalStarts = allDates.slice(1).map(({ start }) => start);
+    }
+
+    const allStarts = [new Date(startDatetime), ...additionalStarts];
 
     const events = await db
       .insert(eventsTable)
       .values(
-        dates.map(({ start, end }) => ({
+        allStarts.map((start) => ({
           ...baseEvent,
           seriesId,
           startDatetime: start,
-          endDatetime: end,
-          signupStartDatetime: new Date(start.getTime() - (new Date(startDatetime).getTime() - new Date(signupStartDatetime).getTime())),
-          signupEndDatetime: new Date(start.getTime() - (new Date(startDatetime).getTime() - new Date(signupEndDatetime).getTime())),
+          endDatetime: new Date(start.getTime() + duration),
+          signupStartDatetime: new Date(start.getTime() - signupStartOffset),
+          signupEndDatetime: new Date(start.getTime() - signupEndOffset),
         })),
       )
       .returning();

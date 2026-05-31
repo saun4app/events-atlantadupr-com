@@ -72,9 +72,11 @@ export default function AdminSettings() {
     contactPersons: [] as ContactPerson[],
     defaultLocations: [] as DefaultLocation[],
     maintenanceMode: false,
+    defaultEventNames: [] as string[],
   });
   const [dirty, setDirty] = useState(false);
   const formInitialized = useRef(false);
+  const [newEventName, setNewEventName] = useState("");
 
   useEffect(() => {
     if (settings && !formInitialized.current) {
@@ -90,6 +92,7 @@ export default function AdminSettings() {
         contactPersons: (settings.contactPersons as ContactPerson[]) ?? [],
         defaultLocations: (settings.defaultLocations as DefaultLocation[]) ?? [],
         maintenanceMode: settings.maintenanceMode ?? false,
+        defaultEventNames: (settings.defaultEventNames as string[]) ?? [],
       });
     }
   }, [settings]);
@@ -399,6 +402,67 @@ export default function AdminSettings() {
                   ))}
                 </div>
               )}
+            </section>
+
+            {/* ── Default Event Names ───────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Default Event Names</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Preset names available when creating new events.</p>
+              </div>
+
+              {form.defaultEventNames.length > 0 && (
+                <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
+                  {form.defaultEventNames.map((name, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`event-name-row-${i}`}>
+                      <span className="flex-1 text-sm text-foreground truncate">{name}</span>
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
+                        data-testid={`button-delete-event-name-${i}`}
+                        onClick={() => update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== i))}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  data-testid="input-new-event-name"
+                  value={newEventName}
+                  onChange={e => setNewEventName(e.target.value)}
+                  placeholder="Saturday Morning Round Robin"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const trimmed = newEventName.trim();
+                      if (trimmed && !form.defaultEventNames.includes(trimmed)) {
+                        update("defaultEventNames", [...form.defaultEventNames, trimmed]);
+                        setNewEventName("");
+                      }
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shrink-0"
+                  data-testid="button-add-event-name"
+                  onClick={() => {
+                    const trimmed = newEventName.trim();
+                    if (trimmed && !form.defaultEventNames.includes(trimmed)) {
+                      update("defaultEventNames", [...form.defaultEventNames, trimmed]);
+                      setNewEventName("");
+                    }
+                  }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </Button>
+              </div>
             </section>
 
             {/* ── Site Maintenance ──────────────────────────── */}

@@ -21,6 +21,15 @@ async function seed() {
     maxParticipants: 24,
     minTeams: 4,
     maxTeams: 12,
+    defaultEventNames: [
+      "Saturday Morning Round Robin",
+      "Sunday Doubles Social",
+      "Wednesday Mixer",
+      "Friday Night Round Robin",
+      "Beginner Clinic",
+      "Intermediate Tournament",
+      "Advanced Competitive Play",
+    ],
     contactPersons: [{ name: "Admin User", email: "admin@atldupr.com" }],
     defaultLocations: [
       { id: "loc-1", name: "Chastain Park Tennis Center", address: "315 West Wieuca Rd NW, Atlanta, GA 30342" },

@@ -1,53 +1,46 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { useListEvents, useCreateEvent, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
+import {
+  useListEvents, useCreateEvent, useGetSettings,
+  getListEventsQueryKey, getGetEventsSummaryQueryKey,
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminNav } from "@/components/admin-nav";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { ChevronLeft, Calendar } from "lucide-react";
 import { Link } from "wouter";
 
+interface DefaultLocation { id: string; name: string; address: string; }
+
 function toLocalDateTimeString(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-function generateRecurrenceDates(startDate: Date, frequency: string, occurrences: number): Date[] {
-  const dates: Date[] = [startDate];
-  for (let i = 1; i < occurrences; i++) {
-    const prev = dates[dates.length - 1];
-    if (frequency === "daily") dates.push(addDays(prev, 1));
-    else if (frequency === "weekly") dates.push(addWeeks(prev, 1));
-    else dates.push(addMonths(prev, 1));
+function signupClosesDefault(startDatetime: string): string {
+  if (!startDatetime) return "";
+  const startMs = new Date(startDatetime).getTime();
+  return toLocalDateTimeString(new Date(startMs - 12 * 60 * 60 * 1000));
+}
+
+function generateAdditionalDates(startDate: Date, frequency: string, count: number): Date[] {
+  const dates: Date[] = [];
+  for (let i = 1; i <= count; i++) {
+    if (frequency === "daily") dates.push(addDays(startDate, i));
+    else if (frequency === "weekly") dates.push(addWeeks(startDate, i));
+    else dates.push(addMonths(startDate, i));
   }
   return dates;
 }
-
-const defaultForm = {
-  name: "",
-  description: "",
-  startDatetime: "",
-  endDatetime: "",
-  locationName: "",
-  locationAddress: "",
-  formatType: "rotating",
-  ratingTypeRequired: "dupr" as "dupr" | "national" | "none",
-  minParticipants: 8,
-  maxParticipants: 24,
-  waitlistEnabled: true,
-  requireApproval: false,
-  signupStartDatetime: "",
-  signupEndDatetime: "",
-};
 
 export default function AdminEventNew() {
   const { isAuthenticated, isLoading, canAccessAdmin } = useAuth();
@@ -61,45 +54,156 @@ export default function AdminEventNew() {
   }, [isLoading, isAuthenticated, canAccessAdmin]);
 
   const { data: allEvents } = useListEvents({}, { query: { queryKey: getListEventsQueryKey({}) } });
+  const { data: settings } = useGetSettings();
 
-  const [form, setForm] = useState(defaultForm);
+  const defaultsApplied = useRef(false);
+  const signupEndEdited = useRef(false);
+  const descriptionEdited = useRef(false);
+
+  const now = new Date();
+
+  const [form, setForm] = useState({
+    formatType: "rotating" as "rotating" | "fixed_partner",
+    name: "",
+    description: "",
+    startDatetime: "",
+    endDatetime: "",
+    locationName: "",
+    locationAddress: "",
+    ratingTypeRequired: "dupr" as "dupr" | "national" | "none",
+    minParticipants: 8,
+    maxParticipants: 24,
+    waitlistEnabled: true,
+    requireApproval: false,
+    signupStartDatetime: toLocalDateTimeString(now),
+    signupEndDatetime: "",
+  });
+
   const [cloneFrom, setCloneFrom] = useState<string>("none");
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState("weekly");
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(4);
+  const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
 
   const createEvent = useCreateEvent();
 
-  function setField(key: string, value: any) {
+  const defaultEventNames = (settings?.defaultEventNames as string[] | undefined) ?? [];
+  const defaultLocations: DefaultLocation[] = (settings?.defaultLocations as DefaultLocation[] | undefined) ?? [];
+
+  useEffect(() => {
+    if (settings && !defaultsApplied.current && cloneFrom === "none") {
+      defaultsApplied.current = true;
+      setForm(f => ({
+        ...f,
+        minParticipants: settings.minParticipants,
+        maxParticipants: settings.maxParticipants,
+        description: settings.rotatingPartnersDescription || "",
+      }));
+    }
+  }, [settings, cloneFrom]);
+
+  useEffect(() => {
+    if (form.startDatetime && !signupEndEdited.current) {
+      setForm(f => ({ ...f, signupEndDatetime: signupClosesDefault(form.startDatetime) }));
+    }
+  }, [form.startDatetime]);
+
+  const additionalDates = recurrenceEnabled && form.startDatetime
+    ? generateAdditionalDates(new Date(form.startDatetime), recurrenceFrequency, recurrenceOccurrences)
+    : [];
+
+  const additionalDatesKey = additionalDates.map(d => d.toISOString()).join("|");
+  useEffect(() => {
+    if (additionalDates.length > 0) {
+      setSelectedDates(new Set(additionalDates.map(d => d.toISOString())));
+    } else {
+      setSelectedDates(new Set());
+    }
+  }, [additionalDatesKey]);
+
+  function setField<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm(f => ({ ...f, [key]: value }));
+  }
+
+  function handleFormatChange(newFormat: "rotating" | "fixed_partner") {
+    const oldFormat = form.formatType;
+    setForm(f => {
+      const next = { ...f, formatType: newFormat };
+      if (settings) {
+        const oldMin = oldFormat === "rotating" ? settings.minParticipants : settings.minTeams;
+        const oldMax = oldFormat === "rotating" ? settings.maxParticipants : settings.maxTeams;
+        const newMin = newFormat === "rotating" ? settings.minParticipants : settings.minTeams;
+        const newMax = newFormat === "rotating" ? settings.maxParticipants : settings.maxTeams;
+        if (f.minParticipants === oldMin) next.minParticipants = newMin;
+        if (f.maxParticipants === oldMax) next.maxParticipants = newMax;
+        if (!descriptionEdited.current) {
+          const oldDesc = (oldFormat === "rotating"
+            ? settings.rotatingPartnersDescription
+            : settings.fixedPartnerDescription) || "";
+          const newDesc = (newFormat === "rotating"
+            ? settings.rotatingPartnersDescription
+            : settings.fixedPartnerDescription) || "";
+          if (f.description === oldDesc || f.description === "") {
+            next.description = newDesc;
+          }
+        }
+      }
+      return next;
+    });
   }
 
   function handleClone(eventIdStr: string) {
     setCloneFrom(eventIdStr);
-    if (eventIdStr === "none" || !allEvents) return;
+    if (eventIdStr === "none" || !allEvents) {
+      defaultsApplied.current = false;
+      descriptionEdited.current = false;
+      signupEndEdited.current = false;
+      setForm(f => ({ ...f, name: "", description: "" }));
+      return;
+    }
     const ev = allEvents.find(e => String(e.id) === eventIdStr);
     if (!ev) return;
+    descriptionEdited.current = true;
+    signupEndEdited.current = false;
     setForm({
+      formatType: ev.formatType as "rotating" | "fixed_partner",
       name: ev.name + " (Copy)",
       description: ev.description ?? "",
       startDatetime: "",
       endDatetime: "",
       locationName: ev.locationName,
       locationAddress: ev.locationAddress ?? "",
-      formatType: ev.formatType,
-      ratingTypeRequired: ev.ratingTypeRequired,
+      ratingTypeRequired: ev.ratingTypeRequired as "dupr" | "national" | "none",
       minParticipants: ev.minParticipants,
       maxParticipants: ev.maxParticipants,
       waitlistEnabled: ev.waitlistEnabled,
       requireApproval: ev.requireApproval,
-      signupStartDatetime: "",
+      signupStartDatetime: toLocalDateTimeString(new Date()),
       signupEndDatetime: "",
     });
   }
 
-  const recurrenceDates = recurrenceEnabled && form.startDatetime
-    ? generateRecurrenceDates(new Date(form.startDatetime), recurrenceFrequency, recurrenceOccurrences)
-    : [];
+  function handleLocationChange(val: string) {
+    const matched = defaultLocations.find(l => l.name === val);
+    if (matched) {
+      setForm(f => ({ ...f, locationName: val, locationAddress: matched.address }));
+    } else {
+      setForm(f => ({ ...f, locationName: val }));
+    }
+  }
+
+  function toggleDate(iso: string) {
+    setSelectedDates(prev => {
+      const next = new Set(prev);
+      if (next.has(iso)) next.delete(iso);
+      else next.add(iso);
+      return next;
+    });
+  }
+
+  const isFixed = form.formatType === "fixed_partner";
+  const minLabel = isFixed ? "Min Teams" : "Min Participants";
+  const maxLabel = isFixed ? "Max Teams" : "Max Participants";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -110,7 +214,7 @@ export default function AdminEventNew() {
       endDatetime: new Date(form.endDatetime).toISOString(),
       locationName: form.locationName,
       locationAddress: form.locationAddress || null,
-      formatType: form.formatType as "rotating" | "fixed_partner",
+      formatType: form.formatType,
       ratingTypeRequired: form.ratingTypeRequired,
       minParticipants: Number(form.minParticipants),
       maxParticipants: Number(form.maxParticipants),
@@ -120,11 +224,8 @@ export default function AdminEventNew() {
       signupEndDatetime: new Date(form.signupEndDatetime).toISOString(),
     };
 
-    if (recurrenceEnabled && recurrenceOccurrences > 1) {
-      payload.recurrence = {
-        frequency: recurrenceFrequency,
-        occurrences: recurrenceOccurrences,
-      };
+    if (recurrenceEnabled && selectedDates.size > 0) {
+      payload.recurrence = { dates: [...selectedDates].sort() };
     }
 
     try {
@@ -148,6 +249,7 @@ export default function AdminEventNew() {
         </Link>
         <h1 className="text-xl font-bold text-foreground mb-6">Create New Event</h1>
 
+        {/* Clone from existing */}
         <div className="bg-card border border-card-border rounded-lg p-5 mb-4">
           <Label className="mb-1.5 block">Clone from existing event</Label>
           <Select value={cloneFrom} onValueChange={handleClone}>
@@ -164,30 +266,62 @@ export default function AdminEventNew() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+
+          {/* Event Details */}
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
+
+            {/* Format Type — first */}
+            <div className="space-y-1.5">
+              <Label>Format Type *</Label>
+              <Select value={form.formatType} onValueChange={v => handleFormatChange(v as "rotating" | "fixed_partner")}>
+                <SelectTrigger data-testid="select-format-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rotating">Rotating Partners</SelectItem>
+                  <SelectItem value="fixed_partner">Fixed-Partner</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Event Name — combobox via datalist */}
             <div className="space-y-1.5">
               <Label htmlFor="name">Event Name *</Label>
-              <Input
-                id="name"
-                data-testid="input-event-name"
-                value={form.name}
-                onChange={e => setField("name", e.target.value)}
-                required
-                placeholder="Saturday Morning Round Robin"
-              />
+              <div className="relative">
+                <Input
+                  id="name"
+                  list="default-event-names-list"
+                  data-testid="input-event-name"
+                  value={form.name}
+                  onChange={e => setField("name", e.target.value)}
+                  required
+                  placeholder="Saturday Morning Round Robin"
+                  autoComplete="off"
+                />
+                <datalist id="default-event-names-list">
+                  {defaultEventNames.map((n, i) => (
+                    <option key={i} value={n} />
+                  ))}
+                </datalist>
+              </div>
             </div>
+
+            {/* Description — RichTextEditor, pre-fills from settings */}
             <div className="space-y-1.5">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
+              <Label>Description</Label>
+              <RichTextEditor
                 data-testid="input-event-description"
                 value={form.description}
-                onChange={e => setField("description", e.target.value)}
-                rows={3}
+                onChange={v => {
+                  descriptionEdited.current = true;
+                  setField("description", v);
+                }}
                 placeholder="Tell participants what to expect..."
               />
             </div>
+
+            {/* Start / End */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="start">Start Date & Time *</Label>
@@ -212,17 +346,29 @@ export default function AdminEventNew() {
                 />
               </div>
             </div>
+
+            {/* Location — combobox via datalist, auto-fills address */}
             <div className="space-y-1.5">
               <Label htmlFor="location-name">Location Name *</Label>
-              <Input
-                id="location-name"
-                data-testid="input-event-location-name"
-                value={form.locationName}
-                onChange={e => setField("locationName", e.target.value)}
-                required
-                placeholder="Chastain Park Tennis Center"
-              />
+              <div className="relative">
+                <Input
+                  id="location-name"
+                  list="default-locations-list"
+                  data-testid="input-event-location-name"
+                  value={form.locationName}
+                  onChange={e => handleLocationChange(e.target.value)}
+                  required
+                  placeholder="Chastain Park Tennis Center"
+                  autoComplete="off"
+                />
+                <datalist id="default-locations-list">
+                  {defaultLocations.map(loc => (
+                    <option key={loc.id} value={loc.name} />
+                  ))}
+                </datalist>
+              </div>
             </div>
+
             <div className="space-y-1.5">
               <Label htmlFor="location-address">Location Address</Label>
               <Input
@@ -235,48 +381,40 @@ export default function AdminEventNew() {
             </div>
           </div>
 
+          {/* Format & Settings */}
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Format & Settings</h2>
-            <div className="space-y-1.5">
-              <Label>Format Type *</Label>
-              <Select value={form.formatType} onValueChange={v => setField("formatType", v)}>
-                <SelectTrigger data-testid="select-format-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rotating">Rotating Partners</SelectItem>
-                  <SelectItem value="fixed_partner">Fixed-Partner</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+
+            {/* Min/Max — labels change by format type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="min">Min Participants</Label>
+                <Label htmlFor="min">{minLabel}</Label>
                 <Input
                   id="min"
                   data-testid="input-min-participants"
                   type="number"
-                  min={2}
+                  min={1}
                   value={form.minParticipants}
-                  onChange={e => setField("minParticipants", e.target.value)}
+                  onChange={e => setField("minParticipants", Number(e.target.value))}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="max">Max Participants</Label>
+                <Label htmlFor="max">{maxLabel}</Label>
                 <Input
                   id="max"
                   data-testid="input-max-participants"
                   type="number"
-                  min={2}
+                  min={1}
                   value={form.maxParticipants}
-                  onChange={e => setField("maxParticipants", e.target.value)}
+                  onChange={e => setField("maxParticipants", Number(e.target.value))}
                 />
               </div>
             </div>
+
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Rating Requirement</Label>
-                <Select value={form.ratingTypeRequired} onValueChange={v => setField("ratingTypeRequired", v)}>
+                <Select value={form.ratingTypeRequired} onValueChange={v => setField("ratingTypeRequired", v as "dupr" | "national" | "none")}>
                   <SelectTrigger data-testid="select-rating-required">
                     <SelectValue placeholder="Select requirement..." />
                   </SelectTrigger>
@@ -306,6 +444,7 @@ export default function AdminEventNew() {
             </div>
           </div>
 
+          {/* Signup Window */}
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Signup Window</h2>
             <div className="grid grid-cols-2 gap-4">
@@ -321,19 +460,26 @@ export default function AdminEventNew() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="signup-end">Signup Closes *</Label>
+                <Label htmlFor="signup-end">
+                  Signup Closes *
+                  <span className="ml-1.5 text-xs font-normal text-muted-foreground">(auto: 12h before start)</span>
+                </Label>
                 <Input
                   id="signup-end"
                   data-testid="input-signup-end"
                   type="datetime-local"
                   value={form.signupEndDatetime}
-                  onChange={e => setField("signupEndDatetime", e.target.value)}
+                  onChange={e => {
+                    signupEndEdited.current = true;
+                    setField("signupEndDatetime", e.target.value);
+                  }}
                   required
                 />
               </div>
             </div>
           </div>
 
+          {/* Repeating Event */}
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <div className="flex items-center justify-between">
               <div>
@@ -346,6 +492,7 @@ export default function AdminEventNew() {
                 onCheckedChange={setRecurrenceEnabled}
               />
             </div>
+
             {recurrenceEnabled && (
               <>
                 <div className="grid grid-cols-2 gap-4">
@@ -367,25 +514,49 @@ export default function AdminEventNew() {
                     <Input
                       data-testid="input-recurrence-count"
                       type="number"
-                      min={2}
+                      min={1}
                       max={52}
                       value={recurrenceOccurrences}
-                      onChange={e => setRecurrenceOccurrences(Number(e.target.value))}
+                      onChange={e => setRecurrenceOccurrences(Math.max(1, Number(e.target.value)))}
                     />
                   </div>
                 </div>
-                {recurrenceDates.length > 0 && (
-                  <div>
-                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Preview Dates</p>
-                    <div className="flex flex-wrap gap-2">
-                      {recurrenceDates.map((d, i) => (
-                        <Badge key={i} variant="outline" className="text-xs font-mono">
-                          <Calendar className="w-3 h-3 mr-1" />
-                          {format(d, "MMM d, yyyy")}
-                        </Badge>
-                      ))}
+
+                {additionalDates.length > 0 && (
+                  <div className="space-y-2">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Additional Occurrences</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Uncheck dates to exclude them from the series.</p>
                     </div>
+                    <div className="rounded-md border border-border divide-y divide-border overflow-hidden">
+                      {additionalDates.map((d, i) => {
+                        const iso = d.toISOString();
+                        const checked = selectedDates.has(iso);
+                        return (
+                          <label
+                            key={i}
+                            className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 cursor-pointer transition-colors"
+                            data-testid={`recurrence-date-${i}`}
+                          >
+                            <Checkbox
+                              checked={checked}
+                              onCheckedChange={() => toggleDate(iso)}
+                              data-testid={`recurrence-checkbox-${i}`}
+                            />
+                            <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                            <span className="text-sm font-mono">{format(d, "EEE, MMM d, yyyy 'at' h:mm a")}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {selectedDates.size === 0 && (
+                      <p className="text-xs text-amber-600">No additional dates selected — only the main event will be created.</p>
+                    )}
                   </div>
+                )}
+
+                {recurrenceEnabled && !form.startDatetime && (
+                  <p className="text-xs text-muted-foreground">Set a start date above to see recurrence dates.</p>
                 )}
               </>
             )}

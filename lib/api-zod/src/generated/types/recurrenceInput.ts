@@ -8,10 +8,12 @@
 import type { RecurrenceInputFrequency } from './recurrenceInputFrequency';
 
 export interface RecurrenceInput {
-  frequency: RecurrenceInputFrequency;
+  frequency?: RecurrenceInputFrequency;
   /**
      * @minimum 2
      * @maximum 52
      */
-  occurrences: number;
+  occurrences?: number;
+  /** Explicit ISO datetimes for additional occurrences (after the start event) */
+  dates?: Date[];
 }

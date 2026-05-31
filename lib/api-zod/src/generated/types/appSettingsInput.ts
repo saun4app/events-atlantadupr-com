@@ -19,4 +19,5 @@ export interface AppSettingsInput {
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;
+  defaultEventNames?: string[];
 }

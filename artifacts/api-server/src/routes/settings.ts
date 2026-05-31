@@ -90,6 +90,14 @@ function validateSettingsInput(body: unknown): string | null {
   if (b.maintenanceMode !== undefined && typeof b.maintenanceMode !== "boolean") {
     return "maintenanceMode must be a boolean";
   }
+  if (b.defaultEventNames !== undefined) {
+    if (!Array.isArray(b.defaultEventNames)) return "defaultEventNames must be an array";
+    for (let i = 0; i < b.defaultEventNames.length; i++) {
+      if (typeof b.defaultEventNames[i] !== "string" || !b.defaultEventNames[i].trim()) {
+        return `defaultEventNames[${i}] must be a non-empty string`;
+      }
+    }
+  }
   return null;
 }
 
@@ -119,6 +127,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
     contactPersons,
     defaultLocations,
     maintenanceMode,
+    defaultEventNames,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -131,6 +140,9 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (maxTeams !== undefined) updates.maxTeams = maxTeams;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
   if (maintenanceMode !== undefined) updates.maintenanceMode = maintenanceMode;
+  if (defaultEventNames !== undefined) {
+    updates.defaultEventNames = (defaultEventNames as string[]).map((n: string) => n.trim()).filter(Boolean);
+  }
   if (defaultLocations !== undefined) {
     updates.defaultLocations = (defaultLocations as any[]).map((loc: any) => ({
       id: String(loc.id).trim(),

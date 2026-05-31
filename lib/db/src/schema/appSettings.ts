@@ -23,6 +23,7 @@ export const appSettingsTable = pgTable("app_settings", {
   contactPersons: jsonb("contact_persons").$type<ContactPerson[]>().notNull().default([]),
   defaultLocations: jsonb("default_locations").$type<DefaultLocation[]>().notNull().default([]),
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  defaultEventNames: jsonb("default_event_names").$type<string[]>().notNull().default([]),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;

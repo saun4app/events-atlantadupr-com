@@ -19,4 +19,6 @@ export interface AppSettings {
   contactPersons: ContactPerson[];
   defaultLocations: DefaultLocation[];
   maintenanceMode: boolean;
+  /** Preset event names available for selection when creating events */
+  defaultEventNames: string[];
 }

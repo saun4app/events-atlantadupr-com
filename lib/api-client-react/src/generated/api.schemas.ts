@@ -184,12 +184,14 @@ export const RecurrenceInputFrequency = {
 } as const;
 
 export interface RecurrenceInput {
-  frequency: RecurrenceInputFrequency;
+  frequency?: RecurrenceInputFrequency;
   /**
      * @minimum 2
      * @maximum 52
      */
-  occurrences: number;
+  occurrences?: number;
+  /** Explicit ISO datetimes for additional occurrences (after the start event) */
+  dates?: string[];
 }
 
 export type EventInputFormatType = typeof EventInputFormatType[keyof typeof EventInputFormatType];
@@ -364,6 +366,8 @@ export interface AppSettings {
   contactPersons: ContactPerson[];
   defaultLocations: DefaultLocation[];
   maintenanceMode: boolean;
+  /** Preset event names available for selection when creating events */
+  defaultEventNames: string[];
 }
 
 export interface AppSettingsInput {
@@ -377,6 +381,7 @@ export interface AppSettingsInput {
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;
+  defaultEventNames?: string[];
 }
 
 export type ListMembersParams = {

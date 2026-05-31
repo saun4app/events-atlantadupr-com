@@ -890,7 +890,6 @@ components:
 
     RecurrenceInput:
       type: object
-      required: [frequency, occurrences]
       properties:
         frequency:
           type: string
@@ -899,6 +898,12 @@ components:
           type: integer
           minimum: 2
           maximum: 52
+        dates:
+          type: array
+          items:
+            type: string
+            format: date-time
+          description: Explicit ISO datetimes for additional occurrences (after the start event)
 
     EventInput:
       type: object
@@ -1082,7 +1087,7 @@ components:
 
     AppSettings:
       type: object
-      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations, maintenanceMode]
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations, maintenanceMode, defaultEventNames]
       properties:
         defaultTimezone:
           type: string
@@ -1108,6 +1113,11 @@ components:
             $ref: "#/components/schemas/DefaultLocation"
         maintenanceMode:
           type: boolean
+        defaultEventNames:
+          type: array
+          items:
+            type: string
+          description: Preset event names available for selection when creating events
 
     AppSettingsInput:
       type: object
@@ -1136,3 +1146,7 @@ components:
             $ref: "#/components/schemas/DefaultLocation"
         maintenanceMode:
           type: boolean
+        defaultEventNames:
+          type: array
+          items:
+            type: string
