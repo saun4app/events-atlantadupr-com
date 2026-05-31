@@ -1,6 +1,6 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { eventsTable, registrationsTable } from "@workspace/db";
+import { eventsTable, registrationsTable, eventAssignmentsTable, usersTable } from "@workspace/db";
 import { eq, and, gte, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../lib/auth.js";
 import { randomUUID } from "crypto";
@@ -24,6 +24,20 @@ function generateRecurringDates(
     results.push({ start, end: new Date(start.getTime() + duration) });
   }
   return results;
+}
+
+async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
+  const user = (req as any).user;
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "event_organizer") return true;
+  if (user.role === "event_captain" || user.role === "court_leader") {
+    const [assignment] = await db
+      .select()
+      .from(eventAssignmentsTable)
+      .where(and(eq(eventAssignmentsTable.userId, user.id), eq(eventAssignmentsTable.eventId, eventId)));
+    return !!assignment;
+  }
+  return false;
 }
 
 router.get("/summary", async (_req, res) => {
@@ -122,8 +136,13 @@ router.get("/:id", async (req, res) => {
   return res.json(event);
 });
 
-router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
-  const [existing] = await db.select().from(eventsTable).where(eq(eventsTable.id, Number(req.params.id)));
+router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
+  const [existing] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!existing) return res.status(404).json({ error: "Event not found" });
 
   const updates: any = {};
@@ -139,18 +158,28 @@ router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event
     if (req.body[f] !== undefined) updates[f] = new Date(req.body[f]);
   });
 
-  const [updated] = await db.update(eventsTable).set(updates).where(eq(eventsTable.id, Number(req.params.id))).returning();
+  const [updated] = await db.update(eventsTable).set(updates).where(eq(eventsTable.id, eventId)).returning();
   return res.json(updated);
 });
 
-router.delete("/:id", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
-  const [deleted] = await db.delete(eventsTable).where(eq(eventsTable.id, Number(req.params.id))).returning();
+router.delete("/:id", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
+  const [deleted] = await db.delete(eventsTable).where(eq(eventsTable.id, eventId)).returning();
   if (!deleted) return res.status(404).json({ error: "Event not found" });
   return res.status(204).send();
 });
 
-router.post("/:id/clone", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
-  const [source] = await db.select().from(eventsTable).where(eq(eventsTable.id, Number(req.params.id)));
+router.post("/:id/clone", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
+  const [source] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!source) return res.status(404).json({ error: "Source event not found" });
 
   const { name } = req.body ?? {};
@@ -166,11 +195,16 @@ router.post("/:id/clone", requireAuth, requireRole("admin", "event_organizer", "
   return res.status(201).json(cloned);
 });
 
-router.post("/:id/close", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+router.post("/:id/close", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
   const [updated] = await db
     .update(eventsTable)
     .set({ status: "closed" })
-    .where(eq(eventsTable.id, Number(req.params.id)))
+    .where(eq(eventsTable.id, eventId))
     .returning();
   if (!updated) return res.status(404).json({ error: "Event not found" });
   return res.json(updated);
@@ -193,6 +227,56 @@ router.get("/:id/roster-summary", async (req, res) => {
     total: confirmed + waitlisted + pendingApproval,
     maxParticipants: event.maxParticipants,
   });
+});
+
+router.get("/:id/assignments", requireAuth, requireRole("admin", "event_organizer"), async (req: Request<{ id: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  const assignments = await db
+    .select({
+      userId: eventAssignmentsTable.userId,
+      eventId: eventAssignmentsTable.eventId,
+      assignedAt: eventAssignmentsTable.assignedAt,
+      userName: usersTable.name,
+      userUsername: usersTable.username,
+      userRole: usersTable.role,
+    })
+    .from(eventAssignmentsTable)
+    .innerJoin(usersTable, eq(usersTable.id, eventAssignmentsTable.userId))
+    .where(eq(eventAssignmentsTable.eventId, eventId));
+  return res.json(assignments);
+});
+
+router.post("/:id/assignments", requireAuth, requireRole("admin", "event_organizer"), async (req: Request<{ id: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ error: "userId is required" });
+
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, Number(userId)));
+  if (!user) return res.status(404).json({ error: "User not found" });
+  if (user.role !== "event_captain" && user.role !== "court_leader") {
+    return res.status(400).json({ error: "Only event_captain or court_leader users can be assigned to events" });
+  }
+
+  const [assignment] = await db
+    .insert(eventAssignmentsTable)
+    .values({ userId: Number(userId), eventId })
+    .onConflictDoNothing()
+    .returning();
+
+  return res.status(201).json(assignment ?? { userId: Number(userId), eventId, note: "already assigned" });
+});
+
+router.delete("/:id/assignments/:userId", requireAuth, requireRole("admin", "event_organizer"), async (req: Request<{ id: string; userId: string }>, res: Response) => {
+  const eventId = Number(req.params.id);
+  const userId = Number(req.params.userId);
+
+  const [deleted] = await db
+    .delete(eventAssignmentsTable)
+    .where(and(eq(eventAssignmentsTable.eventId, eventId), eq(eventAssignmentsTable.userId, userId)))
+    .returning();
+
+  if (!deleted) return res.status(404).json({ error: "Assignment not found" });
+  return res.status(204).send();
 });
 
 export default router;

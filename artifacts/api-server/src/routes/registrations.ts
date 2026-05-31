@@ -1,10 +1,13 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { registrationsTable, eventsTable, membersTable } from "@workspace/db";
+import { registrationsTable, eventsTable, membersTable, eventAssignmentsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireRole } from "../lib/auth.js";
 
 const router = Router({ mergeParams: true });
+
+type EventParams = { id: string };
+type RegParams = { id: string; regId: string };
 
 async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
   const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, reg.memberDuprId));
@@ -30,14 +33,28 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
   };
 }
 
-router.get("/", async (req, res) => {
+async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
+  const user = (req as any).user;
+  if (!user) return false;
+  if (user.role === "admin" || user.role === "event_organizer") return true;
+  if (user.role === "event_captain" || user.role === "court_leader") {
+    const [assignment] = await db
+      .select()
+      .from(eventAssignmentsTable)
+      .where(and(eq(eventAssignmentsTable.userId, user.id), eq(eventAssignmentsTable.eventId, eventId)));
+    return !!assignment;
+  }
+  return false;
+}
+
+router.get("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
   const regs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
   const entries = await Promise.all(regs.map(buildRosterEntry));
   return res.json(entries);
 });
 
-router.post("/", async (req, res) => {
+router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
   const { memberDuprId, partnerDuprId } = req.body;
 
@@ -48,54 +65,42 @@ router.post("/", async (req, res) => {
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!event) return res.status(404).json({ error: "Event not found" });
 
-  const now = new Date();
-  if (now < new Date(event.signupStartDatetime) || now > new Date(event.signupEndDatetime)) {
-    return res.status(400).json({ error: "Signup window is not open" });
-  }
-
   if (event.status !== "upcoming") {
     return res.status(400).json({ error: "Event is not open for registration" });
   }
 
   const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, memberDuprId));
-  if (!member) return res.status(400).json({ error: "Member not found with that DUPR ID" });
+  if (!member) return res.status(404).json({ error: "Member not found" });
 
-  const existing = await db
+  const [existingReg] = await db
     .select()
     .from(registrationsTable)
     .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.memberDuprId, memberDuprId)));
-  if (existing.length > 0 && existing[0].status !== "rejected") {
-    return res.status(400).json({ error: "Already registered for this event" });
-  }
+  if (existingReg) return res.status(409).json({ error: "Member already registered for this event" });
 
   const allRegs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
   const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
-  const isFull = confirmedCount >= event.maxParticipants;
 
   let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
-  if (isFull && event.waitlistEnabled) {
-    status = "waitlisted";
-  } else if (isFull && !event.waitlistEnabled) {
-    return res.status(400).json({ error: "Event is full and waitlist is not enabled" });
-  } else if (event.requireApproval) {
+  if (event.requireApproval) {
     status = "pending_approval";
+  } else if (confirmedCount >= event.maxParticipants) {
+    if (!event.waitlistEnabled) {
+      return res.status(400).json({ error: "Event is full and waitlist is disabled" });
+    }
+    status = "waitlisted";
   }
 
   const [reg] = await db
     .insert(registrationsTable)
-    .values({
-      eventId,
-      memberDuprId,
-      partnerDuprId: partnerDuprId ?? null,
-      status,
-    })
+    .values({ eventId, memberDuprId, partnerDuprId: partnerDuprId ?? null, status })
     .returning();
 
   const entry = await buildRosterEntry(reg);
   return res.status(201).json(entry);
 });
 
-router.get("/:regId", async (req, res) => {
+router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
   const [reg] = await db
     .select()
     .from(registrationsTable)
@@ -106,12 +111,17 @@ router.get("/:regId", async (req, res) => {
   return res.json(await buildRosterEntry(reg));
 });
 
-router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
   const [existing] = await db
     .select()
     .from(registrationsTable)
     .where(
-      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
+      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, eventId)),
     );
   if (!existing) return res.status(404).json({ error: "Registration not found" });
 
@@ -128,23 +138,33 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
   return res.json(await buildRosterEntry(updated));
 });
 
-router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
   const [deleted] = await db
     .delete(registrationsTable)
     .where(
-      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
+      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, eventId)),
     )
     .returning();
   if (!deleted) return res.status(404).json({ error: "Registration not found" });
   return res.status(204).send();
 });
 
-router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
   const [reg] = await db
     .select()
     .from(registrationsTable)
     .where(
-      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
+      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, eventId)),
     );
   if (!reg) return res.status(404).json({ error: "Registration not found" });
 
@@ -158,12 +178,17 @@ router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organize
   return res.json(await buildRosterEntry(updated));
 });
 
-router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
+  const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
   const [reg] = await db
     .select()
     .from(registrationsTable)
     .where(
-      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
+      and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, eventId)),
     );
   if (!reg) return res.status(404).json({ error: "Registration not found" });
 
@@ -176,8 +201,12 @@ router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer
   return res.json(await buildRosterEntry(updated));
 });
 
-router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req, res) => {
+router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
   const eventId = Number(req.params.id);
+  if (!await canAccessEvent(eventId, req)) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
+
   const [reg] = await db
     .select()
     .from(registrationsTable)

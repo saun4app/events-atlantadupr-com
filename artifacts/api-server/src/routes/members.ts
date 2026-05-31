@@ -122,7 +122,8 @@ router.get("/:duprId", async (req, res) => {
 });
 
 router.patch("/:duprId", requireRole("admin"), async (req, res) => {
-  const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, req.params.duprId));
+  const duprId = String(req.params.duprId);
+  const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, duprId));
   if (!existing) return res.status(404).json({ error: "Member not found" });
 
   const { playerName, doubleRating, doubleReliability, singleRating, singleReliability, selfRating } = req.body;
@@ -134,12 +135,13 @@ router.patch("/:duprId", requireRole("admin"), async (req, res) => {
   if (singleReliability !== undefined) updates.singleReliability = singleReliability;
   if (selfRating !== undefined) updates.selfRating = selfRating;
 
-  const [updated] = await db.update(membersTable).set(updates).where(eq(membersTable.duprId, req.params.duprId)).returning();
+  const [updated] = await db.update(membersTable).set(updates).where(eq(membersTable.duprId, duprId)).returning();
   return res.json(updated);
 });
 
 router.delete("/:duprId", requireRole("admin"), async (req, res) => {
-  const [deleted] = await db.delete(membersTable).where(eq(membersTable.duprId, req.params.duprId)).returning();
+  const duprId = String(req.params.duprId);
+  const [deleted] = await db.delete(membersTable).where(eq(membersTable.duprId, duprId)).returning();
   if (!deleted) return res.status(404).json({ error: "Member not found" });
   return res.status(204).send();
 });
