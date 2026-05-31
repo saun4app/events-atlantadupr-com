@@ -7,6 +7,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  canAccessAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -14,7 +15,10 @@ const AuthContext = createContext<AuthContextType>({
   isLoading: true,
   isAuthenticated: false,
   isAdmin: false,
+  canAccessAdmin: false,
 });
+
+const ADMIN_ROLES = new Set(["admin", "event_organizer", "event_captain", "court_leader"]);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { data: user, isLoading, error } = useGetMe({
@@ -25,14 +29,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const validUser = error ? null : (user ?? null);
-  
+  const role = validUser?.role ?? null;
+
   return (
     <AuthContext.Provider
       value={{
         user: validUser,
         isLoading,
         isAuthenticated: !!validUser,
-        isAdmin: validUser?.role === 'admin' || validUser?.role === 'event_organizer' || validUser?.role === 'event_captain' || validUser?.role === 'court_leader',
+        isAdmin: role === 'admin',
+        canAccessAdmin: role !== null && ADMIN_ROLES.has(role),
       }}
     >
       {children}

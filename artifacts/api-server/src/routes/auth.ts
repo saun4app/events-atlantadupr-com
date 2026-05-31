@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { hashPassword, verifyPassword } from "../lib/auth.js";
+import { deleteSession } from "../lib/session.js";
 
 const router = Router();
 
@@ -29,7 +30,12 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/logout", (req, res) => {
+  const sid = req.signedCookies?.sid;
+  if (sid) {
+    deleteSession(sid);
+  }
   (req as any).session = null;
+  res.clearCookie("sid");
   return res.status(204).send();
 });
 

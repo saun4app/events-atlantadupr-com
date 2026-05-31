@@ -43,14 +43,15 @@ function isNonNumeric(rating: string | null | undefined): boolean {
 export default function AdminEventDetail() {
   const { id } = useParams<{ id: string }>();
   const eventId = Number(id);
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
-  }, [isLoading, isAuthenticated]);
+    if (!isLoading && isAuthenticated && !canAccessAdmin) setLocation("/");
+  }, [isLoading, isAuthenticated, canAccessAdmin]);
 
   const { data: event, isLoading: evLoading } = useGetEvent(eventId, {
     query: { enabled: !!eventId, queryKey: getGetEventQueryKey(eventId) }

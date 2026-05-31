@@ -50,14 +50,15 @@ const defaultForm = {
 };
 
 export default function AdminEventNew() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
-  }, [isLoading, isAuthenticated]);
+    if (!isLoading && isAuthenticated && !canAccessAdmin) setLocation("/");
+  }, [isLoading, isAuthenticated, canAccessAdmin]);
 
   const { data: allEvents } = useListEvents({}, { query: { queryKey: getListEventsQueryKey({}) } });
 
@@ -102,7 +103,7 @@ export default function AdminEventNew() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    const payload = {
+    const payload: any = {
       name: form.name,
       description: form.description || null,
       startDatetime: new Date(form.startDatetime).toISOString(),
@@ -118,6 +119,13 @@ export default function AdminEventNew() {
       signupStartDatetime: new Date(form.signupStartDatetime).toISOString(),
       signupEndDatetime: new Date(form.signupEndDatetime).toISOString(),
     };
+
+    if (recurrenceEnabled && recurrenceOccurrences > 1) {
+      payload.recurrence = {
+        frequency: recurrenceFrequency,
+        occurrences: recurrenceOccurrences,
+      };
+    }
 
     try {
       await createEvent.mutateAsync({ data: payload });

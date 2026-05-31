@@ -7,13 +7,11 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 export function AdminNav() {
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [location] = useLocation();
   const queryClient = useQueryClient();
   const logout = useLogout();
   const [open, setOpen] = useState(false);
-
-  const isAdmin = user?.role === "admin";
 
   const links = [
     { href: "/admin/events", label: "Manage Events", icon: Calendar, roles: ["admin", "event_organizer", "event_captain", "court_leader"] },

@@ -47,15 +47,15 @@ function RoleBadge({ role }: { role: string }) {
 }
 
 export default function AdminUsers() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
-    if (!isLoading && isAuthenticated && user?.role !== "admin") setLocation("/admin/events");
-  }, [isLoading, isAuthenticated, user]);
+    if (!isLoading && isAuthenticated && !isAdmin) setLocation("/admin/events");
+  }, [isLoading, isAuthenticated, isAdmin]);
 
   const { data: users, isLoading: usersLoading } = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
 

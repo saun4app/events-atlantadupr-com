@@ -28,7 +28,7 @@ function statusBadge(status: string) {
 }
 
 export default function AdminEvents() {
-  const { isAuthenticated, isLoading, user } = useAuth();
+  const { isAuthenticated, isLoading, user, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -38,7 +38,8 @@ export default function AdminEvents() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
-  }, [isLoading, isAuthenticated]);
+    if (!isLoading && isAuthenticated && !canAccessAdmin) setLocation("/");
+  }, [isLoading, isAuthenticated, canAccessAdmin]);
 
   const { data: events, isLoading: evLoading } = useListEvents(
     {},

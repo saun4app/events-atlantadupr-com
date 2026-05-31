@@ -4,8 +4,9 @@ import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
+import { getSession, setSession, deleteSession } from "./lib/session.js";
 
-const sessions = new Map<string, Record<string, any>>();
+const SESSION_SECRET = "atl_dupr_session_secret";
 
 const app: Express = express();
 
@@ -27,15 +28,11 @@ app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 app.use(express.text({ type: "text/plain" }));
 app.use(express.urlencoded({ extended: true }));
-app.use(cookieParser("atl_dupr_session_secret"));
+app.use(cookieParser(SESSION_SECRET));
 
 app.use((req, _res, next) => {
   const sid = req.signedCookies?.sid;
-  if (sid && sessions.has(sid)) {
-    (req as any).session = sessions.get(sid);
-  } else {
-    (req as any).session = null;
-  }
+  (req as any).session = getSession(sid);
   next();
 });
 
@@ -43,23 +40,22 @@ app.use((req, res, next) => {
   const originalJson = res.json.bind(res);
   res.json = function (body) {
     const session = (req as any).session;
+    const existingSid = req.signedCookies?.sid;
+
     if (session) {
-      let sid = req.signedCookies?.sid;
-      if (!sid) {
-        sid = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      }
-      sessions.set(sid, session);
+      const sid = existingSid ?? (Math.random().toString(36).slice(2) + Date.now().toString(36));
+      setSession(sid, session);
       res.cookie("sid", sid, {
         signed: true,
         httpOnly: true,
         sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
-    } else if (req.signedCookies?.sid && session === null) {
-      const sid = req.signedCookies.sid;
-      sessions.delete(sid);
+    } else if (existingSid && session === null) {
+      deleteSession(existingSid);
       res.clearCookie("sid");
     }
+
     return originalJson(body);
   };
   next();
@@ -68,3 +64,4 @@ app.use((req, res, next) => {
 app.use("/api", router);
 
 export default app;
+export { SESSION_SECRET };
