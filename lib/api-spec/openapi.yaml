@@ -1082,7 +1082,7 @@ components:
 
     AppSettings:
       type: object
-      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations]
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations, maintenanceMode]
       properties:
         defaultTimezone:
           type: string
@@ -1106,6 +1106,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DefaultLocation"
+        maintenanceMode:
+          type: boolean
 
     AppSettingsInput:
       type: object
@@ -1132,3 +1134,5 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DefaultLocation"
+        maintenanceMode:
+          type: boolean

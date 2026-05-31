@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Plus, Trash2, Pencil, MapPin, User } from "lucide-react";
+import { Settings, Plus, Trash2, Pencil, MapPin, User, AlertTriangle } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -70,6 +71,7 @@ export default function AdminSettings() {
     maxTeams: 12,
     contactPersons: [] as ContactPerson[],
     defaultLocations: [] as DefaultLocation[],
+    maintenanceMode: false,
   });
   const [dirty, setDirty] = useState(false);
   const formInitialized = useRef(false);
@@ -87,6 +89,7 @@ export default function AdminSettings() {
         maxTeams: settings.maxTeams,
         contactPersons: (settings.contactPersons as ContactPerson[]) ?? [],
         defaultLocations: (settings.defaultLocations as DefaultLocation[]) ?? [],
+        maintenanceMode: settings.maintenanceMode ?? false,
       });
     }
   }, [settings]);
@@ -396,6 +399,32 @@ export default function AdminSettings() {
                   ))}
                 </div>
               )}
+            </section>
+
+            {/* ── Site Maintenance ──────────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Site Maintenance</h2>
+
+              <div className="flex items-start justify-between gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="maintenance-mode" className="text-sm font-medium">Maintenance Mode</Label>
+                  <p className="text-xs text-muted-foreground">
+                    When enabled, visitors see a maintenance notice instead of the normal site content. Admin pages are not affected.
+                  </p>
+                  {form.maintenanceMode && (
+                    <div className="flex items-center gap-1.5 mt-2 text-xs font-medium text-amber-600">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      Site is currently in maintenance mode — public pages are hidden.
+                    </div>
+                  )}
+                </div>
+                <Switch
+                  id="maintenance-mode"
+                  data-testid="toggle-maintenance-mode"
+                  checked={form.maintenanceMode}
+                  onCheckedChange={v => update("maintenanceMode", v)}
+                />
+              </div>
             </section>
 
             {/* ── Save bar ──────────────────────────────────── */}

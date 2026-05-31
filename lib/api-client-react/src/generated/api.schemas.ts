@@ -363,6 +363,7 @@ export interface AppSettings {
   maxTeams: number;
   contactPersons: ContactPerson[];
   defaultLocations: DefaultLocation[];
+  maintenanceMode: boolean;
 }
 
 export interface AppSettingsInput {
@@ -375,6 +376,7 @@ export interface AppSettingsInput {
   maxTeams?: number;
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
+  maintenanceMode?: boolean;
 }
 
 export type ListMembersParams = {

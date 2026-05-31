@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useParams, Link } from "wouter";
 import {
-  useGetEvent, useGetEventRosterSummary, useListRegistrations, useCreateRegistration,
+  useGetEvent, useGetEventRosterSummary, useListRegistrations, useCreateRegistration, useGetSettings,
   getGetEventQueryKey, getGetEventRosterSummaryQueryKey, getListRegistrationsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon } from "lucide-react";
 
 function isNonNumeric(rating: string | null | undefined): boolean {
   if (!rating) return false;
@@ -50,11 +50,27 @@ export default function EventDetail() {
   const { data: registrations, isLoading: regLoading } = useListRegistrations(eventId, {
     query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventId) }
   });
+  const { data: settings } = useGetSettings();
 
   const createReg = useCreateRegistration();
 
   const [duprId, setDuprId] = useState("");
   const [partnerDuprId, setPartnerDuprId] = useState("");
+
+  if (settings?.maintenanceMode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PublicNav />
+        <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
+          <WrenchIcon className="w-14 h-14 text-muted-foreground/40 mb-5" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">Site Under Maintenance</h1>
+          <p className="text-muted-foreground max-w-md">
+            This site is temporarily under maintenance. Please check back soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (evLoading) {
     return (

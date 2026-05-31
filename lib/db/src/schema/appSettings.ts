@@ -1,4 +1,4 @@
-import { pgTable, integer, text, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, integer, text, jsonb, boolean } from "drizzle-orm/pg-core";
 
 export interface ContactPerson {
   name: string;
@@ -22,6 +22,7 @@ export const appSettingsTable = pgTable("app_settings", {
   maxTeams: integer("max_teams").notNull().default(12),
   contactPersons: jsonb("contact_persons").$type<ContactPerson[]>().notNull().default([]),
   defaultLocations: jsonb("default_locations").$type<DefaultLocation[]>().notNull().default([]),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;

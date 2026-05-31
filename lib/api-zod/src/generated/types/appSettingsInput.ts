@@ -18,4 +18,5 @@ export interface AppSettingsInput {
   maxTeams?: number;
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
+  maintenanceMode?: boolean;
 }

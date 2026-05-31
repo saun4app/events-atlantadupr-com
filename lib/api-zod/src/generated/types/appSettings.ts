@@ -18,4 +18,5 @@ export interface AppSettings {
   maxTeams: number;
   contactPersons: ContactPerson[];
   defaultLocations: DefaultLocation[];
+  maintenanceMode: boolean;
 }

@@ -1,9 +1,9 @@
 import { Link } from "wouter";
-import { useListEvents, useGetEventsSummary, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
+import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
 import { PublicNav } from "@/components/public-nav";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Calendar, Users, Clock } from "lucide-react";
+import { MapPin, Calendar, Users, Clock, WrenchIcon } from "lucide-react";
 import { format, isPast, isFuture } from "date-fns";
 
 function formatType(t: string) {
@@ -78,6 +78,22 @@ export default function Home() {
   const { data: summary } = useGetEventsSummary({
     query: { queryKey: getGetEventsSummaryQueryKey() }
   });
+  const { data: settings } = useGetSettings();
+
+  if (settings?.maintenanceMode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PublicNav />
+        <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
+          <WrenchIcon className="w-14 h-14 text-muted-foreground/40 mb-5" />
+          <h1 className="text-2xl font-bold text-foreground mb-2">Site Under Maintenance</h1>
+          <p className="text-muted-foreground max-w-md">
+            This site is temporarily under maintenance. Please check back soon.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

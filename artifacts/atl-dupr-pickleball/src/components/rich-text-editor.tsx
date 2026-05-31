@@ -2,7 +2,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette } from "lucide-react";
 
@@ -14,8 +14,6 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ value, onChange, placeholder, "data-testid": testId }: RichTextEditorProps) {
-  const colorInputRef = useRef<HTMLInputElement>(null);
-
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
@@ -99,18 +97,9 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
         <div className="w-px h-4 bg-border mx-0.5" />
 
         <div className="relative flex items-center">
-          <input
-            ref={colorInputRef}
-            type="color"
-            value={currentColor || "#000000"}
-            onChange={e => handleColorChange(e.target.value)}
-            className="sr-only"
-            tabIndex={-1}
-          />
           <button
             type="button"
             title="Text color"
-            onClick={() => colorInputRef.current?.click()}
             className={cn(
               "p-1 rounded flex flex-col items-center gap-0.5 transition-colors",
               "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -122,6 +111,14 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
               style={{ backgroundColor: currentColor || "#94a3b8" }}
             />
           </button>
+          <input
+            type="color"
+            value={currentColor || "#000000"}
+            onChange={e => handleColorChange(e.target.value)}
+            tabIndex={-1}
+            title="Text color"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
         </div>
       </div>
       <div className="relative">

@@ -87,6 +87,9 @@ function validateSettingsInput(body: unknown): string | null {
       }
     }
   }
+  if (b.maintenanceMode !== undefined && typeof b.maintenanceMode !== "boolean") {
+    return "maintenanceMode must be a boolean";
+  }
   return null;
 }
 
@@ -115,6 +118,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
     maxTeams,
     contactPersons,
     defaultLocations,
+    maintenanceMode,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -126,6 +130,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (minTeams !== undefined) updates.minTeams = minTeams;
   if (maxTeams !== undefined) updates.maxTeams = maxTeams;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
+  if (maintenanceMode !== undefined) updates.maintenanceMode = maintenanceMode;
   if (defaultLocations !== undefined) {
     updates.defaultLocations = (defaultLocations as any[]).map((loc: any) => ({
       id: String(loc.id).trim(),
