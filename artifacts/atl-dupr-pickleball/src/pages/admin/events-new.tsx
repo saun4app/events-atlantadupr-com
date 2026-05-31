@@ -26,6 +26,25 @@ function toLocalDateTimeString(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function toDatetimeLocalInTz(date: Date, tz: string): string {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: tz,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(date);
+    const get = (type: string) => parts.find(p => p.type === type)?.value ?? "00";
+    const hour = get("hour") === "24" ? "00" : get("hour");
+    return `${get("year")}-${get("month")}-${get("day")}T${hour}:${get("minute")}`;
+  } catch {
+    return toLocalDateTimeString(date);
+  }
+}
+
 function signupClosesDefault(startDatetime: string): string {
   if (!startDatetime) return "";
   const startMs = new Date(startDatetime).getTime();
@@ -60,8 +79,6 @@ export default function AdminEventNew() {
   const signupEndEdited = useRef(false);
   const descriptionEdited = useRef(false);
 
-  const now = new Date();
-
   const [form, setForm] = useState({
     formatType: "rotating" as "rotating" | "fixed_partner",
     name: "",
@@ -75,7 +92,7 @@ export default function AdminEventNew() {
     maxParticipants: 24,
     waitlistEnabled: true,
     requireApproval: false,
-    signupStartDatetime: toLocalDateTimeString(now),
+    signupStartDatetime: "",
     signupEndDatetime: "",
   });
 
@@ -93,11 +110,14 @@ export default function AdminEventNew() {
   useEffect(() => {
     if (settings && !defaultsApplied.current && cloneFrom === "none") {
       defaultsApplied.current = true;
+      const tz = settings.defaultTimezone || "America/New_York";
+      const nowInTz = toDatetimeLocalInTz(new Date(), tz);
       setForm(f => ({
         ...f,
         minParticipants: settings.minParticipants,
         maxParticipants: settings.maxParticipants,
         description: settings.rotatingPartnersDescription || "",
+        signupStartDatetime: nowInTz,
       }));
     }
   }, [settings, cloneFrom]);
@@ -178,7 +198,7 @@ export default function AdminEventNew() {
       maxParticipants: ev.maxParticipants,
       waitlistEnabled: ev.waitlistEnabled,
       requireApproval: ev.requireApproval,
-      signupStartDatetime: toLocalDateTimeString(new Date()),
+      signupStartDatetime: "",
       signupEndDatetime: "",
     });
   }
