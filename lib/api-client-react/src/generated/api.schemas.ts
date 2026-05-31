@@ -128,15 +128,6 @@ export const EventFormatType = {
   rotating: 'rotating',
 } as const;
 
-export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
-
-
-export const EventStatus = {
-  upcoming: 'upcoming',
-  closed: 'closed',
-  ended: 'ended',
-} as const;
-
 export type EventRatingTypeRequired = typeof EventRatingTypeRequired[keyof typeof EventRatingTypeRequired];
 
 
@@ -144,6 +135,15 @@ export const EventRatingTypeRequired = {
   dupr: 'dupr',
   national: 'national',
   none: 'none',
+} as const;
+
+export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
+
+
+export const EventStatus = {
+  upcoming: 'upcoming',
+  closed: 'closed',
+  ended: 'ended',
 } as const;
 
 export interface Event {
@@ -167,6 +167,11 @@ export interface Event {
   signupEndDatetime: string;
   status: EventStatus;
   createdAt: string;
+}
+
+export interface EventCloneInput {
+  /** Override name for the cloned event (default appends " (Copy)") */
+  name?: string;
 }
 
 export type RecurrenceInputFrequency = typeof RecurrenceInputFrequency[keyof typeof RecurrenceInputFrequency];
@@ -195,6 +200,15 @@ export const EventInputFormatType = {
   rotating: 'rotating',
 } as const;
 
+export type EventInputRatingTypeRequired = typeof EventInputRatingTypeRequired[keyof typeof EventInputRatingTypeRequired];
+
+
+export const EventInputRatingTypeRequired = {
+  dupr: 'dupr',
+  national: 'national',
+  none: 'none',
+} as const;
+
 export interface EventInput {
   name: string;
   /** @nullable */
@@ -204,7 +218,7 @@ export interface EventInput {
   locationName: string;
   locationAddress: string;
   formatType: EventInputFormatType;
-  ratingTypeRequired: EventRatingTypeRequired;
+  ratingTypeRequired: EventInputRatingTypeRequired;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
@@ -214,17 +228,21 @@ export interface EventInput {
   recurrence?: RecurrenceInput;
 }
 
-export interface EventCloneInput {
-  name?: string;
-}
-
-
 export type EventUpdateFormatType = typeof EventUpdateFormatType[keyof typeof EventUpdateFormatType];
 
 
 export const EventUpdateFormatType = {
   fixed_partner: 'fixed_partner',
   rotating: 'rotating',
+} as const;
+
+export type EventUpdateRatingTypeRequired = typeof EventUpdateRatingTypeRequired[keyof typeof EventUpdateRatingTypeRequired];
+
+
+export const EventUpdateRatingTypeRequired = {
+  dupr: 'dupr',
+  national: 'national',
+  none: 'none',
 } as const;
 
 export type EventUpdateStatus = typeof EventUpdateStatus[keyof typeof EventUpdateStatus];
@@ -245,7 +263,7 @@ export interface EventUpdate {
   locationName?: string;
   locationAddress?: string;
   formatType?: EventUpdateFormatType;
-  ratingTypeRequired?: EventRatingTypeRequired;
+  ratingTypeRequired?: EventUpdateRatingTypeRequired;
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;
@@ -322,6 +340,29 @@ export interface RegistrationUpdate {
   status?: RegistrationUpdateStatus;
   /** @nullable */
   partnerDuprId?: string | null;
+}
+
+export interface ContactPerson {
+  name: string;
+  email: string;
+}
+
+export interface AppSettings {
+  defaultTimezone: string;
+  rotatingPartnersDescription: string;
+  fixedPartnerDescription: string;
+  minParticipants: number;
+  maxParticipants: number;
+  contactPersons: ContactPerson[];
+}
+
+export interface AppSettingsInput {
+  defaultTimezone?: string;
+  rotatingPartnersDescription?: string;
+  fixedPartnerDescription?: string;
+  minParticipants?: number;
+  maxParticipants?: number;
+  contactPersons?: ContactPerson[];
 }
 
 export type ListMembersParams = {

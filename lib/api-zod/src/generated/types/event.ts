@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EventFormatType } from './eventFormatType';
+import type { EventRatingTypeRequired } from './eventRatingTypeRequired';
 import type { EventStatus } from './eventStatus';
 
 export interface Event {
@@ -20,7 +21,7 @@ export interface Event {
   locationName: string;
   locationAddress: string;
   formatType: EventFormatType;
-  ratingTypeRequired: 'dupr' | 'national' | 'none';
+  ratingTypeRequired: EventRatingTypeRequired;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;

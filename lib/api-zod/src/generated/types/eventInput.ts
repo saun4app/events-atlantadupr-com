@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EventInputFormatType } from './eventInputFormatType';
+import type { EventInputRatingTypeRequired } from './eventInputRatingTypeRequired';
 import type { RecurrenceInput } from './recurrenceInput';
 
 export interface EventInput {
@@ -17,7 +18,7 @@ export interface EventInput {
   locationName: string;
   locationAddress: string;
   formatType: EventInputFormatType;
-  ratingTypeRequired: 'dupr' | 'national' | 'none';
+  ratingTypeRequired: EventInputRatingTypeRequired;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;

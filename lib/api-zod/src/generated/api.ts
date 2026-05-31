@@ -299,6 +299,18 @@ export const DeleteEventParams = zod.object({
 
 
 /**
+ * @summary Clone an event as a new draft (Admin/Organizer)
+ */
+export const CloneEventParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CloneEventBody = zod.object({
+  "name": zod.string().optional().describe('Override name for the cloned event (default appends \" (Copy)\")')
+})
+
+
+/**
  * @summary Close registration for an event (end it)
  */
 export const CloseEventParams = zod.object({
@@ -517,6 +529,50 @@ export const PromoteFromWaitlistResponse = zod.object({
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish()
+})
+
+
+/**
+ * @summary Get app-level settings
+ */
+export const GetSettingsResponse = zod.object({
+  "defaultTimezone": zod.string(),
+  "rotatingPartnersDescription": zod.string(),
+  "fixedPartnerDescription": zod.string(),
+  "minParticipants": zod.number(),
+  "maxParticipants": zod.number(),
+  "contactPersons": zod.array(zod.object({
+  "name": zod.string(),
+  "email": zod.string().email()
+}))
+})
+
+
+/**
+ * @summary Update app-level settings (Admin only)
+ */
+export const UpdateSettingsBody = zod.object({
+  "defaultTimezone": zod.string().optional(),
+  "rotatingPartnersDescription": zod.string().optional(),
+  "fixedPartnerDescription": zod.string().optional(),
+  "minParticipants": zod.number().optional(),
+  "maxParticipants": zod.number().optional(),
+  "contactPersons": zod.array(zod.object({
+  "name": zod.string(),
+  "email": zod.string().email()
+})).optional()
+})
+
+export const UpdateSettingsResponse = zod.object({
+  "defaultTimezone": zod.string(),
+  "rotatingPartnersDescription": zod.string(),
+  "fixedPartnerDescription": zod.string(),
+  "minParticipants": zod.number(),
+  "maxParticipants": zod.number(),
+  "contactPersons": zod.array(zod.object({
+  "name": zod.string(),
+  "email": zod.string().email()
+}))
 })
 
 

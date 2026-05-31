@@ -6,15 +6,22 @@
  * OpenAPI spec version: 0.1.0
  */
 
+export * from './appSettings';
+export * from './appSettingsInput';
+export * from './contactPerson';
 export * from './csvUploadResult';
 export * from './event';
+export * from './eventCloneInput';
 export * from './eventFormatType';
 export * from './eventInput';
 export * from './eventInputFormatType';
+export * from './eventInputRatingTypeRequired';
+export * from './eventRatingTypeRequired';
 export * from './eventsSummary';
 export * from './eventStatus';
 export * from './eventUpdate';
 export * from './eventUpdateFormatType';
+export * from './eventUpdateRatingTypeRequired';
 export * from './eventUpdateStatus';
 export * from './healthStatus';
 export * from './listEventsParams';

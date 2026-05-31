@@ -19,6 +19,8 @@ tags:
     description: Registration and roster operations
   - name: users
     description: User management operations
+  - name: settings
+    description: App settings operations
 
 paths:
   /healthz:
@@ -597,6 +599,36 @@ paths:
               schema:
                 $ref: "#/components/schemas/RosterEntry"
 
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get app-level settings
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update app-level settings (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsInput"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
   /users:
     get:
       operationId: listUsers
@@ -1026,3 +1058,50 @@ components:
           enum: [confirmed, waitlisted, pending_approval, rejected]
         partnerDuprId:
           type: ["string", "null"]
+
+    ContactPerson:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    AppSettings:
+      type: object
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, contactPersons]
+      properties:
+        defaultTimezone:
+          type: string
+        rotatingPartnersDescription:
+          type: string
+        fixedPartnerDescription:
+          type: string
+        minParticipants:
+          type: integer
+        maxParticipants:
+          type: integer
+        contactPersons:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactPerson"
+
+    AppSettingsInput:
+      type: object
+      properties:
+        defaultTimezone:
+          type: string
+        rotatingPartnersDescription:
+          type: string
+        fixedPartnerDescription:
+          type: string
+        minParticipants:
+          type: integer
+        maxParticipants:
+          type: integer
+        contactPersons:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactPerson"
