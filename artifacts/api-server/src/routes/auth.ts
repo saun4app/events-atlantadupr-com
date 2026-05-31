@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { verifyPassword } from "../lib/auth.js";
-import { deleteSession } from "../lib/session.js";
+import { deleteSession, setSession } from "../lib/session.js";
 
 const router = Router();
 
@@ -20,12 +20,16 @@ router.post("/login", async (req, res) => {
 
   (req as any).session = { userId: user.id, role: user.role, name: user.name, username: user.username };
 
+  const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  setSession(token, (req as any).session);
+
   return res.json({
     id: user.id,
     name: user.name,
     username: user.username,
     role: user.role,
     createdAt: user.createdAt,
+    token,
   });
 });
 

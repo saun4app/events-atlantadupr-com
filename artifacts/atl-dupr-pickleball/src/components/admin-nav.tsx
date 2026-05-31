@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
 export function AdminNav() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, setAuthToken } = useAuth();
   const [location] = useLocation();
   const queryClient = useQueryClient();
   const logout = useLogout();
@@ -22,6 +22,8 @@ export function AdminNav() {
   function handleLogout() {
     logout.mutate(undefined, {
       onSuccess: () => {
+        localStorage.removeItem("authToken");
+        setAuthToken(null);
         queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       }
     });

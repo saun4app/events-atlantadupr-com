@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/lib/auth";
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { setAuthToken } = useAuth();
   const login = useLogin();
 
   const [username, setUsername] = useState("");
@@ -22,7 +24,13 @@ export default function Login() {
       { data: { username, password } },
       {
         onSuccess: (user) => {
-          queryClient.setQueryData(getGetMeQueryKey(), user);
+          // @ts-ignore — token is added server-side for dev
+          const token = user.token as string | undefined;
+          if (token) {
+            localStorage.setItem("authToken", token);
+            setAuthToken(token);
+          }
+          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
           if (user.role === "event_participant") {
             setLocation("/");
           } else {

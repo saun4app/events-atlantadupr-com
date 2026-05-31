@@ -36,7 +36,11 @@ app.use(cookieParser(SESSION_SECRET));
 
 app.use((req, _res, next) => {
   const sid = req.signedCookies?.sid;
-  (req as any).session = getSession(sid);
+  const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
+  if (req.url.startsWith("/api/auth")) {
+    logger.info({ sid: sid ? "present" : "missing", bearer: token ? "present" : "missing", url: req.url }, "auth debug");
+  }
+  (req as any).session = getSession(sid) ?? getSession(token) ?? null;
   next();
 });
 
@@ -52,8 +56,7 @@ app.use((req, res, next) => {
       res.cookie("sid", sid, {
         signed: true,
         httpOnly: true,
-        sameSite: "none",
-        secure: true,
+        sameSite: "lax",
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
     } else if (existingSid && session === null) {
