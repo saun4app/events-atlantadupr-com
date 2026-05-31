@@ -43,6 +43,21 @@ function validateSettingsInput(body: unknown): string | null {
   if (min !== null && max !== null && max < min) {
     return "maxParticipants must be >= minParticipants";
   }
+  if (b.minTeams !== undefined) {
+    if (typeof b.minTeams !== "number" || !Number.isInteger(b.minTeams) || b.minTeams < 1) {
+      return "minTeams must be an integer >= 1";
+    }
+  }
+  if (b.maxTeams !== undefined) {
+    if (typeof b.maxTeams !== "number" || !Number.isInteger(b.maxTeams) || b.maxTeams < 1) {
+      return "maxTeams must be an integer >= 1";
+    }
+  }
+  const minT = typeof b.minTeams === "number" ? b.minTeams : null;
+  const maxT = typeof b.maxTeams === "number" ? b.maxTeams : null;
+  if (minT !== null && maxT !== null && maxT < minT) {
+    return "maxTeams must be >= minTeams";
+  }
   if (b.contactPersons !== undefined) {
     if (!Array.isArray(b.contactPersons)) return "contactPersons must be an array";
     for (let i = 0; i < b.contactPersons.length; i++) {
@@ -96,6 +111,8 @@ router.put("/", requireRole("admin"), async (req, res) => {
     fixedPartnerDescription,
     minParticipants,
     maxParticipants,
+    minTeams,
+    maxTeams,
     contactPersons,
     defaultLocations,
   } = req.body as Record<string, unknown>;
@@ -106,6 +123,8 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (fixedPartnerDescription !== undefined) updates.fixedPartnerDescription = fixedPartnerDescription;
   if (minParticipants !== undefined) updates.minParticipants = minParticipants;
   if (maxParticipants !== undefined) updates.maxParticipants = maxParticipants;
+  if (minTeams !== undefined) updates.minTeams = minTeams;
+  if (maxTeams !== undefined) updates.maxTeams = maxTeams;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
   if (defaultLocations !== undefined) {
     updates.defaultLocations = (defaultLocations as any[]).map((loc: any) => ({

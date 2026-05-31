@@ -19,6 +19,8 @@ async function seed() {
     fixedPartnerDescription: "<p>Register with your doubles partner. You will play all rounds together as a team.</p>",
     minParticipants: 8,
     maxParticipants: 24,
+    minTeams: 4,
+    maxTeams: 12,
     contactPersons: [{ name: "Admin User", email: "admin@atldupr.com" }],
     defaultLocations: [
       { id: "loc-1", name: "Chastain Park Tennis Center", address: "315 West Wieuca Rd NW, Atlanta, GA 30342" },

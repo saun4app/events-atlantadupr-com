@@ -18,6 +18,8 @@ export const appSettingsTable = pgTable("app_settings", {
   fixedPartnerDescription: text("fixed_partner_description").notNull().default(""),
   minParticipants: integer("min_participants").notNull().default(8),
   maxParticipants: integer("max_participants").notNull().default(24),
+  minTeams: integer("min_teams").notNull().default(4),
+  maxTeams: integer("max_teams").notNull().default(12),
   contactPersons: jsonb("contact_persons").$type<ContactPerson[]>().notNull().default([]),
   defaultLocations: jsonb("default_locations").$type<DefaultLocation[]>().notNull().default([]),
 });

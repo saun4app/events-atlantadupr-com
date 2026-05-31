@@ -541,6 +541,8 @@ export const GetSettingsResponse = zod.object({
   "fixedPartnerDescription": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
+  "minTeams": zod.number(),
+  "maxTeams": zod.number(),
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
@@ -562,6 +564,8 @@ export const UpdateSettingsBody = zod.object({
   "fixedPartnerDescription": zod.string().optional(),
   "minParticipants": zod.number().optional(),
   "maxParticipants": zod.number().optional(),
+  "minTeams": zod.number().optional(),
+  "maxTeams": zod.number().optional(),
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
@@ -579,6 +583,8 @@ export const UpdateSettingsResponse = zod.object({
   "fixedPartnerDescription": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
+  "minTeams": zod.number(),
+  "maxTeams": zod.number(),
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()

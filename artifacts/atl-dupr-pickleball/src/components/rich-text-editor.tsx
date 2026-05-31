@@ -2,25 +2,9 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useRef } from "react";
 import { cn } from "@/lib/utils";
-import {
-  Bold as BoldIcon,
-  Underline as UnderlineIcon,
-  Heading1,
-  Heading2,
-} from "lucide-react";
-
-const COLOR_SWATCHES = [
-  { label: "Default", value: "" },
-  { label: "Black", value: "#000000" },
-  { label: "Gray", value: "#6b7280" },
-  { label: "Red", value: "#dc2626" },
-  { label: "Orange", value: "#ea580c" },
-  { label: "Green", value: "#16a34a" },
-  { label: "Blue", value: "#2563eb" },
-  { label: "Purple", value: "#9333ea" },
-];
+import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette } from "lucide-react";
 
 interface RichTextEditorProps {
   value: string;
@@ -30,9 +14,11 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ value, onChange, placeholder, "data-testid": testId }: RichTextEditorProps) {
+  const colorInputRef = useRef<HTMLInputElement>(null);
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
       TextStyle,
       Color,
     ],
@@ -54,75 +40,88 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
     }
   }, [value, editor]);
 
-  const setColor = useCallback((color: string) => {
+  const handleColorChange = useCallback((color: string) => {
     if (!editor) return;
-    if (color === "") {
-      editor.chain().focus().unsetColor().run();
-    } else {
-      editor.chain().focus().setColor(color).run();
-    }
+    editor.chain().focus().setColor(color).run();
   }, [editor]);
 
   if (!editor) return null;
 
-  const currentColor = editor.getAttributes("textStyle").color ?? "";
+  let currentHeading = "0";
+  for (let i = 1; i <= 6; i++) {
+    if (editor.isActive("heading", { level: i })) {
+      currentHeading = String(i);
+      break;
+    }
+  }
+
+  const currentColor = (editor.getAttributes("textStyle").color as string | undefined) ?? "";
+
+  function handleHeadingChange(val: string) {
+    if (!editor) return;
+    if (val === "0") {
+      editor.chain().focus().setParagraph().run();
+    } else {
+      editor.chain().focus().setHeading({ level: Number(val) as 1 | 2 | 3 | 4 | 5 | 6 }).run();
+    }
+  }
 
   return (
     <div className="border border-input rounded-md overflow-hidden bg-background" data-testid={testId}>
       <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-border bg-muted/30">
-        <ToolbarButton
-          active={editor.isActive("heading", { level: 1 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-          title="Heading 1"
+        <select
+          value={currentHeading}
+          onChange={e => handleHeadingChange(e.target.value)}
+          title="Heading level"
+          className="h-7 rounded bg-transparent text-xs text-muted-foreground hover:bg-muted cursor-pointer focus:outline-none px-1.5 border border-transparent hover:border-border"
         >
-          <Heading1 className="w-3.5 h-3.5" />
-        </ToolbarButton>
-        <ToolbarButton
-          active={editor.isActive("heading", { level: 2 })}
-          onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-          title="Heading 2"
-        >
-          <Heading2 className="w-3.5 h-3.5" />
-        </ToolbarButton>
-        <div className="w-px h-4 bg-border mx-1" />
-        <ToolbarButton
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          title="Bold"
-        >
+          <option value="0">Normal</option>
+          <option value="1">H1</option>
+          <option value="2">H2</option>
+          <option value="3">H3</option>
+          <option value="4">H4</option>
+          <option value="5">H5</option>
+          <option value="6">H6</option>
+        </select>
+
+        <div className="w-px h-4 bg-border mx-0.5" />
+
+        <ToolbarButton active={editor.isActive("bold")} onClick={() => editor.chain().focus().toggleBold().run()} title="Bold">
           <BoldIcon className="w-3.5 h-3.5" />
         </ToolbarButton>
-        <ToolbarButton
-          active={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          title="Underline"
-        >
+        <ToolbarButton active={editor.isActive("italic")} onClick={() => editor.chain().focus().toggleItalic().run()} title="Italic">
+          <ItalicIcon className="w-3.5 h-3.5" />
+        </ToolbarButton>
+        <ToolbarButton active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline">
           <UnderlineIcon className="w-3.5 h-3.5" />
         </ToolbarButton>
-        <div className="w-px h-4 bg-border mx-1" />
-        <div className="flex items-center gap-0.5" title="Text color">
-          {COLOR_SWATCHES.map(({ label, value: colorVal }) => (
-            <button
-              key={colorVal || "default"}
-              type="button"
-              title={label}
-              onClick={() => setColor(colorVal)}
-              className={cn(
-                "w-4 h-4 rounded-sm border transition-all",
-                currentColor === colorVal
-                  ? "ring-2 ring-primary ring-offset-1"
-                  : "border-border hover:scale-110"
-              )}
-              style={{
-                background: colorVal || "transparent",
-                borderColor: colorVal ? colorVal : undefined,
-              }}
-            >
-              {!colorVal && (
-                <span className="block w-full h-full rounded-sm bg-gradient-to-br from-red-400 via-green-400 to-blue-400 opacity-70" />
-              )}
-            </button>
-          ))}
+
+        <div className="w-px h-4 bg-border mx-0.5" />
+
+        <div className="relative flex items-center">
+          <input
+            ref={colorInputRef}
+            type="color"
+            value={currentColor || "#000000"}
+            onChange={e => handleColorChange(e.target.value)}
+            className="sr-only"
+            tabIndex={-1}
+          />
+          <button
+            type="button"
+            title="Text color"
+            onClick={() => colorInputRef.current?.click()}
+            className={cn(
+              "p-1 rounded flex flex-col items-center gap-0.5 transition-colors",
+              "text-muted-foreground hover:bg-muted hover:text-foreground"
+            )}
+          >
+            <Palette className="w-3.5 h-3.5" />
+            <span
+              className="block w-3.5 h-0.5 rounded-full"
+              style={{ backgroundColor: currentColor || "#94a3b8" }}
+            />
+          </button>
         </div>
       </div>
       <div className="relative">

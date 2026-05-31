@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useGetSettings, useUpdateSettings } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
@@ -66,23 +66,28 @@ export default function AdminSettings() {
     fixedPartnerDescription: "",
     minParticipants: 8,
     maxParticipants: 24,
+    minTeams: 4,
+    maxTeams: 12,
     contactPersons: [] as ContactPerson[],
     defaultLocations: [] as DefaultLocation[],
   });
   const [dirty, setDirty] = useState(false);
+  const formInitialized = useRef(false);
 
   useEffect(() => {
-    if (settings) {
+    if (settings && !formInitialized.current) {
+      formInitialized.current = true;
       setForm({
         defaultTimezone: settings.defaultTimezone,
         rotatingPartnersDescription: settings.rotatingPartnersDescription,
         fixedPartnerDescription: settings.fixedPartnerDescription,
         minParticipants: settings.minParticipants,
         maxParticipants: settings.maxParticipants,
+        minTeams: settings.minTeams,
+        maxTeams: settings.maxTeams,
         contactPersons: (settings.contactPersons as ContactPerson[]) ?? [],
         defaultLocations: (settings.defaultLocations as DefaultLocation[]) ?? [],
       });
-      setDirty(false);
     }
   }, [settings]);
 
@@ -205,28 +210,59 @@ export default function AdminSettings() {
                 <p className="text-xs text-muted-foreground">Used as the default timezone when displaying event times.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="min-participants">Default Min Participants</Label>
-                  <Input
-                    id="min-participants"
-                    data-testid="input-min-participants"
-                    type="number"
-                    min={2}
-                    value={form.minParticipants}
-                    onChange={e => update("minParticipants", Number(e.target.value))}
-                  />
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rotating Partners</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="min-participants">Min Participants</Label>
+                    <Input
+                      id="min-participants"
+                      data-testid="input-min-participants"
+                      type="number"
+                      min={2}
+                      value={form.minParticipants}
+                      onChange={e => update("minParticipants", Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="max-participants">Max Participants</Label>
+                    <Input
+                      id="max-participants"
+                      data-testid="input-max-participants"
+                      type="number"
+                      min={2}
+                      value={form.maxParticipants}
+                      onChange={e => update("maxParticipants", Number(e.target.value))}
+                    />
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="max-participants">Default Max Participants</Label>
-                  <Input
-                    id="max-participants"
-                    data-testid="input-max-participants"
-                    type="number"
-                    min={2}
-                    value={form.maxParticipants}
-                    onChange={e => update("maxParticipants", Number(e.target.value))}
-                  />
+              </div>
+
+              <div className="space-y-2">
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fixed Partner</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="min-teams">Min Teams</Label>
+                    <Input
+                      id="min-teams"
+                      data-testid="input-min-teams"
+                      type="number"
+                      min={1}
+                      value={form.minTeams}
+                      onChange={e => update("minTeams", Number(e.target.value))}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="max-teams">Max Teams</Label>
+                    <Input
+                      id="max-teams"
+                      data-testid="input-max-teams"
+                      type="number"
+                      min={1}
+                      value={form.maxTeams}
+                      onChange={e => update("maxTeams", Number(e.target.value))}
+                    />
+                  </div>
                 </div>
               </div>
             </section>

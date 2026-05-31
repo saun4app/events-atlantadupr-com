@@ -14,6 +14,8 @@ export interface AppSettingsInput {
   fixedPartnerDescription?: string;
   minParticipants?: number;
   maxParticipants?: number;
+  minTeams?: number;
+  maxTeams?: number;
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
 }
