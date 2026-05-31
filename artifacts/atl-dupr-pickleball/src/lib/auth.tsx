@@ -25,6 +25,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     query: {
       retry: false,
       queryKey: getGetMeQueryKey(),
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
     }
   });
 

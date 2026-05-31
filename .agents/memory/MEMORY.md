@@ -1,1 +1,1 @@
-- [ATL DUPR Pickleball App Architecture](atl-dupr-arch.md) — key quirks for session, password, CSV upload, and proxy setup in this app
+- [Replit proxy auth cookies](replit-auth-cookies.md) — three conditions required for session cookies to survive Replit's iframe proxy

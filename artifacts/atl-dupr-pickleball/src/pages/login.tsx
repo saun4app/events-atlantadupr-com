@@ -22,7 +22,7 @@ export default function Login() {
       { data: { username, password } },
       {
         onSuccess: (user) => {
-          queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+          queryClient.setQueryData(getGetMeQueryKey(), user);
           if (user.role === "event_participant") {
             setLocation("/");
           } else {

@@ -52,7 +52,8 @@ app.use((req, res, next) => {
       res.cookie("sid", sid, {
         signed: true,
         httpOnly: true,
-        sameSite: "lax",
+        sameSite: "none",
+        secure: true,
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
     } else if (existingSid && session === null) {
