@@ -15,11 +15,16 @@ async function seed() {
   await db.insert(appSettingsTable).values({
     id: 1,
     defaultTimezone: "America/New_York",
-    rotatingPartnersDescription: "Players rotate partners each round. A great way to meet new people and play with a variety of skill levels.",
-    fixedPartnerDescription: "Register with your doubles partner. You will play all rounds together as a team.",
+    rotatingPartnersDescription: "<p>Players rotate partners each round. A great way to meet new people and play with a variety of skill levels.</p>",
+    fixedPartnerDescription: "<p>Register with your doubles partner. You will play all rounds together as a team.</p>",
     minParticipants: 8,
     maxParticipants: 24,
     contactPersons: [{ name: "Admin User", email: "admin@atldupr.com" }],
+    defaultLocations: [
+      { id: "loc-1", name: "Chastain Park Tennis Center", address: "315 West Wieuca Rd NW, Atlanta, GA 30342" },
+      { id: "loc-2", name: "Blackburn Park", address: "3493 Ashford Dunwoody Rd NE, Atlanta, GA 30319" },
+      { id: "loc-3", name: "Freedom Park", address: "800 Freedom Pkwy NE, Atlanta, GA 30307" },
+    ],
   });
 
   await db.insert(usersTable).values([

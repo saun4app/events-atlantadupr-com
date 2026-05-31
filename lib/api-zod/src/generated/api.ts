@@ -544,6 +544,11 @@ export const GetSettingsResponse = zod.object({
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
+})),
+  "defaultLocations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string()
 }))
 })
 
@@ -560,6 +565,11 @@ export const UpdateSettingsBody = zod.object({
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
+})).optional(),
+  "defaultLocations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string()
 })).optional()
 })
 
@@ -572,6 +582,11 @@ export const UpdateSettingsResponse = zod.object({
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
+})),
+  "defaultLocations": zod.array(zod.object({
+  "id": zod.string(),
+  "name": zod.string(),
+  "address": zod.string()
 }))
 })
 

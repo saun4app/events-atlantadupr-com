@@ -1069,9 +1069,20 @@ components:
           type: string
           format: email
 
+    DefaultLocation:
+      type: object
+      required: [id, name, address]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+
     AppSettings:
       type: object
-      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, contactPersons]
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, contactPersons, defaultLocations]
       properties:
         defaultTimezone:
           type: string
@@ -1087,6 +1098,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ContactPerson"
+        defaultLocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefaultLocation"
 
     AppSettingsInput:
       type: object
@@ -1105,3 +1120,7 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ContactPerson"
+        defaultLocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefaultLocation"

@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { ContactPerson } from './contactPerson';
+import type { DefaultLocation } from './defaultLocation';
 
 export interface AppSettings {
   defaultTimezone: string;
@@ -14,4 +15,5 @@ export interface AppSettings {
   minParticipants: number;
   maxParticipants: number;
   contactPersons: ContactPerson[];
+  defaultLocations: DefaultLocation[];
 }

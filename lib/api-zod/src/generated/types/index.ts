@@ -10,6 +10,7 @@ export * from './appSettings';
 export * from './appSettingsInput';
 export * from './contactPerson';
 export * from './csvUploadResult';
+export * from './defaultLocation';
 export * from './event';
 export * from './eventCloneInput';
 export * from './eventFormatType';

@@ -347,6 +347,12 @@ export interface ContactPerson {
   email: string;
 }
 
+export interface DefaultLocation {
+  id: string;
+  name: string;
+  address: string;
+}
+
 export interface AppSettings {
   defaultTimezone: string;
   rotatingPartnersDescription: string;
@@ -354,6 +360,7 @@ export interface AppSettings {
   minParticipants: number;
   maxParticipants: number;
   contactPersons: ContactPerson[];
+  defaultLocations: DefaultLocation[];
 }
 
 export interface AppSettingsInput {
@@ -363,6 +370,7 @@ export interface AppSettingsInput {
   minParticipants?: number;
   maxParticipants?: number;
   contactPersons?: ContactPerson[];
+  defaultLocations?: DefaultLocation[];
 }
 
 export type ListMembersParams = {

@@ -56,6 +56,22 @@ function validateSettingsInput(body: unknown): string | null {
       }
     }
   }
+  if (b.defaultLocations !== undefined) {
+    if (!Array.isArray(b.defaultLocations)) return "defaultLocations must be an array";
+    for (let i = 0; i < b.defaultLocations.length; i++) {
+      const loc = b.defaultLocations[i];
+      if (typeof loc !== "object" || loc === null) return `defaultLocations[${i}] must be an object`;
+      if (typeof (loc as any).id !== "string" || !(loc as any).id.trim()) {
+        return `defaultLocations[${i}].id is required`;
+      }
+      if (typeof (loc as any).name !== "string" || !(loc as any).name.trim()) {
+        return `defaultLocations[${i}].name is required`;
+      }
+      if (typeof (loc as any).address !== "string") {
+        return `defaultLocations[${i}].address must be a string`;
+      }
+    }
+  }
   return null;
 }
 
@@ -81,6 +97,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
     minParticipants,
     maxParticipants,
     contactPersons,
+    defaultLocations,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -90,6 +107,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (minParticipants !== undefined) updates.minParticipants = minParticipants;
   if (maxParticipants !== undefined) updates.maxParticipants = maxParticipants;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
+  if (defaultLocations !== undefined) updates.defaultLocations = defaultLocations;
 
   const [updated] = await db
     .insert(appSettingsTable)
