@@ -182,10 +182,26 @@ router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organize
     );
   if (!reg) return res.status(404).json({ error: "Registration not found" });
 
+  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
+  if (!event) return res.status(404).json({ error: "Event not found" });
+
+  const allRegs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
+  const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+
+  let newStatus: "confirmed" | "waitlisted";
+  if (confirmedCount >= event.maxParticipants) {
+    if (!event.waitlistEnabled) {
+      return res.status(400).json({ error: "Event is full and waitlist is disabled; cannot approve" });
+    }
+    newStatus = "waitlisted";
+  } else {
+    newStatus = "confirmed";
+  }
+
   const sessionUserId = (req as any).session?.userId;
   const [updated] = await db
     .update(registrationsTable)
-    .set({ status: "confirmed", approvedAt: new Date(), approvedBy: sessionUserId })
+    .set({ status: newStatus, approvedAt: new Date(), approvedBy: sessionUserId })
     .where(eq(registrationsTable.id, Number(req.params.regId)))
     .returning();
 

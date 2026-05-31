@@ -6,7 +6,11 @@ import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
 import { getSession, setSession, deleteSession } from "./lib/session.js";
 
-const SESSION_SECRET = "atl_dupr_session_secret";
+const SESSION_SECRET = process.env.SESSION_SECRET ?? (
+  process.env.NODE_ENV === "production"
+    ? (() => { throw new Error("SESSION_SECRET env var must be set in production"); })()
+    : "atl_dupr_dev_session_secret"
+);
 
 const app: Express = express();
 
