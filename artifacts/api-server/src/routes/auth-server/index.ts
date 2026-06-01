@@ -2,8 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { verifyPassword } from "../lib/auth.js";
-import { deleteSession, setSession } from "../lib/session.js";
+import { verifyPassword } from "../../lib/auth.js";
+import { deleteSession, setSession } from "../../lib/session.js";
 
 const router = Router();
 

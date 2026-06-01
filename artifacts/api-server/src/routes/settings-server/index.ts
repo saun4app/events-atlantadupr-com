@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { db, appSettingsTable, DEFAULT_RATING_REQUIREMENTS_CONFIG } from "@workspace/db";
-import { requireRole } from "../lib/auth.js";
+import { requireRole } from "../../lib/auth.js";
 
 const router = Router();
 

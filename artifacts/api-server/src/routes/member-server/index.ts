@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { membersTable } from "@workspace/db";
-import { eq, ilike, or } from "drizzle-orm";
-import { requireRole } from "../lib/auth.js";
+import { eq } from "drizzle-orm";
+import { requireRole } from "../../lib/auth.js";
 
 const router = Router();
 
