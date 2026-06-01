@@ -10,7 +10,7 @@ async function hashPassword(password: string): Promise<string> {
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE registrations, events, event_assignments, atl_dupr_member_list, users, app_settings RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE atl_dupr_signups, atl_dupr_events, atl_dupr_event_roles, atl_dupr_member_list, app_uses, app_settings RESTART IDENTITY CASCADE`);
 
   await db.insert(appSettingsTable).values({
     id: 1,
@@ -105,16 +105,16 @@ async function seed() {
   ]).returning();
 
   await db.insert(membersTable).values([
-    { duprId: "DUPR-001", playerName: "Alice Chen", doubleRating: "4.25", singleRating: "4.10" },
-    { duprId: "DUPR-002", playerName: "Bob Martinez", doubleRating: "3.80", singleRating: "3.70" },
-    { duprId: "DUPR-003", playerName: "Carol Smith", doubleRating: "4.50", singleRating: "4.40" },
-    { duprId: "DUPR-004", playerName: "David Park", doubleRating: "3.20", singleRating: "3.10" },
-    { duprId: "DUPR-005", playerName: "Emma Wilson", doubleRating: "4.75", singleRating: "4.60" },
-    { duprId: "DUPR-006", playerName: "Frank Lee", doubleRating: "3.60", singleRating: "3.50" },
-    { duprId: "DUPR-007", playerName: "Grace Kim", doubleRating: "4.10", singleRating: "4.00" },
-    { duprId: "DUPR-008", playerName: "Henry Brown", doubleRating: "3.90", singleRating: "3.80" },
-    { duprId: "DUPR-009", playerName: "Isabel Torres", doubleRating: "4.30", singleRating: "4.20" },
-    { duprId: "DUPR-010", playerName: "Jack Davis", doubleRating: "3.50", singleRating: "3.40" },
+    { duprId: "DUPR-001", playerName: "Alice Chen",    doubleRating: "4.25", singleRating: "4.10", email: "alice.chen@gmail.com",      phone: "404-555-0101" },
+    { duprId: "DUPR-002", playerName: "Bob Martinez",  doubleRating: "3.80", singleRating: "3.70", email: "bob.martinez@gmail.com",    phone: "404-555-0102" },
+    { duprId: "DUPR-003", playerName: "Carol Smith",   doubleRating: "4.50", singleRating: "4.40", email: "carol.smith@outlook.com",   phone: "770-555-0103" },
+    { duprId: "DUPR-004", playerName: "David Park",    doubleRating: "3.20", singleRating: "3.10", email: "david.park@yahoo.com",      phone: "678-555-0104" },
+    { duprId: "DUPR-005", playerName: "Emma Wilson",   doubleRating: "4.75", singleRating: "4.60", email: "emma.wilson@gmail.com",     phone: "404-555-0105" },
+    { duprId: "DUPR-006", playerName: "Frank Lee",     doubleRating: "3.60", singleRating: "3.50", email: "frank.lee@outlook.com",     phone: "770-555-0106" },
+    { duprId: "DUPR-007", playerName: "Grace Kim",     doubleRating: "4.10", singleRating: "4.00", email: "grace.kim@gmail.com",       phone: "678-555-0107" },
+    { duprId: "DUPR-008", playerName: "Henry Brown",   doubleRating: "3.90", singleRating: "3.80", email: "henry.brown@yahoo.com",     phone: "404-555-0108" },
+    { duprId: "DUPR-009", playerName: "Isabel Torres", doubleRating: "4.30", singleRating: "4.20", email: "isabel.torres@gmail.com",   phone: "770-555-0109" },
+    { duprId: "DUPR-010", playerName: "Jack Davis",    doubleRating: "3.50", singleRating: "3.40", email: "jack.davis@outlook.com",    phone: "678-555-0110" },
   ]);
 
   await db.insert(registrationsTable).values([
