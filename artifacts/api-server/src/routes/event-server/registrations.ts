@@ -37,11 +37,16 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, inc
   };
 }
 
+const ADMIN_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
+
+function isAdminSession(req: Request): boolean {
+  return ADMIN_ROLES.includes((req as any).session?.role);
+}
+
 router.get("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
-  const isAuthenticated = !!((req as any).session?.userId);
   const regs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
-  const entries = await Promise.all(regs.map(r => buildRosterEntry(r, isAuthenticated)));
+  const entries = await Promise.all(regs.map(r => buildRosterEntry(r, isAdminSession(req))));
   return res.json(entries);
 });
 
@@ -102,7 +107,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     .values({ eventId, memberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
     .returning();
 
-  const entry = await buildRosterEntry(reg, true);
+  const entry = await buildRosterEntry(reg, false);
   return res.status(201).json(entry);
 });
 
@@ -114,7 +119,7 @@ router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
       and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
     );
   if (!reg) return res.status(404).json({ error: "Registration not found" });
-  return res.json(await buildRosterEntry(reg, !!((req as any).session?.userId)));
+  return res.json(await buildRosterEntry(reg, isAdminSession(req)));
 });
 
 router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
@@ -136,7 +141,10 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
   if (req.body.partnerDuprId !== undefined) updates.partnerDuprId = req.body.partnerDuprId;
   if (req.body.eventRole !== undefined) updates.eventRole = req.body.eventRole ?? null;
   if (req.body.isNew !== undefined) updates.isNew = req.body.isNew ? "true" : "false";
-  if (req.body.assignedRating !== undefined) updates.assignedRating = req.body.assignedRating !== null ? Number(req.body.assignedRating) : null;
+  if (req.body.assignedRating !== undefined) {
+    const ar = req.body.assignedRating;
+    updates.assignedRating = ar !== null && isFinite(Number(ar)) ? Number(ar) : null;
+  }
 
   const [updated] = await db
     .update(registrationsTable)

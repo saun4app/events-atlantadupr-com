@@ -180,8 +180,9 @@ export default function AdminEventDetail() {
       if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
       else if (s.col === "dupr") { av = parseFloat(a.doubleRating) || 0; bv = parseFloat(b.doubleRating) || 0; }
       else if (s.col === "assigned") {
-        av = a.assignedRating != null ? a.assignedRating : (parseFloat(a.doubleRating) || 0);
-        bv = b.assignedRating != null ? b.assignedRating : (parseFloat(b.doubleRating) || 0);
+        const aParsed = parseFloat(a.doubleRating); const bParsed = parseFloat(b.doubleRating);
+        av = a.assignedRating != null ? a.assignedRating : (isFinite(aParsed) ? aParsed : 0);
+        bv = b.assignedRating != null ? b.assignedRating : (isFinite(bParsed) ? bParsed : 0);
       }
       else if (s.col === "status") { av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; }
       else if (s.col === "new") { av = a.isNew ? 1 : 0; bv = b.isNew ? 1 : 0; }
@@ -507,7 +508,8 @@ export default function AdminEventDetail() {
                           </thead>
                           <tbody>
                             {paged.map(reg => {
-                              const storedRating = reg.assignedRating != null ? reg.assignedRating : (reg.doubleRating ? parseFloat(reg.doubleRating) : null);
+                              const parsedDupr = parseFloat(reg.doubleRating);
+                              const storedRating = reg.assignedRating != null ? reg.assignedRating : (reg.doubleRating && isFinite(parsedDupr) ? parsedDupr : null);
                               const editVal = editingRatings[reg.id] !== undefined ? editingRatings[reg.id] : (storedRating != null ? String(storedRating) : "");
                               const saveRating = (val: string) => {
                                 const parsed = val.trim() === "" ? null : parseFloat(val);
