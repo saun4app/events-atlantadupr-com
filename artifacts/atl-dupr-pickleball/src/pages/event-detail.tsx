@@ -51,8 +51,10 @@ function formatRatingInfo(event: any, skillLevels: SkillLevel[]): { label: strin
   }
   if (type === "self_skill") {
     if (cfg && skillLevels.length > 0) {
-      const lv = skillLevels.find(l => l.level === cfg.maxLevel);
-      if (lv) return { label: "Skill Level Required", detail: `Up to: ${lv.text}` };
+      const minLv = skillLevels.find(l => l.level === cfg.minLevel);
+      const maxLv = skillLevels.find(l => l.level === cfg.maxLevel);
+      if (minLv && maxLv) return { label: "Skill Level Required", detail: `${minLv.text} – ${maxLv.text}` };
+      if (maxLv) return { label: "Skill Level Required", detail: `Up to: ${maxLv.text}` };
     }
     return { label: "Skill Level Required" };
   }

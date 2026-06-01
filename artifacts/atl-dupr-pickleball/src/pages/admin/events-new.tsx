@@ -23,13 +23,13 @@ interface DefaultLocation { id: string; name: string; address: string; memberFee
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
 interface SelfNumericConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; }
-interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; }
+interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; defaultMinLevel: number; defaultMaxLevel: number; }
 interface RatingRequirementsConfig { dupr: DuprRatingConfig; selfNumeric: SelfNumericConfig; selfSkill: SelfSkillConfig; }
 
 const DEFAULT_RRC: RatingRequirementsConfig = {
   dupr: { enabled: true, minAllowed: 2.0, maxAllowed: 8.0, defaultMin: 2.0, defaultMax: 4.0, defaultNrAllowed: false },
   selfNumeric: { enabled: true, minAllowed: 2.0, maxAllowed: 6.0, defaultMin: 2.0, defaultMax: 4.0 },
-  selfSkill: { enabled: true, levels: [] },
+  selfSkill: { enabled: true, levels: [], defaultMinLevel: 1, defaultMaxLevel: 3 },
 };
 
 function toLocalDateTimeString(d: Date) {
@@ -86,7 +86,7 @@ function getDefaultRatingType(rrc: RatingRequirementsConfig): string {
 function getDefaultRatingConfig(type: string, rrc: RatingRequirementsConfig): any {
   if (type === "dupr") return { min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed };
   if (type === "self_numeric") return { min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax };
-  if (type === "self_skill") return { maxLevel: [...rrc.selfSkill.levels].sort((a, b) => a.level - b.level)[0]?.level ?? 1 };
+  if (type === "self_skill") return { minLevel: rrc.selfSkill.defaultMinLevel, maxLevel: rrc.selfSkill.defaultMaxLevel };
   return null;
 }
 
@@ -532,18 +532,26 @@ export default function AdminEventNew() {
               {/* Self-Skill config */}
               {form.ratingTypeRequired === "self_skill" && ratingConfig && rrc.selfSkill.levels.length > 0 && (
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground">Max Accepted Skill Level</Label>
-                  <Select value={String(ratingConfig.maxLevel)} onValueChange={v => setRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
-                    <SelectTrigger data-testid="select-skill-max-level"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
-                        <SelectItem key={lv.level} value={String(lv.level)}>
-                          {lv.text}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">Players at this level and better (lower level numbers) can register.</p>
+                  <Label className="text-xs font-medium text-muted-foreground">Accepted Skill Level Range</Label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <Select value={String(ratingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
+                      <SelectTrigger data-testid="select-skill-min-level"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
+                          <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Select value={String(ratingConfig.maxLevel ?? rrc.selfSkill.defaultMaxLevel)} onValueChange={v => setRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
+                      <SelectTrigger data-testid="select-skill-max-level"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
+                          <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="text-xs text-muted-foreground">Players at these levels can register.</p>
                 </div>
               )}
               {form.ratingTypeRequired === "self_skill" && rrc.selfSkill.levels.length === 0 && (

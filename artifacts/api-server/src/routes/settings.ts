@@ -51,6 +51,11 @@ function validateRatingRequirementsConfig(cfg: unknown): string | null {
         if (typeof (lv as any).level !== "number" || !Number.isInteger((lv as any).level) || (lv as any).level < 1) return `selfSkill.levels[${i}].level must be a positive integer`;
       }
     }
+    if (ss.defaultMinLevel !== undefined && (typeof ss.defaultMinLevel !== "number" || !Number.isInteger(ss.defaultMinLevel) || ss.defaultMinLevel < 1)) return "ratingRequirementsConfig.selfSkill.defaultMinLevel must be a positive integer";
+    if (ss.defaultMaxLevel !== undefined && (typeof ss.defaultMaxLevel !== "number" || !Number.isInteger(ss.defaultMaxLevel) || ss.defaultMaxLevel < 1)) return "ratingRequirementsConfig.selfSkill.defaultMaxLevel must be a positive integer";
+    const minLv = typeof ss.defaultMinLevel === "number" ? ss.defaultMinLevel : null;
+    const maxLv = typeof ss.defaultMaxLevel === "number" ? ss.defaultMaxLevel : null;
+    if (minLv !== null && maxLv !== null && minLv > maxLv) return "ratingRequirementsConfig.selfSkill.defaultMinLevel must be <= defaultMaxLevel";
   }
 
   return null;

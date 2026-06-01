@@ -14,6 +14,7 @@ export interface SelfNumericEventRatingConfig {
 }
 
 export interface SelfSkillEventRatingConfig {
+  minLevel: number;
   maxLevel: number;
 }
 

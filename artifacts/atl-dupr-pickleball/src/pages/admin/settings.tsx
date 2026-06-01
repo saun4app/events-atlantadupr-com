@@ -35,13 +35,13 @@ interface DefaultLocation { id: string; name: string; address: string; memberFee
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
 interface SelfNumericConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; }
-interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; }
+interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; defaultMinLevel: number; defaultMaxLevel: number; }
 interface RatingRequirementsConfig { dupr: DuprRatingConfig; selfNumeric: SelfNumericConfig; selfSkill: SelfSkillConfig; }
 
 const DEFAULT_RATING_CONFIG: RatingRequirementsConfig = {
   dupr: { enabled: true, minAllowed: 2.0, maxAllowed: 8.0, defaultMin: 2.0, defaultMax: 4.0, defaultNrAllowed: false },
   selfNumeric: { enabled: true, minAllowed: 2.0, maxAllowed: 6.0, defaultMin: 2.0, defaultMax: 4.0 },
-  selfSkill: { enabled: true, levels: [] },
+  selfSkill: { enabled: true, levels: [], defaultMinLevel: 1, defaultMaxLevel: 3 },
 };
 
 function genId() {
@@ -197,43 +197,46 @@ export default function AdminSettings() {
 
   // ── Skill Levels ─────────────────────────────────────────────
   const [newSkillText, setNewSkillText] = useState("");
-  const [newSkillLevel, setNewSkillLevel] = useState<number | "">(1);
-  const [deleteSkillLevelKey, setDeleteSkillLevelKey] = useState<number | null>(null);
-  const [editingSkillLevelKey, setEditingSkillLevelKey] = useState<number | null>(null);
+  const [deleteSkillIdx, setDeleteSkillIdx] = useState<number | null>(null);
+  const [editingSkillIdx, setEditingSkillIdx] = useState<number | null>(null);
   const [editSkillText, setEditSkillText] = useState("");
-  const [editSkillLevel, setEditSkillLevel] = useState<number>(1);
 
   function addSkillLevel() {
     const text = newSkillText.trim();
-    if (!text || newSkillLevel === "") return;
-    const levelNum = Number(newSkillLevel);
-    if (!Number.isInteger(levelNum) || levelNum < 1) return;
-    const levels = form.ratingRequirementsConfig.selfSkill.levels;
-    if (levels.some(l => l.level === levelNum)) return;
-    updateRrc("selfSkill", { levels: [...levels, { text, level: levelNum }] });
+    if (!text) return;
+    const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
+    const newLevel = levels.length + 1;
+    updateRrc("selfSkill", { levels: [...levels, { text, level: newLevel }] });
     setNewSkillText("");
-    setNewSkillLevel(1);
   }
 
   function confirmDeleteSkillLevel() {
-    if (deleteSkillLevelKey === null) return;
-    const levels = form.ratingRequirementsConfig.selfSkill.levels.filter(l => l.level !== deleteSkillLevelKey);
-    updateRrc("selfSkill", { levels });
-    setDeleteSkillLevelKey(null);
-    if (editingSkillLevelKey === deleteSkillLevelKey) setEditingSkillLevelKey(null);
+    if (deleteSkillIdx === null) return;
+    const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
+    const filtered = levels.filter((_, idx) => idx !== deleteSkillIdx);
+    const renumbered = filtered.map((l, i) => ({ ...l, level: i + 1 }));
+    updateRrc("selfSkill", { levels: renumbered });
+    setDeleteSkillIdx(null);
+    if (editingSkillIdx === deleteSkillIdx) setEditingSkillIdx(null);
   }
 
   function saveSkillLevelEdit() {
-    if (editingSkillLevelKey === null) return;
+    if (editingSkillIdx === null) return;
     const text = editSkillText.trim();
-    if (!text || !Number.isInteger(editSkillLevel) || editSkillLevel < 1) return;
-    const existing = form.ratingRequirementsConfig.selfSkill.levels;
-    if (existing.some(l => l.level === editSkillLevel && l.level !== editingSkillLevelKey)) return;
-    const levels = existing.map(l =>
-      l.level === editingSkillLevelKey ? { text, level: editSkillLevel } : l
-    );
-    updateRrc("selfSkill", { levels });
-    setEditingSkillLevelKey(null);
+    if (!text) return;
+    const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
+    const updated = levels.map((l, idx) => idx === editingSkillIdx ? { ...l, text } : l);
+    updateRrc("selfSkill", { levels: updated });
+    setEditingSkillIdx(null);
+  }
+
+  function moveSkillLevel(idx: number, dir: -1 | 1) {
+    const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= levels.length) return;
+    [levels[idx], levels[newIdx]] = [levels[newIdx], levels[idx]];
+    const renumbered = levels.map((l, i) => ({ ...l, level: i + 1 }));
+    updateRrc("selfSkill", { levels: renumbered });
   }
 
   const rrc = form.ratingRequirementsConfig;
@@ -516,46 +519,65 @@ export default function AdminSettings() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Self-Rating Skill Level</p>
-                    <p className="text-xs text-muted-foreground">Admin-defined skill tiers — ordered by number (1 = best)</p>
+                    <p className="text-xs text-muted-foreground">Admin-defined skill tiers — use arrows to reorder, 1 = highest</p>
                   </div>
                   <Switch data-testid="toggle-self-skill-enabled" checked={rrc.selfSkill.enabled} onCheckedChange={v => updateRrc("selfSkill", { enabled: v })} />
                 </div>
                 {rrc.selfSkill.enabled && (
                   <div className="space-y-3 pl-1">
+                    <div>
+                      <p className="text-xs font-medium text-muted-foreground mb-2">Default Range for New Events</p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Default Min Level</Label>
+                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMinLevel: Number(v) })}>
+                            <SelectTrigger data-testid="select-skill-default-min"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
+                                <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Default Max Level</Label>
+                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMaxLevel: Number(v) })}>
+                            <SelectTrigger data-testid="select-skill-default-max"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
+                                <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
                     {rrc.selfSkill.levels.length > 0 && (
                       <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
-                        {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv) => (
-                          <div key={lv.level} className="flex items-center gap-2 px-3 py-2 bg-background" data-testid={`skill-level-row-${lv.level}`}>
-                            {editingSkillLevelKey === lv.level ? (
+                        {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv, i) => (
+                          <div key={lv.level} className="flex items-center gap-2 px-3 py-2 bg-background" data-testid={`skill-level-row-${i}`}>
+                            {editingSkillIdx === i ? (
                               <>
                                 <Input
-                                  data-testid="input-edit-skill-level-text"
+                                  data-testid={`input-edit-skill-level-${i}`}
                                   value={editSkillText}
                                   onChange={e => setEditSkillText(e.target.value)}
                                   className="flex-1 h-7 text-sm"
-                                  placeholder="Level name"
                                   autoFocus
-                                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveSkillLevelEdit(); } if (e.key === "Escape") setEditingSkillLevelKey(null); }}
-                                />
-                                <Input
-                                  data-testid="input-edit-skill-level-num"
-                                  type="number"
-                                  min={1}
-                                  value={editSkillLevel}
-                                  onChange={e => setEditSkillLevel(Number(e.target.value))}
-                                  className="w-16 h-7 text-sm"
-                                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveSkillLevelEdit(); } if (e.key === "Escape") setEditingSkillLevelKey(null); }}
+                                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveSkillLevelEdit(); } if (e.key === "Escape") setEditingSkillIdx(null); }}
                                 />
                                 <Button type="button" variant="ghost" size="sm" className="text-primary h-7 px-2 text-xs shrink-0" onClick={saveSkillLevelEdit}>Save</Button>
-                                <Button type="button" variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 text-xs shrink-0" onClick={() => setEditingSkillLevelKey(null)}>Cancel</Button>
+                                <Button type="button" variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 text-xs shrink-0" onClick={() => setEditingSkillIdx(null)}>Cancel</Button>
                               </>
                             ) : (
                               <>
-                                <span className="text-xs text-muted-foreground font-mono w-6 shrink-0">{lv.level}</span>
+                                <span className="text-xs text-muted-foreground font-mono w-5 shrink-0">{lv.level}</span>
                                 <span className="flex-1 text-sm truncate">{lv.text}</span>
                                 <div className="flex items-center gap-0.5 shrink-0">
-                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" data-testid={`button-edit-skill-level-${lv.level}`} onClick={() => { setEditingSkillLevelKey(lv.level); setEditSkillText(lv.text); setEditSkillLevel(lv.level); }}><Pencil className="w-3 h-3" /></Button>
-                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" data-testid={`button-delete-skill-level-${lv.level}`} onClick={() => setDeleteSkillLevelKey(lv.level)}><Trash2 className="w-3 h-3" /></Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" disabled={i === 0} onClick={() => moveSkillLevel(i, -1)}>↑</Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" disabled={i === rrc.selfSkill.levels.length - 1} onClick={() => moveSkillLevel(i, 1)}>↓</Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" data-testid={`button-edit-skill-level-${i}`} onClick={() => { setEditingSkillIdx(i); setEditSkillText(lv.text); }}><Pencil className="w-3 h-3" /></Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" data-testid={`button-delete-skill-level-${i}`} onClick={() => setDeleteSkillIdx(i)}><Trash2 className="w-3 h-3" /></Button>
                                 </div>
                               </>
                             )}
@@ -565,21 +587,10 @@ export default function AdminSettings() {
                     )}
                     <div className="flex gap-2">
                       <Input
-                        data-testid="input-new-skill-level-text"
+                        data-testid="input-new-skill-level"
                         value={newSkillText}
                         onChange={e => setNewSkillText(e.target.value)}
                         placeholder="e.g. Advanced, Intermediate, Beginner"
-                        className="flex-1"
-                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addSkillLevel(); } }}
-                      />
-                      <Input
-                        data-testid="input-new-skill-level-num"
-                        type="number"
-                        min={1}
-                        value={newSkillLevel}
-                        onChange={e => setNewSkillLevel(e.target.value === "" ? "" : Number(e.target.value))}
-                        placeholder="#"
-                        className="w-16"
                         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addSkillLevel(); } }}
                       />
                       <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" data-testid="button-add-skill-level" onClick={addSkillLevel}>
@@ -587,7 +598,7 @@ export default function AdminSettings() {
                       </Button>
                     </div>
                     {rrc.selfSkill.levels.length === 0 && (
-                      <p className="text-xs text-muted-foreground">No skill levels defined yet. Enter a name and number (1 = best).</p>
+                      <p className="text-xs text-muted-foreground">No skill levels defined yet. Add at least one level to enable this rating type.</p>
                     )}
                   </div>
                 )}
@@ -714,13 +725,13 @@ export default function AdminSettings() {
       </AlertDialog>
 
       {/* ── Skill Level delete confirm ───────────────────────── */}
-      <AlertDialog open={deleteSkillLevelKey !== null} onOpenChange={open => !open && setDeleteSkillLevelKey(null)}>
+      <AlertDialog open={deleteSkillIdx !== null} onOpenChange={open => !open && setDeleteSkillIdx(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Remove this skill level?</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteSkillLevelKey !== null && rrc.selfSkill.levels.find(l => l.level === deleteSkillLevelKey)
-                ? `"${rrc.selfSkill.levels.find(l => l.level === deleteSkillLevelKey)!.text}" will be removed.`
+              {deleteSkillIdx !== null && rrc.selfSkill.levels[deleteSkillIdx]
+                ? `"${rrc.selfSkill.levels[deleteSkillIdx].text}" will be removed. The order of remaining levels will be updated.`
                 : "This skill level will be removed."}
             </AlertDialogDescription>
           </AlertDialogHeader>

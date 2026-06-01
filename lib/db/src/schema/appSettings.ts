@@ -44,6 +44,8 @@ export interface SelfNumericConfig {
 export interface SelfSkillConfig {
   enabled: boolean;
   levels: SkillLevel[];
+  defaultMinLevel: number;
+  defaultMaxLevel: number;
 }
 
 export interface RatingRequirementsConfig {
@@ -71,6 +73,8 @@ export const DEFAULT_RATING_REQUIREMENTS_CONFIG: RatingRequirementsConfig = {
   selfSkill: {
     enabled: true,
     levels: [],
+    defaultMinLevel: 1,
+    defaultMaxLevel: 3,
   },
 };
 

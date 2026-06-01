@@ -30,13 +30,13 @@ import {
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
 interface SelfNumericConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; }
-interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; }
+interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; defaultMinLevel: number; defaultMaxLevel: number; }
 interface RatingRequirementsConfig { dupr: DuprRatingConfig; selfNumeric: SelfNumericConfig; selfSkill: SelfSkillConfig; }
 
 const DEFAULT_RRC: RatingRequirementsConfig = {
   dupr: { enabled: true, minAllowed: 2.0, maxAllowed: 8.0, defaultMin: 2.0, defaultMax: 4.0, defaultNrAllowed: false },
   selfNumeric: { enabled: true, minAllowed: 2.0, maxAllowed: 6.0, defaultMin: 2.0, defaultMax: 4.0 },
-  selfSkill: { enabled: true, levels: [] },
+  selfSkill: { enabled: true, levels: [], defaultMinLevel: 1, defaultMaxLevel: 3 },
 };
 
 function getRrc(settings: any): RatingRequirementsConfig {
@@ -187,7 +187,7 @@ export default function AdminEventDetail() {
     } else if (type === "self_numeric") {
       setEditRatingConfig({ min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax });
     } else if (type === "self_skill") {
-      setEditRatingConfig({ maxLevel: [...rrc.selfSkill.levels].sort((a, b) => a.level - b.level)[0]?.level ?? 1 });
+      setEditRatingConfig({ minLevel: rrc.selfSkill.defaultMinLevel, maxLevel: rrc.selfSkill.defaultMaxLevel });
     }
   }
 
@@ -540,15 +540,25 @@ export default function AdminEventDetail() {
                 {/* Self-Skill config */}
                 {editForm.ratingTypeRequired === "self_skill" && editRatingConfig && rrc.selfSkill.levels.length > 0 && (
                   <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                    <Label className="text-xs">Max Accepted Skill Level</Label>
-                    <Select value={String(editRatingConfig.maxLevel ?? rrc.selfSkill.levels[0]?.level ?? 1)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
-                          <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs">Accepted Skill Level Range</Label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <Select value={String(editRatingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
+                            <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Select value={String(editRatingConfig.maxLevel ?? rrc.selfSkill.defaultMaxLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
+                            <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 )}
               </div>
