@@ -18,7 +18,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, MapPin, Calendar, Pencil, UserCog, X, ChevronDown, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, UserCog, X, ChevronDown, Star } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -74,6 +74,22 @@ function StatusBadge({ status }: { status: string }) {
 function isNonNumeric(rating: string | null | undefined): boolean {
   if (!rating) return false;
   return isNaN(parseFloat(rating)) || rating === "NR";
+}
+
+function SortHeader({ label, col, activeCol, dir, onSort }: {
+  label: string; col: string; activeCol?: string; dir?: "asc" | "desc"; onSort: () => void;
+}) {
+  const isActive = activeCol === col;
+  return (
+    <th className="text-left px-5 py-2.5 font-medium text-muted-foreground cursor-pointer select-none hover:text-foreground group whitespace-nowrap" onClick={onSort}>
+      <span className="inline-flex items-center gap-1">
+        {label}
+        {isActive
+          ? (dir === "asc" ? <ArrowUp className="w-3 h-3 text-primary" /> : <ArrowDown className="w-3 h-3 text-primary" />)
+          : <ChevronsUpDown className="w-3 h-3 opacity-0 group-hover:opacity-40" />}
+      </span>
+    </th>
+  );
 }
 
 function toLocalInput(dt: string | null | undefined): string {
@@ -132,6 +148,12 @@ export default function AdminEventDetail() {
   const [assignUserId, setAssignUserId] = useState<string>("");
 
   const rrc = getRrc(settings);
+
+  const [sortState, setSortState] = useState<Record<string, { col: string; dir: "asc" | "desc" }>>({});
+  const [pageNums, setPageNums] = useState<Record<string, number>>({});
+  const [pageSize, setPageSize] = useState(25);
+  const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
+
   const enabledRatingTypes = [
     { key: "none", label: "No Rating Required" },
     ...(rrc.dupr.enabled ? [{ key: "dupr", label: "DUPR Rating" }] : []),
@@ -147,6 +169,32 @@ export default function AdminEventDetail() {
   function invalidateEvent() {
     queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(eventId) });
     queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
+  }
+
+  function sortRegs(regs: any[], key: string) {
+    const s = sortState[key];
+    if (!s) return regs;
+    return [...regs].sort((a, b) => {
+      let av: any, bv: any;
+      if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
+      else if (s.col === "dupr") { av = parseFloat(a.doubleRating) || 0; bv = parseFloat(b.doubleRating) || 0; }
+      else if (s.col === "assigned") {
+        av = a.assignedRating != null ? a.assignedRating : (parseFloat(a.doubleRating) || 0);
+        bv = b.assignedRating != null ? b.assignedRating : (parseFloat(b.doubleRating) || 0);
+      }
+      else return 0;
+      if (typeof av === "string") return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      return s.dir === "asc" ? av - bv : bv - av;
+    });
+  }
+
+  function toggleSort(key: string, col: string) {
+    setSortState(prev => {
+      const cur = prev[key];
+      if (cur?.col === col) return { ...prev, [key]: { col, dir: cur.dir === "asc" ? "desc" : "asc" } };
+      return { ...prev, [key]: { col, dir: "asc" } };
+    });
+    setPageNums(prev => ({ ...prev, [key]: 0 }));
   }
 
   async function loadAssignments() {
@@ -411,124 +459,199 @@ export default function AdminEventDetail() {
                   { label: "Pending Approval", regs: pending, color: "text-blue-600" },
                   { label: "Waitlisted", regs: waitlisted, color: "text-yellow-600" },
                   { label: "Rejected", regs: rejected, color: "text-muted-foreground" },
-                ].map(section => (
-                  section.regs.length > 0 && (
-                    <div key={section.label} className="bg-card border border-card-border rounded-lg overflow-hidden">
-                      <div className="px-5 py-3 border-b border-border bg-muted/30">
-                        <span className={`text-sm font-semibold ${section.color}`}>{section.label}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">({section.regs.length})</span>
+                ].map(section => {
+                  if (section.regs.length === 0) return null;
+                  const key = section.label;
+                  const sorted = sortRegs(section.regs, key);
+                  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+                  const curPage = Math.min(pageNums[key] ?? 0, totalPages - 1);
+                  const paged = sorted.slice(curPage * pageSize, (curPage + 1) * pageSize);
+                  const sortCol = sortState[key]?.col;
+                  const sortDir = sortState[key]?.dir;
+                  return (
+                    <div key={key} className="bg-card border border-card-border rounded-lg overflow-hidden">
+                      <div className="px-5 py-3 border-b border-border bg-muted/30 flex items-center justify-between flex-wrap gap-2">
+                        <div>
+                          <span className={`text-sm font-semibold ${section.color}`}>{section.label}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">({section.regs.length})</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Per page:</span>
+                          <Select value={String(pageSize)} onValueChange={v => { setPageSize(Number(v)); setPageNums({}); }}>
+                            <SelectTrigger className="h-6 w-16 text-xs px-2"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="10">10</SelectItem>
+                              <SelectItem value="25">25</SelectItem>
+                              <SelectItem value="50">50</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
                       <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-border">
-                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Name</th>
-                            {event.formatType === "fixed_partner" && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Partner</th>}
-                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR Double</th>
-                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Status</th>
-                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">New</th>
-                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Role</th>
-                            <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {section.regs.map(reg => (
-                            <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
-                              <td className="px-5 py-3"><div className="font-medium">{reg.playerName}</div><div className="text-xs text-muted-foreground">{reg.memberDuprId}</div></td>
-                              {event.formatType === "fixed_partner" && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
-                              <td className="px-5 py-3 font-mono">
-                                {reg.doubleRating || "NR"}
-                                {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
-                              </td>
-                              <td className="px-5 py-3"><StatusBadge status={reg.status} /></td>
-                              <td className="px-5 py-3">
-                                <input
-                                  type="checkbox"
-                                  data-testid={`checkbox-new-${reg.id}`}
-                                  className="w-4 h-4 accent-primary cursor-pointer"
-                                  checked={!!reg.isNew}
-                                  onChange={e => updateReg.mutate(
-                                    { id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
-                                    { onSuccess: invalidate, onError: () => toast({ title: "Failed to update", variant: "destructive" }) }
-                                  )}
-                                />
-                              </td>
-                              <td className="px-5 py-3">
-                                {reg.eventRole ? (
-                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                                    <Star className="w-3 h-3" />
-                                    {reg.eventRole}
-                                  </span>
-                                ) : (
-                                  <span className="text-xs text-muted-foreground">—</span>
-                                )}
-                              </td>
-                              <td className="px-5 py-3">
-                                <div className="flex items-center justify-end">
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
-                                        Actions <ChevronDown className="w-3 h-3" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48">
-                                      {reg.status === "pending_approval" && (
-                                        <>
-                                          <DropdownMenuItem data-testid={`action-approve-${reg.id}`} className="text-primary gap-2" onClick={() => handleApprove(reg.id)}>
-                                            <CheckCircle className="w-3.5 h-3.5" /> Approve
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem data-testid={`action-reject-${reg.id}`} className="text-destructive gap-2" onClick={() => handleReject(reg.id)}>
-                                            <XCircle className="w-3.5 h-3.5" /> Reject
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator />
-                                        </>
-                                      )}
-                                      {reg.status === "waitlisted" && (
-                                        <>
-                                          <DropdownMenuItem data-testid={`action-promote-${reg.id}`} className="text-primary gap-2" onClick={() => handlePromote(reg.id)}>
-                                            <ArrowUp className="w-3.5 h-3.5" /> Promote
-                                          </DropdownMenuItem>
-                                          <DropdownMenuSeparator />
-                                        </>
-                                      )}
-                                      {eventRolesList.length > 0 && (
-                                        <>
-                                          {eventRolesList.map(role => (
-                                            <DropdownMenuItem
-                                              key={role}
-                                              data-testid={`action-role-${role.replace(/\s+/g, "-").toLowerCase()}-${reg.id}`}
-                                              className="gap-2"
-                                              onClick={() => updateReg.mutate(
-                                                { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === role ? null : role } },
-                                                { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
-                                              )}
-                                            >
-                                              <Star className="w-3.5 h-3.5" />
-                                              {reg.eventRole === role ? `Remove ${role}` : `Set ${role}`}
-                                            </DropdownMenuItem>
-                                          ))}
-                                          <DropdownMenuSeparator />
-                                        </>
-                                      )}
-                                      <DropdownMenuItem
-                                        data-testid={`action-delete-${reg.id}`}
-                                        className="text-destructive gap-2"
-                                        onClick={() => setDeleteRegId(reg.id)}
-                                      >
-                                        <Trash2 className="w-3.5 h-3.5" /> Remove
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
-                                </div>
-                              </td>
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border">
+                              <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />
+                              {event.formatType === "fixed_partner" && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Partner</th>}
+                              <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />
+                              <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Status</th>
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">New</th>
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Role</th>
+                              <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                             </tr>
-                          ))}
-                        </tbody>
-                      </table>
+                          </thead>
+                          <tbody>
+                            {paged.map(reg => {
+                              const storedRating = reg.assignedRating != null ? reg.assignedRating : (reg.doubleRating ? parseFloat(reg.doubleRating) : null);
+                              const editVal = editingRatings[reg.id] !== undefined ? editingRatings[reg.id] : (storedRating != null ? String(storedRating) : "");
+                              const saveRating = (val: string) => {
+                                const parsed = val.trim() === "" ? null : parseFloat(val);
+                                const n = (parsed === null || !isNaN(parsed)) ? parsed : null;
+                                if (n !== storedRating) {
+                                  updateReg.mutate(
+                                    { id: eventId, regId: reg.id, data: { assignedRating: n } },
+                                    {
+                                      onSuccess: () => { invalidate(); setEditingRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; }); },
+                                      onError: () => toast({ title: "Failed to update rating", variant: "destructive" }),
+                                    }
+                                  );
+                                } else {
+                                  setEditingRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                }
+                              };
+                              return (
+                                <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
+                                  <td className="px-5 py-3"><div className="font-medium">{reg.playerName}</div><div className="text-xs text-muted-foreground">{reg.memberDuprId}</div></td>
+                                  {event.formatType === "fixed_partner" && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
+                                  <td className="px-5 py-3 font-mono">
+                                    {reg.doubleRating || "NR"}
+                                    {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
+                                  </td>
+                                  <td className="px-2 py-2">
+                                    <input
+                                      data-testid={`input-assigned-rating-${reg.id}`}
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      max="8"
+                                      placeholder="—"
+                                      className="w-20 h-7 text-sm font-mono px-2 rounded border border-transparent bg-transparent hover:border-border focus:border-primary focus:bg-background focus:outline-none focus:ring-0 transition-colors"
+                                      value={editVal}
+                                      onChange={e => setEditingRatings(prev => ({ ...prev, [reg.id]: e.target.value }))}
+                                      onBlur={e => saveRating(e.target.value)}
+                                      onKeyDown={e => {
+                                        if (e.key === "Enter") e.currentTarget.blur();
+                                        if (e.key === "Escape") setEditingRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                      }}
+                                    />
+                                  </td>
+                                  <td className="px-5 py-3"><StatusBadge status={reg.status} /></td>
+                                  <td className="px-5 py-3">
+                                    <input
+                                      type="checkbox"
+                                      data-testid={`checkbox-new-${reg.id}`}
+                                      className="w-4 h-4 accent-primary cursor-pointer"
+                                      checked={!!reg.isNew}
+                                      onChange={e => updateReg.mutate(
+                                        { id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
+                                        { onSuccess: invalidate, onError: () => toast({ title: "Failed to update", variant: "destructive" }) }
+                                      )}
+                                    />
+                                  </td>
+                                  <td className="px-5 py-3">
+                                    {reg.eventRole ? (
+                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                                        <Star className="w-3 h-3" />
+                                        {reg.eventRole}
+                                      </span>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">—</span>
+                                    )}
+                                  </td>
+                                  <td className="px-5 py-3">
+                                    <div className="flex items-center justify-end">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
+                                            Actions <ChevronDown className="w-3 h-3" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                          {reg.status === "pending_approval" && (
+                                            <>
+                                              <DropdownMenuItem data-testid={`action-approve-${reg.id}`} className="text-primary gap-2" onClick={() => handleApprove(reg.id)}>
+                                                <CheckCircle className="w-3.5 h-3.5" /> Approve
+                                              </DropdownMenuItem>
+                                              <DropdownMenuItem data-testid={`action-reject-${reg.id}`} className="text-destructive gap-2" onClick={() => handleReject(reg.id)}>
+                                                <XCircle className="w-3.5 h-3.5" /> Reject
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                            </>
+                                          )}
+                                          {reg.status === "waitlisted" && (
+                                            <>
+                                              <DropdownMenuItem data-testid={`action-promote-${reg.id}`} className="text-primary gap-2" onClick={() => handlePromote(reg.id)}>
+                                                <ArrowUp className="w-3.5 h-3.5" /> Promote
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                            </>
+                                          )}
+                                          {eventRolesList.length > 0 && (
+                                            <>
+                                              {eventRolesList.map(role => (
+                                                <DropdownMenuItem
+                                                  key={role}
+                                                  data-testid={`action-role-${role.replace(/\s+/g, "-").toLowerCase()}-${reg.id}`}
+                                                  className="gap-2"
+                                                  onClick={() => updateReg.mutate(
+                                                    { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === role ? null : role } },
+                                                    { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
+                                                  )}
+                                                >
+                                                  <Star className="w-3.5 h-3.5" />
+                                                  {reg.eventRole === role ? `Remove ${role}` : `Set ${role}`}
+                                                </DropdownMenuItem>
+                                              ))}
+                                              <DropdownMenuSeparator />
+                                            </>
+                                          )}
+                                          <DropdownMenuItem
+                                            data-testid={`action-delete-${reg.id}`}
+                                            className="text-destructive gap-2"
+                                            onClick={() => setDeleteRegId(reg.id)}
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5" /> Remove
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
                       </div>
+                      {totalPages > 1 && (
+                        <div className="flex items-center justify-between px-5 py-3 border-t border-border bg-muted/10">
+                          <span className="text-xs text-muted-foreground">
+                            {curPage * pageSize + 1}–{Math.min((curPage + 1) * pageSize, sorted.length)} of {sorted.length}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={curPage === 0} onClick={() => setPageNums(prev => ({ ...prev, [key]: curPage - 1 }))}>
+                              <ChevronLeft className="w-4 h-4" />
+                            </Button>
+                            <span className="text-xs text-muted-foreground px-1">{curPage + 1} / {totalPages}</span>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={curPage >= totalPages - 1} onClick={() => setPageNums(prev => ({ ...prev, [key]: curPage + 1 }))}>
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  )
-                ))}
+                  );
+                })}
                 {(registrations?.length ?? 0) === 0 && (
                   <div className="text-center py-12 text-muted-foreground"><p className="text-sm">No registrations yet.</p></div>
                 )}

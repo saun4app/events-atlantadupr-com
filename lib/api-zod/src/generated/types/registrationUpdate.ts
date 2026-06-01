@@ -14,4 +14,6 @@ export interface RegistrationUpdate {
   /** @nullable */
   eventRole?: string | null;
   isNew?: boolean;
+  /** @nullable */
+  assignedRating?: number | null;
 }

@@ -25,6 +25,7 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
     status: reg.status,
     eventRole: reg.eventRole ?? null,
     isNew: reg.isNew === "true",
+    assignedRating: reg.assignedRating ?? null,
     registeredAt: reg.registeredAt,
     approvedAt: reg.approvedAt ?? null,
     approvedBy: reg.approvedBy ?? null,
@@ -93,9 +94,11 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     status = "waitlisted";
   }
 
+  const assignedRating = member?.doubleRating ? parseFloat(member.doubleRating) : null;
+
   const [reg] = await db
     .insert(registrationsTable)
-    .values({ eventId, memberDuprId, partnerDuprId: partnerDuprId ?? null, status })
+    .values({ eventId, memberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
     .returning();
 
   const entry = await buildRosterEntry(reg);
@@ -132,6 +135,7 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
   if (req.body.partnerDuprId !== undefined) updates.partnerDuprId = req.body.partnerDuprId;
   if (req.body.eventRole !== undefined) updates.eventRole = req.body.eventRole ?? null;
   if (req.body.isNew !== undefined) updates.isNew = req.body.isNew ? "true" : "false";
+  if (req.body.assignedRating !== undefined) updates.assignedRating = req.body.assignedRating !== null ? Number(req.body.assignedRating) : null;
 
   const [updated] = await db
     .update(registrationsTable)

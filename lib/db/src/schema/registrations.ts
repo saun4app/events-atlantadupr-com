@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { eventsTable } from "./events";
@@ -21,6 +21,7 @@ export const registrationsTable = pgTable("atl_dupr_signups", {
     .default("confirmed"),
   eventRole: text("event_role"),
   isNew: text("is_new", { enum: ["true", "false"] }).default("false"),
+  assignedRating: doublePrecision("assigned_rating"),
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
   approvedBy: integer("approved_by").references(() => usersTable.id),
