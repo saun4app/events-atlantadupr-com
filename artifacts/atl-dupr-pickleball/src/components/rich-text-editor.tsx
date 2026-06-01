@@ -33,7 +33,10 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
   });
 
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
+    if (!editor) return;
+    const editorHtml = editor.getHTML();
+    const normalize = (v: string) => (v === "<p></p>" ? "" : v);
+    if (normalize(value) !== normalize(editorHtml)) {
       editor.commands.setContent(value || "", { emitUpdate: false });
     }
   }, [value, editor]);

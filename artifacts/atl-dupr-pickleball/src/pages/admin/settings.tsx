@@ -206,6 +206,9 @@ export default function AdminSettings() {
   // ── Rating Requirements ──────────────────────────────────────
   const [newRatingKey, setNewRatingKey] = useState("");
   const [newRatingLabel, setNewRatingLabel] = useState("");
+  const [editingRatingIdx, setEditingRatingIdx] = useState<number | null>(null);
+  const [editRatingKey, setEditRatingKey] = useState("");
+  const [editRatingLabel, setEditRatingLabel] = useState("");
 
   function addRatingRequirement() {
     const key = newRatingKey.trim();
@@ -219,7 +222,28 @@ export default function AdminSettings() {
     setNewRatingLabel("");
   }
   function deleteRatingRequirement(i: number) {
+    if (editingRatingIdx === i) setEditingRatingIdx(null);
     update("defaultRatingRequirements", form.defaultRatingRequirements.filter((_, idx) => idx !== i));
+  }
+  function startEditRatingRequirement(i: number) {
+    setEditingRatingIdx(i);
+    setEditRatingKey(form.defaultRatingRequirements[i].key);
+    setEditRatingLabel(form.defaultRatingRequirements[i].label);
+  }
+  function cancelEditRatingRequirement() {
+    setEditingRatingIdx(null);
+  }
+  function saveEditRatingRequirement() {
+    if (editingRatingIdx === null) return;
+    const key = editRatingKey.trim();
+    const label = editRatingLabel.trim();
+    if (!key || !label) return;
+    if (form.defaultRatingRequirements.some((r, idx) => r.key === key && idx !== editingRatingIdx)) return;
+    const updated = form.defaultRatingRequirements.map((r, idx) =>
+      idx === editingRatingIdx ? { key, label } : r
+    );
+    update("defaultRatingRequirements", updated);
+    setEditingRatingIdx(null);
   }
 
   return (
@@ -336,6 +360,7 @@ export default function AdminSettings() {
               <div className="space-y-1.5">
                 <Label>Rotating Partners Format</Label>
                 <RichTextEditor
+                  key="rotating"
                   data-testid="editor-rotating-description"
                   value={form.rotatingPartnersDescription}
                   onChange={v => update("rotatingPartnersDescription", v)}
@@ -346,6 +371,7 @@ export default function AdminSettings() {
               <div className="space-y-1.5">
                 <Label>Fixed Partner Format</Label>
                 <RichTextEditor
+                  key="fixed"
                   data-testid="editor-fixed-description"
                   value={form.fixedPartnerDescription}
                   onChange={v => update("fixedPartnerDescription", v)}
@@ -537,19 +563,66 @@ export default function AdminSettings() {
                 <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
                   {form.defaultRatingRequirements.map((req, i) => (
                     <div key={req.key} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`rating-req-row-${i}`}>
-                      <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground truncate">{req.label}</p>
-                        <p className="text-xs text-muted-foreground font-mono truncate">{req.key}</p>
-                      </div>
-                      <Button
-                        type="button" variant="ghost" size="sm"
-                        className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
-                        data-testid={`button-delete-rating-req-${i}`}
-                        onClick={() => deleteRatingRequirement(i)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {editingRatingIdx === i ? (
+                        <>
+                          <Input
+                            data-testid={`input-edit-rating-key-${i}`}
+                            value={editRatingKey}
+                            onChange={e => setEditRatingKey(e.target.value)}
+                            placeholder="key"
+                            className="w-28 shrink-0 h-7 text-xs font-mono"
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveEditRatingRequirement(); } if (e.key === "Escape") cancelEditRatingRequirement(); }}
+                          />
+                          <Input
+                            data-testid={`input-edit-rating-label-${i}`}
+                            value={editRatingLabel}
+                            onChange={e => setEditRatingLabel(e.target.value)}
+                            placeholder="Label"
+                            className="flex-1 h-7 text-xs"
+                            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); saveEditRatingRequirement(); } if (e.key === "Escape") cancelEditRatingRequirement(); }}
+                          />
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-primary hover:text-primary h-7 px-2 shrink-0 text-xs"
+                            data-testid={`button-save-rating-req-${i}`}
+                            onClick={saveEditRatingRequirement}
+                          >
+                            Save
+                          </Button>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-muted-foreground h-7 px-2 shrink-0 text-xs"
+                            data-testid={`button-cancel-rating-req-${i}`}
+                            onClick={cancelEditRatingRequirement}
+                          >
+                            Cancel
+                          </Button>
+                        </>
+                      ) : (
+                        <>
+                          <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-foreground truncate">{req.label}</p>
+                            <p className="text-xs text-muted-foreground font-mono truncate">{req.key}</p>
+                          </div>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-foreground h-7 w-7 p-0 shrink-0"
+                            data-testid={`button-edit-rating-req-${i}`}
+                            onClick={() => startEditRatingRequirement(i)}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
+                            data-testid={`button-delete-rating-req-${i}`}
+                            onClick={() => deleteRatingRequirement(i)}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
