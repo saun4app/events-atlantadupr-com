@@ -188,6 +188,8 @@ export default function AdminEventDetail() {
       else if (s.col === "new") { av = a.isNew ? 1 : 0; bv = b.isNew ? 1 : 0; }
       else if (s.col === "role") { av = (a.eventRole ?? "").toLowerCase(); bv = (b.eventRole ?? "").toLowerCase(); }
       else if (s.col === "partner") { av = (a.partnerName ?? "").toLowerCase(); bv = (b.partnerName ?? "").toLowerCase(); }
+      else if (s.col === "email") { av = ((a as any).playerEmail ?? "").toLowerCase(); bv = ((b as any).playerEmail ?? "").toLowerCase(); }
+      else if (s.col === "phone") { av = ((a as any).playerPhone ?? "").toLowerCase(); bv = ((b as any).playerPhone ?? "").toLowerCase(); }
       else return 0;
       if (typeof av === "string") return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       return s.dir === "asc" ? av - bv : bv - av;
@@ -320,6 +322,7 @@ export default function AdminEventDetail() {
   function handleApprove(regId: number) { approveReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Approved" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleReject(regId: number) { rejectReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handlePromote(regId: number) { promoteReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Promoted from waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleMoveToWaitlist(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleDeleteReg() {
     if (deleteRegId === null) return;
     deleteReg.mutate({ id: eventId, regId: deleteRegId }, { onSuccess: () => { toast({ title: "Removed" }); invalidate(); setDeleteRegId(null); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
@@ -497,6 +500,7 @@ export default function AdminEventDetail() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border">
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
                               <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />
                               {event.formatType === "fixed_partner" && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
                               <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />
@@ -504,13 +508,13 @@ export default function AdminEventDetail() {
                               <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />
                               <SortHeader label="New" col="new" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "new")} />
                               <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />
-                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Email</th>
-                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Phone</th>
+                              <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />
+                              <SortHeader label="Phone" col="phone" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "phone")} />
                               <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {paged.map(reg => {
+                            {paged.map((reg, idx) => {
                               const parsedDupr = parseFloat(reg.doubleRating);
                               const storedRating = reg.assignedRating != null ? reg.assignedRating : (reg.doubleRating && isFinite(parsedDupr) ? parsedDupr : null);
                               const editVal = editingRatings[reg.id] !== undefined ? editingRatings[reg.id] : (storedRating != null ? String(storedRating) : "");
@@ -531,6 +535,7 @@ export default function AdminEventDetail() {
                               };
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
+                                  <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{curPage * pageSize + idx + 1}</td>
                                   <td className="px-5 py-3"><div className="font-medium">{reg.playerName}</div><div className="text-xs text-muted-foreground">{reg.memberDuprId}</div></td>
                                   {event.formatType === "fixed_partner" && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
                                   <td className="px-5 py-3 font-mono">
@@ -610,6 +615,14 @@ export default function AdminEventDetail() {
                                             <>
                                               <DropdownMenuItem data-testid={`action-promote-${reg.id}`} className="text-primary gap-2" onClick={() => handlePromote(reg.id)}>
                                                 <ArrowUp className="w-3.5 h-3.5" /> Promote
+                                              </DropdownMenuItem>
+                                              <DropdownMenuSeparator />
+                                            </>
+                                          )}
+                                          {reg.status === "confirmed" && (
+                                            <>
+                                              <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
+                                                <ArrowDown className="w-3.5 h-3.5" /> Move to Waitlist
                                               </DropdownMenuItem>
                                               <DropdownMenuSeparator />
                                             </>
