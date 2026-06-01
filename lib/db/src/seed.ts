@@ -22,6 +22,7 @@ async function seed() {
     minTeams: 4,
     maxTeams: 12,
     defaultEventDurationHours: 2,
+    eventRoles: ["Captain", "Sub"],
     defaultEventNames: [
       "Saturday Morning Round Robin",
       "Sunday Doubles Social",
