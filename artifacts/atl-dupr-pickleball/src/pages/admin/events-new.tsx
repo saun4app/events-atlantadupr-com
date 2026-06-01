@@ -371,6 +371,7 @@ export default function AdminEventNew() {
             <div className="space-y-1.5">
               <Label>Description</Label>
               <RichTextEditor
+                key={form.formatType}
                 data-testid="input-event-description"
                 value={form.description}
                 onChange={v => {
@@ -488,12 +489,7 @@ export default function AdminEventNew() {
                   </SelectTrigger>
                   <SelectContent>
                     {ratingOptions.map(opt => (
-                      <SelectItem key={opt.key} value={opt.key}>
-                        <span className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">{opt.key}</span>
-                          <span className="text-foreground">{opt.label}</span>
-                        </span>
-                      </SelectItem>
+                      <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

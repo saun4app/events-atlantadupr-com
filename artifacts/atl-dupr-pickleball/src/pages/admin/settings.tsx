@@ -88,6 +88,8 @@ export default function AdminSettings() {
   const [dirty, setDirty] = useState(false);
   const formInitialized = useRef(false);
   const [newEventName, setNewEventName] = useState("");
+  const [editingEventNameIdx, setEditingEventNameIdx] = useState<number | null>(null);
+  const [editEventNameValue, setEditEventNameValue] = useState("");
 
   useEffect(() => {
     if (settings && !formInitialized.current) {
@@ -502,15 +504,69 @@ export default function AdminSettings() {
                 <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
                   {form.defaultEventNames.map((name, i) => (
                     <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`event-name-row-${i}`}>
-                      <span className="flex-1 text-sm text-foreground truncate">{name}</span>
-                      <Button
-                        type="button" variant="ghost" size="sm"
-                        className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
-                        data-testid={`button-delete-event-name-${i}`}
-                        onClick={() => update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== i))}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
+                      {editingEventNameIdx === i ? (
+                        <>
+                          <Input
+                            data-testid={`input-edit-event-name-${i}`}
+                            value={editEventNameValue}
+                            onChange={e => setEditEventNameValue(e.target.value)}
+                            className="flex-1 h-7 text-sm"
+                            onKeyDown={e => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const v = editEventNameValue.trim();
+                                if (v && !form.defaultEventNames.some((n, idx) => n === v && idx !== i)) {
+                                  update("defaultEventNames", form.defaultEventNames.map((n, idx) => idx === i ? v : n));
+                                  setEditingEventNameIdx(null);
+                                }
+                              }
+                              if (e.key === "Escape") setEditingEventNameIdx(null);
+                            }}
+                            autoFocus
+                          />
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-primary h-7 px-2 shrink-0 text-xs"
+                            data-testid={`button-save-event-name-${i}`}
+                            onClick={() => {
+                              const v = editEventNameValue.trim();
+                              if (v && !form.defaultEventNames.some((n, idx) => n === v && idx !== i)) {
+                                update("defaultEventNames", form.defaultEventNames.map((n, idx) => idx === i ? v : n));
+                                setEditingEventNameIdx(null);
+                              }
+                            }}
+                          >Save</Button>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-muted-foreground h-7 px-2 shrink-0 text-xs"
+                            data-testid={`button-cancel-event-name-${i}`}
+                            onClick={() => setEditingEventNameIdx(null)}
+                          >Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm text-foreground truncate">{name}</span>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-foreground h-7 w-7 p-0 shrink-0"
+                            data-testid={`button-edit-event-name-${i}`}
+                            onClick={() => { setEditingEventNameIdx(i); setEditEventNameValue(name); }}
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </Button>
+                          <Button
+                            type="button" variant="ghost" size="sm"
+                            className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
+                            data-testid={`button-delete-event-name-${i}`}
+                            onClick={() => {
+                              if (editingEventNameIdx === i) setEditingEventNameIdx(null);
+                              update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== i));
+                            }}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -603,7 +659,6 @@ export default function AdminSettings() {
                           <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                           <div className="flex-1 min-w-0">
                             <p className="text-sm text-foreground truncate">{req.label}</p>
-                            <p className="text-xs text-muted-foreground font-mono truncate">{req.key}</p>
                           </div>
                           <Button
                             type="button" variant="ghost" size="sm"
