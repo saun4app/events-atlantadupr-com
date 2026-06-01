@@ -466,7 +466,7 @@ export default function AdminEventDetail() {
                     className="w-56 h-20 text-sm font-mono resize-none"
                     required
                   />
-                  <p className="text-xs text-muted-foreground">Separate multiple IDs with commas or new lines.</p>
+                  <p className="text-xs text-muted-foreground">Separate multiple IDs with commas, spaces, or new lines.</p>
                 </div>
                 {event.formatType === "fixed_partner" && (
                   <div className="space-y-1.5">
