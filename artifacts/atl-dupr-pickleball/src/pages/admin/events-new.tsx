@@ -86,7 +86,7 @@ function getDefaultRatingType(rrc: RatingRequirementsConfig): string {
 function getDefaultRatingConfig(type: string, rrc: RatingRequirementsConfig): any {
   if (type === "dupr") return { min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed };
   if (type === "self_numeric") return { min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax };
-  if (type === "self_skill") return { maxLevel: rrc.selfSkill.levels[0]?.level ?? 1 };
+  if (type === "self_skill") return { maxLevel: [...rrc.selfSkill.levels].sort((a, b) => a.level - b.level)[0]?.level ?? 1 };
   return null;
 }
 
@@ -536,9 +536,9 @@ export default function AdminEventNew() {
                   <Select value={String(ratingConfig.maxLevel)} onValueChange={v => setRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
                     <SelectTrigger data-testid="select-skill-max-level"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {rrc.selfSkill.levels.map(lv => (
+                      {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
                         <SelectItem key={lv.level} value={String(lv.level)}>
-                          Level {lv.level}: {lv.text}
+                          {lv.text}
                         </SelectItem>
                       ))}
                     </SelectContent>

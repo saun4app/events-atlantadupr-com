@@ -187,7 +187,7 @@ export default function AdminEventDetail() {
     } else if (type === "self_numeric") {
       setEditRatingConfig({ min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax });
     } else if (type === "self_skill") {
-      setEditRatingConfig({ maxLevel: rrc.selfSkill.levels[0]?.level ?? 1 });
+      setEditRatingConfig({ maxLevel: [...rrc.selfSkill.levels].sort((a, b) => a.level - b.level)[0]?.level ?? 1 });
     }
   }
 
@@ -544,8 +544,8 @@ export default function AdminEventDetail() {
                     <Select value={String(editRatingConfig.maxLevel ?? rrc.selfSkill.levels[0]?.level ?? 1)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
-                        {rrc.selfSkill.levels.map((lv: SkillLevel) => (
-                          <SelectItem key={lv.level} value={String(lv.level)}>Level {lv.level}: {lv.text}</SelectItem>
+                        {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
+                          <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
