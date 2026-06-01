@@ -174,6 +174,7 @@ export default function AdminEventDetail() {
   function sortRegs(regs: any[], key: string) {
     const s = sortState[key];
     if (!s) return regs;
+    const statusOrder: Record<string, number> = { confirmed: 0, pending_approval: 1, waitlisted: 2, rejected: 3 };
     return [...regs].sort((a, b) => {
       let av: any, bv: any;
       if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
@@ -182,6 +183,9 @@ export default function AdminEventDetail() {
         av = a.assignedRating != null ? a.assignedRating : (parseFloat(a.doubleRating) || 0);
         bv = b.assignedRating != null ? b.assignedRating : (parseFloat(b.doubleRating) || 0);
       }
+      else if (s.col === "status") { av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; }
+      else if (s.col === "new") { av = a.isNew ? 1 : 0; bv = b.isNew ? 1 : 0; }
+      else if (s.col === "role") { av = (a.eventRole ?? "").toLowerCase(); bv = (b.eventRole ?? "").toLowerCase(); }
       else return 0;
       if (typeof av === "string") return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       return s.dir === "asc" ? av - bv : bv - av;
@@ -495,9 +499,9 @@ export default function AdminEventDetail() {
                               {event.formatType === "fixed_partner" && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Partner</th>}
                               <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />
                               <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />
-                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Status</th>
-                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">New</th>
-                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Role</th>
+                              <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />
+                              <SortHeader label="New" col="new" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "new")} />
+                              <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />
                               <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                             </tr>
                           </thead>

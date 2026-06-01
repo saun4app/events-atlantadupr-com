@@ -10,7 +10,7 @@ const router = Router({ mergeParams: true });
 type EventParams = { id: string };
 type RegParams = { id: string; regId: string };
 
-async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
+async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false) {
   const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, reg.memberDuprId));
   let partnerName: string | null = null;
   if (reg.partnerDuprId) {
@@ -25,7 +25,7 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
     status: reg.status,
     eventRole: reg.eventRole ?? null,
     isNew: reg.isNew === "true",
-    assignedRating: reg.assignedRating ?? null,
+    ...(includeAdminFields ? { assignedRating: reg.assignedRating ?? null } : {}),
     registeredAt: reg.registeredAt,
     approvedAt: reg.approvedAt ?? null,
     approvedBy: reg.approvedBy ?? null,
@@ -39,8 +39,9 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
 
 router.get("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
+  const isAuthenticated = !!((req as any).session?.userId);
   const regs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
-  const entries = await Promise.all(regs.map(buildRosterEntry));
+  const entries = await Promise.all(regs.map(r => buildRosterEntry(r, isAuthenticated)));
   return res.json(entries);
 });
 
@@ -101,7 +102,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     .values({ eventId, memberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
     .returning();
 
-  const entry = await buildRosterEntry(reg);
+  const entry = await buildRosterEntry(reg, true);
   return res.status(201).json(entry);
 });
 
@@ -113,7 +114,7 @@ router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
       and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
     );
   if (!reg) return res.status(404).json({ error: "Registration not found" });
-  return res.json(await buildRosterEntry(reg));
+  return res.json(await buildRosterEntry(reg, !!((req as any).session?.userId)));
 });
 
 router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
@@ -143,7 +144,7 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
     .where(eq(registrationsTable.id, Number(req.params.regId)))
     .returning();
 
-  return res.json(await buildRosterEntry(updated));
+  return res.json(await buildRosterEntry(updated, true));
 });
 
 router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
@@ -199,7 +200,7 @@ router.post("/:regId/approve", requireAuth, requireRole("admin", "event_organize
     .where(eq(registrationsTable.id, Number(req.params.regId)))
     .returning();
 
-  return res.json(await buildRosterEntry(updated));
+  return res.json(await buildRosterEntry(updated, true));
 });
 
 router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
@@ -222,7 +223,7 @@ router.post("/:regId/reject", requireAuth, requireRole("admin", "event_organizer
     .where(eq(registrationsTable.id, Number(req.params.regId)))
     .returning();
 
-  return res.json(await buildRosterEntry(updated));
+  return res.json(await buildRosterEntry(updated, true));
 });
 
 router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
@@ -252,7 +253,7 @@ router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organize
     .where(eq(registrationsTable.id, Number(req.params.regId)))
     .returning();
 
-  return res.json(await buildRosterEntry(updated));
+  return res.json(await buildRosterEntry(updated, true));
 });
 
 export default router;
