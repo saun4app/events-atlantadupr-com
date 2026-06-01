@@ -3,7 +3,7 @@ import { useParams, useLocation, Link } from "wouter";
 import {
   useGetEvent, useListRegistrations, useUpdateEvent, useDeleteEvent, useUpdateRegistration,
   useApproveRegistration, useRejectRegistration, usePromoteFromWaitlist,
-  useDeleteRegistration, useCreateRegistration, useListUsers, useGetSettings,
+  useDeleteRegistration, useCreateRegistration, useGetSettings,
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
   getListEventsQueryKey, getGetEventsSummaryQueryKey
 } from "@workspace/api-client-react";
@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, UserCog, X, ChevronDown, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, Star } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -99,8 +99,6 @@ function toLocalInput(dt: string | null | undefined): string {
   try { return new Date(dt).toISOString().slice(0, 16); } catch { return ""; }
 }
 
-type Assignment = { userId: number; eventId: number; assignedAt: string; userName: string; userUsername: string; userRole: string };
-
 export default function AdminEventDetail() {
   const { id } = useParams<{ id: string }>();
   const eventId = Number(id);
@@ -124,7 +122,6 @@ export default function AdminEventDetail() {
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const isAdminOrOrganizer = user?.role === "admin" || user?.role === "event_organizer";
 
-  const { data: allUsers } = useListUsers({ query: { enabled: isAdminOrOrganizer, queryKey: ["listUsers"] } });
 
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
@@ -149,10 +146,6 @@ export default function AdminEventDetail() {
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [editRatingConfig, setEditRatingConfig] = useState<any>(null);
 
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(false);
-  const [showAssignDialog, setShowAssignDialog] = useState(false);
-  const [assignUserId, setAssignUserId] = useState<string>("");
 
   const rrc = getRrc(settings);
 
@@ -212,19 +205,6 @@ export default function AdminEventDetail() {
     });
     setPageNums(prev => ({ ...prev, [key]: 0 }));
   }
-
-  async function loadAssignments() {
-    setAssignmentsLoading(true);
-    try {
-      const res = await fetch(`/api/events/${eventId}/assignments`, { credentials: "include" });
-      if (res.ok) setAssignments(await res.json());
-    } catch { /* ignore */ }
-    setAssignmentsLoading(false);
-  }
-
-  useEffect(() => {
-    if (eventId && isAdminOrOrganizer) loadAssignments();
-  }, [eventId, isAdminOrOrganizer]);
 
   function openEditDialog() {
     if (!event) return;
@@ -301,32 +281,6 @@ export default function AdminEventDetail() {
     });
   }
 
-  async function handleAddAssignment(e: React.FormEvent) {
-    e.preventDefault();
-    if (!assignUserId) return;
-    try {
-      const res = await fetch(`/api/events/${eventId}/assignments`, {
-        method: "POST", credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId: Number(assignUserId) }),
-      });
-      if (res.ok) {
-        toast({ title: "Captain/leader assigned" }); setShowAssignDialog(false); setAssignUserId(""); loadAssignments();
-      } else {
-        const err = await res.json().catch(() => ({}));
-        toast({ title: err.error || "Failed to assign", variant: "destructive" });
-      }
-    } catch { toast({ title: "Failed to assign", variant: "destructive" }); }
-  }
-
-  async function handleRemoveAssignment(userId: number) {
-    try {
-      const res = await fetch(`/api/events/${eventId}/assignments/${userId}`, { method: "DELETE", credentials: "include" });
-      if (res.ok) { toast({ title: "Assignment removed" }); loadAssignments(); }
-      else toast({ title: "Failed to remove assignment", variant: "destructive" });
-    } catch { toast({ title: "Failed to remove assignment", variant: "destructive" }); }
-  }
-
   function handleApprove(regId: number) { approveReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Approved" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleReject(regId: number) { rejectReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handlePromote(regId: number) { promoteReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Promoted from waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
@@ -373,10 +327,6 @@ export default function AdminEventDetail() {
   const pending = registrations?.filter(r => r.status === "pending_approval") ?? [];
   const rejected = registrations?.filter(r => r.status === "rejected") ?? [];
   const cancelled = registrations?.filter(r => r.status === "cancelled") ?? [];
-  const assignableUsers = (allUsers ?? []).filter(u => u.role === "event_captain" || u.role === "court_leader");
-  const assignedUserIds = new Set(assignments.map(a => a.userId));
-  const unassignedUsers = assignableUsers.filter(u => !assignedUserIds.has(u.id));
-
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
@@ -426,37 +376,6 @@ export default function AdminEventDetail() {
                 <span className="text-muted-foreground">/ {event.maxParticipants} max</span>
               </div>
             </div>
-
-            {isAdminOrOrganizer && (
-              <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide flex items-center gap-1.5">
-                    <UserCog className="w-4 h-4" /> Event Captains / Court Leaders
-                  </h2>
-                  <Button data-testid="button-assign-captain" variant="outline" size="sm" className="gap-1.5" onClick={() => setShowAssignDialog(true)} disabled={unassignedUsers.length === 0}>
-                    <UserPlus className="w-3.5 h-3.5" /> Assign
-                  </Button>
-                </div>
-                {assignmentsLoading ? <Skeleton className="h-8 w-full" /> : assignments.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">No captains or court leaders assigned to this event.</p>
-                ) : (
-                  <div className="space-y-2">
-                    {assignments.map(a => (
-                      <div key={a.userId} data-testid={`row-assignment-${a.userId}`} className="flex items-center justify-between px-3 py-2 bg-muted/30 rounded-md">
-                        <div>
-                          <span className="font-medium text-sm">{a.userName}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">@{a.userUsername}</span>
-                          <span className="ml-2 text-xs text-muted-foreground">({a.userRole.replace("_", " ")})</span>
-                        </div>
-                        <Button data-testid={`button-remove-assignment-${a.userId}`} variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive h-7 w-7 p-0" onClick={() => handleRemoveAssignment(a.userId)}>
-                          <X className="w-3.5 h-3.5" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
             <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>
@@ -992,27 +911,6 @@ export default function AdminEventDetail() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Assign Captain dialog ─────────────────────────── */}
-      <Dialog open={showAssignDialog} onOpenChange={setShowAssignDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader><DialogTitle>Assign Captain / Court Leader</DialogTitle></DialogHeader>
-          <form onSubmit={handleAddAssignment} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label>Select User</Label>
-              <Select value={assignUserId} onValueChange={setAssignUserId}>
-                <SelectTrigger data-testid="select-assign-user"><SelectValue placeholder="Choose a user…" /></SelectTrigger>
-                <SelectContent>
-                  {unassignedUsers.map(u => <SelectItem key={u.id} value={String(u.id)}>{u.name} ({u.role.replace("_", " ")})</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowAssignDialog(false)}>Cancel</Button>
-              <Button type="submit" data-testid="button-submit-assignment" disabled={!assignUserId}>Assign</Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
