@@ -325,6 +325,7 @@ export default function AdminEventDetail() {
   function handlePromote(regId: number) { promoteReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Promoted from waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleMoveToWaitlist(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleCancelReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleConfirmReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleDeleteReg() {
     if (deleteRegId === null) return;
     deleteReg.mutate({ id: eventId, regId: deleteRegId }, { onSuccess: () => { toast({ title: "Removed" }); invalidate(); setDeleteRegId(null); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
@@ -631,7 +632,7 @@ export default function AdminEventDetail() {
                                               <DropdownMenuSeparator />
                                             </>
                                           )}
-                                          {eventRolesList.length > 0 && (
+                                          {eventRolesList.length > 0 && reg.status !== "cancelled" && (
                                             <>
                                               {eventRolesList.map(role => (
                                                 <DropdownMenuItem
@@ -650,7 +651,15 @@ export default function AdminEventDetail() {
                                               <DropdownMenuSeparator />
                                             </>
                                           )}
-                                          {(reg.status === "confirmed" || reg.status === "waitlisted") ? (
+                                          {reg.status === "cancelled" ? (
+                                            <DropdownMenuItem
+                                              data-testid={`action-confirm-${reg.id}`}
+                                              className="text-primary gap-2"
+                                              onClick={() => handleConfirmReg(reg.id)}
+                                            >
+                                              <CheckCircle className="w-3.5 h-3.5" /> Confirm
+                                            </DropdownMenuItem>
+                                          ) : (reg.status === "confirmed" || reg.status === "waitlisted") ? (
                                             <DropdownMenuItem
                                               data-testid={`action-cancel-${reg.id}`}
                                               className="text-destructive gap-2"
