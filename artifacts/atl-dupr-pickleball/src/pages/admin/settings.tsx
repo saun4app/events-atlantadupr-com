@@ -151,9 +151,13 @@ export default function AdminSettings() {
 
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    updateSettings.mutate({ data: form as any }, {
+    updateSettings.mutate({ data: formRef.current as any }, {
       onSuccess: () => { toast({ title: "Settings saved" }); setDirty(false); },
-      onError: () => toast({ title: "Failed to save settings", variant: "destructive" }),
+      onError: (err: any) => {
+        const msg = err?.response?.error ?? err?.message ?? JSON.stringify(err);
+        console.error("[settings save error]", err);
+        toast({ title: "Failed to save settings", description: msg, variant: "destructive" });
+      },
     });
   }
 
@@ -551,7 +555,15 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min Level</Label>
-                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMinLevel: Number(v) })}>
+                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => {
+                            const min = Number(v);
+                            const max = rrc.selfSkill.defaultMaxLevel;
+                            if (min > max) {
+                              updateRrc("selfSkill", { defaultMinLevel: min, defaultMaxLevel: min });
+                            } else {
+                              updateRrc("selfSkill", { defaultMinLevel: min });
+                            }
+                          }}>
                             <SelectTrigger data-testid="select-skill-default-min"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
@@ -562,7 +574,15 @@ export default function AdminSettings() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Default Max Level</Label>
-                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMaxLevel: Number(v) })}>
+                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => {
+                            const max = Number(v);
+                            const min = rrc.selfSkill.defaultMinLevel;
+                            if (max < min) {
+                              updateRrc("selfSkill", { defaultMaxLevel: max, defaultMinLevel: max });
+                            } else {
+                              updateRrc("selfSkill", { defaultMaxLevel: max });
+                            }
+                          }}>
                             <SelectTrigger data-testid="select-skill-default-max"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (

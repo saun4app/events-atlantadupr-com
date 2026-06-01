@@ -203,6 +203,8 @@ router.get("/", async (_req, res) => {
 router.put("/", requireRole("admin"), async (req, res) => {
   const validationError = validateSettingsInput(req.body);
   if (validationError) {
+    console.error("[settings] Validation failed:", validationError);
+    console.error("[settings] Body:", JSON.stringify(req.body, null, 2));
     return res.status(400).json({ error: validationError });
   }
 
