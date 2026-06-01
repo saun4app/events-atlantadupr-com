@@ -9,6 +9,7 @@ import { AdminNav } from "@/components/admin-nav";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -469,11 +470,11 @@ export default function AdminEventNew() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="min">{minLabel} *</Label>
-                <Input id="min" data-testid="input-min-participants" type="number" min={1} required value={form.minParticipants} onChange={e => setField("minParticipants", Number(e.target.value))} />
+                <NumericInput id="min" data-testid="input-min-participants" min={1} required value={form.minParticipants} onChange={v => setField("minParticipants", v)} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="max">{maxLabel} *</Label>
-                <Input id="max" data-testid="input-max-participants" type="number" min={1} required value={form.maxParticipants} onChange={e => setField("maxParticipants", Number(e.target.value))} />
+                <NumericInput id="max" data-testid="input-max-participants" min={1} required value={form.maxParticipants} onChange={v => setField("maxParticipants", v)} />
               </div>
             </div>
 
@@ -496,12 +497,12 @@ export default function AdminEventNew() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Min Rating</Label>
-                      <Input data-testid="input-rating-min" type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.min} onChange={e => setRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                      <NumericInput data-testid="input-rating-min" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.min} onChange={v => setRatingConfig((c: any) => ({ ...c, min: v }))} />
                       <p className="text-xs text-muted-foreground">Range: {rrc.dupr.minAllowed}–{rrc.dupr.maxAllowed}</p>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Max Rating</Label>
-                      <Input data-testid="input-rating-max" type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.max} onChange={e => setRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                      <NumericInput data-testid="input-rating-max" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.max} onChange={v => setRatingConfig((c: any) => ({ ...c, max: v }))} />
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -518,12 +519,12 @@ export default function AdminEventNew() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Min Rating</Label>
-                      <Input data-testid="input-rating-min" type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.min} onChange={e => setRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                      <NumericInput data-testid="input-rating-min" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.min} onChange={v => setRatingConfig((c: any) => ({ ...c, min: v }))} />
                       <p className="text-xs text-muted-foreground">Range: {rrc.selfNumeric.minAllowed}–{rrc.selfNumeric.maxAllowed}</p>
                     </div>
                     <div className="space-y-1">
                       <Label className="text-xs">Max Rating</Label>
-                      <Input data-testid="input-rating-max" type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.max} onChange={e => setRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                      <NumericInput data-testid="input-rating-max" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.max} onChange={v => setRatingConfig((c: any) => ({ ...c, max: v }))} />
                     </div>
                   </div>
                 </div>
@@ -582,11 +583,11 @@ export default function AdminEventNew() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="member-fee">Member Fee ($)</Label>
-                  <Input id="member-fee" data-testid="input-member-fee" type="number" min={0} step={0.01} value={form.memberFee} onChange={e => setField("memberFee", Number(e.target.value))} />
+                  <NumericInput id="member-fee" data-testid="input-member-fee" min={0} step={0.01} value={form.memberFee} onChange={v => setField("memberFee", v)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="non-member-fee">Non-Member Fee ($)</Label>
-                  <Input id="non-member-fee" data-testid="input-non-member-fee" type="number" min={0} step={0.01} value={form.nonMemberFee} onChange={e => setField("nonMemberFee", Number(e.target.value))} />
+                  <NumericInput id="non-member-fee" data-testid="input-non-member-fee" min={0} step={0.01} value={form.nonMemberFee} onChange={v => setField("nonMemberFee", v)} />
                 </div>
               </div>
             )}
@@ -637,7 +638,7 @@ export default function AdminEventNew() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Number of Occurrences</Label>
-                    <Input data-testid="input-recurrence-count" type="number" min={1} max={52} value={recurrenceOccurrences} onChange={e => setRecurrenceOccurrences(Math.max(1, Number(e.target.value)))} />
+                    <NumericInput data-testid="input-recurrence-count" min={1} max={52} value={recurrenceOccurrences} onChange={v => setRecurrenceOccurrences(Math.max(1, v))} />
                   </div>
                 </div>
                 {additionalDates.length > 0 && (

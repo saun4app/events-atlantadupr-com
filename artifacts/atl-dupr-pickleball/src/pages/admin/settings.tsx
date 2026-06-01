@@ -6,6 +6,7 @@ import { AdminNav } from "@/components/admin-nav";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
@@ -303,11 +304,11 @@ export default function AdminSettings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="min-participants">Min Participants</Label>
-                    <Input id="min-participants" data-testid="input-min-participants" type="number" min={2} value={form.minParticipants} onChange={e => update("minParticipants", Number(e.target.value))} />
+                    <NumericInput id="min-participants" data-testid="input-min-participants" min={2} value={form.minParticipants} onChange={v => update("minParticipants", v)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="max-participants">Max Participants</Label>
-                    <Input id="max-participants" data-testid="input-max-participants" type="number" min={2} value={form.maxParticipants} onChange={e => update("maxParticipants", Number(e.target.value))} />
+                    <NumericInput id="max-participants" data-testid="input-max-participants" min={2} value={form.maxParticipants} onChange={v => update("maxParticipants", v)} />
                   </div>
                 </div>
               </div>
@@ -317,18 +318,18 @@ export default function AdminSettings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="min-teams">Min Teams</Label>
-                    <Input id="min-teams" data-testid="input-min-teams" type="number" min={1} value={form.minTeams} onChange={e => update("minTeams", Number(e.target.value))} />
+                    <NumericInput id="min-teams" data-testid="input-min-teams" min={1} value={form.minTeams} onChange={v => update("minTeams", v)} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="max-teams">Max Teams</Label>
-                    <Input id="max-teams" data-testid="input-max-teams" type="number" min={1} value={form.maxTeams} onChange={e => update("maxTeams", Number(e.target.value))} />
+                    <NumericInput id="max-teams" data-testid="input-max-teams" min={1} value={form.maxTeams} onChange={v => update("maxTeams", v)} />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <Label htmlFor="event-duration">Default Event Duration (hours)</Label>
-                <Input id="event-duration" data-testid="input-event-duration-hours" type="number" min={1} max={24} value={form.defaultEventDurationHours} onChange={e => update("defaultEventDurationHours", Math.max(1, Number(e.target.value)))} />
+                <NumericInput id="event-duration" data-testid="input-event-duration-hours" min={1} max={24} value={form.defaultEventDurationHours} onChange={v => update("defaultEventDurationHours", Math.max(1, v))} />
                 <p className="text-xs text-muted-foreground">Used to auto-calculate the end time when creating new events.</p>
               </div>
             </section>
@@ -471,11 +472,11 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Min Allowed</Label>
-                          <Input data-testid="input-dupr-min-allowed" type="number" min={2.0} max={8.0} step={0.1} value={rrc.dupr.minAllowed} onChange={e => updateRrc("dupr", { minAllowed: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-dupr-min-allowed" min={2.0} max={8.0} step={0.1} value={rrc.dupr.minAllowed} onChange={v => updateRrc("dupr", { minAllowed: v })} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Max Allowed</Label>
-                          <Input data-testid="input-dupr-max-allowed" type="number" min={2.0} max={8.0} step={0.1} value={rrc.dupr.maxAllowed} onChange={e => updateRrc("dupr", { maxAllowed: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-dupr-max-allowed" min={2.0} max={8.0} step={0.1} value={rrc.dupr.maxAllowed} onChange={v => updateRrc("dupr", { maxAllowed: v })} />
                         </div>
                       </div>
                     </div>
@@ -484,11 +485,11 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min</Label>
-                          <Input data-testid="input-dupr-default-min" type="number" min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} step={0.1} value={rrc.dupr.defaultMin} onChange={e => updateRrc("dupr", { defaultMin: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-dupr-default-min" min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} step={0.1} value={rrc.dupr.defaultMin} onChange={v => updateRrc("dupr", { defaultMin: v })} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Default Max</Label>
-                          <Input data-testid="input-dupr-default-max" type="number" min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} step={0.1} value={rrc.dupr.defaultMax} onChange={e => updateRrc("dupr", { defaultMax: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-dupr-default-max" min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} step={0.1} value={rrc.dupr.defaultMax} onChange={v => updateRrc("dupr", { defaultMax: v })} />
                         </div>
                       </div>
                     </div>
@@ -519,11 +520,11 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Min Allowed</Label>
-                          <Input data-testid="input-self-numeric-min-allowed" type="number" min={2.0} max={6.0} step={0.1} value={rrc.selfNumeric.minAllowed} onChange={e => updateRrc("selfNumeric", { minAllowed: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-self-numeric-min-allowed" min={2.0} max={6.0} step={0.1} value={rrc.selfNumeric.minAllowed} onChange={v => updateRrc("selfNumeric", { minAllowed: v })} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Max Allowed</Label>
-                          <Input data-testid="input-self-numeric-max-allowed" type="number" min={2.0} max={6.0} step={0.1} value={rrc.selfNumeric.maxAllowed} onChange={e => updateRrc("selfNumeric", { maxAllowed: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-self-numeric-max-allowed" min={2.0} max={6.0} step={0.1} value={rrc.selfNumeric.maxAllowed} onChange={v => updateRrc("selfNumeric", { maxAllowed: v })} />
                         </div>
                       </div>
                     </div>
@@ -532,11 +533,11 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min</Label>
-                          <Input data-testid="input-self-numeric-default-min" type="number" min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} step={0.1} value={rrc.selfNumeric.defaultMin} onChange={e => updateRrc("selfNumeric", { defaultMin: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-self-numeric-default-min" min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} step={0.1} value={rrc.selfNumeric.defaultMin} onChange={v => updateRrc("selfNumeric", { defaultMin: v })} />
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Default Max</Label>
-                          <Input data-testid="input-self-numeric-default-max" type="number" min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} step={0.1} value={rrc.selfNumeric.defaultMax} onChange={e => updateRrc("selfNumeric", { defaultMax: Number(e.target.value) })} />
+                          <NumericInput data-testid="input-self-numeric-default-max" min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} step={0.1} value={rrc.selfNumeric.defaultMax} onChange={v => updateRrc("selfNumeric", { defaultMax: v })} />
                         </div>
                       </div>
                     </div>
@@ -724,11 +725,11 @@ export default function AdminSettings() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="loc-member-fee">Member Fee ($)</Label>
-                  <Input id="loc-member-fee" data-testid="input-location-member-fee" type="number" min={0} step={0.01} value={locationForm.memberFee} onChange={e => setLocationForm(f => ({ ...f, memberFee: Number(e.target.value) }))} />
+                  <NumericInput id="loc-member-fee" data-testid="input-location-member-fee" min={0} step={0.01} value={locationForm.memberFee} onChange={v => setLocationForm(f => ({ ...f, memberFee: v }))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="loc-non-member-fee">Non-Member Fee ($)</Label>
-                  <Input id="loc-non-member-fee" data-testid="input-location-non-member-fee" type="number" min={0} step={0.01} value={locationForm.nonMemberFee} onChange={e => setLocationForm(f => ({ ...f, nonMemberFee: Number(e.target.value) }))} />
+                  <NumericInput id="loc-non-member-fee" data-testid="input-location-non-member-fee" min={0} step={0.01} value={locationForm.nonMemberFee} onChange={v => setLocationForm(f => ({ ...f, nonMemberFee: v }))} />
                 </div>
               </div>
             )}

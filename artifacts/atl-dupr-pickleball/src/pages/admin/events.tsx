@@ -43,7 +43,7 @@ export default function AdminEvents() {
 
   const { data: events, isLoading: evLoading } = useListEvents(
     {},
-    { query: { queryKey: getListEventsQueryKey({}) } }
+    { query: { queryKey: getListEventsQueryKey({}), refetchOnMount: "always" } }
   );
 
   const deleteEvent = useDeleteEvent();
