@@ -176,7 +176,7 @@ export default function AdminMembers() {
             <h1 className="text-xl font-bold text-foreground">Manage Members</h1>
             <p className="text-muted-foreground text-sm mt-0.5">{members?.length ?? 0} members in database</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               ref={fileInputRef}
               type="file"
@@ -324,7 +324,7 @@ export default function AdminMembers() {
             <DialogTitle>Add Member</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="add-dupr-id">DUPR ID *</Label>
                 <Input id="add-dupr-id" data-testid="input-add-member-dupr-id" value={addForm.duprId} onChange={e => setAddForm(f => ({ ...f, duprId: e.target.value }))} required placeholder="ATL099" />
@@ -370,7 +370,7 @@ export default function AdminMembers() {
             <DialogTitle>Edit Member — {editMember?.duprId}</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleEdit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="edit-player-name">Player Name *</Label>
                 <Input id="edit-player-name" data-testid="input-edit-member-name" value={editForm.playerName} onChange={e => setEditForm(f => ({ ...f, playerName: e.target.value }))} required placeholder="Jane Smith" />

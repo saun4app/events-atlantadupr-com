@@ -297,10 +297,10 @@ export default function AdminEventDetail() {
         ) : event ? (
           <>
             <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
-              <div className="flex items-start justify-between gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <h1 className="text-xl font-bold text-foreground">{event.name}</h1>
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground mt-2">
                     <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{format(new Date(event.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a")}</span>
                     <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{event.locationName}</span>
                   </div>
@@ -400,6 +400,7 @@ export default function AdminEventDetail() {
                         <span className={`text-sm font-semibold ${section.color}`}>{section.label}</span>
                         <span className="ml-2 text-xs text-muted-foreground">({section.regs.length})</span>
                       </div>
+                      <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-border">
@@ -438,6 +439,7 @@ export default function AdminEventDetail() {
                           ))}
                         </tbody>
                       </table>
+                      </div>
                     </div>
                   )
                 ))}
@@ -462,7 +464,7 @@ export default function AdminEventDetail() {
                 <Label htmlFor="edit-name">Event Name *</Label>
                 <Input id="edit-name" value={editForm.name ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} required />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-start">Start</Label>
                   <Input id="edit-start" type="datetime-local" value={editForm.startDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, startDatetime: e.target.value }))} />
@@ -504,7 +506,7 @@ export default function AdminEventDetail() {
                 {/* DUPR config */}
                 {editForm.ratingTypeRequired === "dupr" && editRatingConfig && (
                   <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Min Rating</Label>
                         <Input type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={editRatingConfig.min ?? rrc.dupr.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
@@ -524,7 +526,7 @@ export default function AdminEventDetail() {
                 {/* Self-Numeric config */}
                 {editForm.ratingTypeRequired === "self_numeric" && editRatingConfig && (
                   <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1">
                         <Label className="text-xs">Min Rating</Label>
                         <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.min ?? rrc.selfNumeric.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
@@ -541,7 +543,7 @@ export default function AdminEventDetail() {
                 {editForm.ratingTypeRequired === "self_skill" && editRatingConfig && rrc.selfSkill.levels.length > 0 && (
                   <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                     <Label className="text-xs">Accepted Skill Level Range</Label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <Select value={String(editRatingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
@@ -563,7 +565,7 @@ export default function AdminEventDetail() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="edit-min">Min Participants</Label>
                   <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />

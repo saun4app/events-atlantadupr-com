@@ -428,7 +428,7 @@ export default function AdminEventNew() {
             </div>
 
             {/* Start / End */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="start">Start Date & Time *</Label>
                 <Input id="start" data-testid="input-event-start" type="datetime-local" value={form.startDatetime} onChange={e => setField("startDatetime", e.target.value)} required />
@@ -467,7 +467,7 @@ export default function AdminEventNew() {
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Format & Settings</h2>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="min">{minLabel} *</Label>
                 <NumericInput id="min" data-testid="input-min-participants" min={1} required value={form.minParticipants} onChange={v => setField("minParticipants", v)} />
@@ -494,7 +494,7 @@ export default function AdminEventNew() {
               {form.ratingTypeRequired === "dupr" && ratingConfig && (
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
                   <p className="text-xs font-medium text-muted-foreground">DUPR Rating Range</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Min Rating</Label>
                       <NumericInput data-testid="input-rating-min" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.min} onChange={v => setRatingConfig((c: any) => ({ ...c, min: v }))} />
@@ -516,7 +516,7 @@ export default function AdminEventNew() {
               {form.ratingTypeRequired === "self_numeric" && ratingConfig && (
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
                   <p className="text-xs font-medium text-muted-foreground">Self-Rating Numeric Range</p>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label className="text-xs">Min Rating</Label>
                       <NumericInput data-testid="input-rating-min" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.min} onChange={v => setRatingConfig((c: any) => ({ ...c, min: v }))} />
@@ -534,7 +534,7 @@ export default function AdminEventNew() {
               {form.ratingTypeRequired === "self_skill" && ratingConfig && rrc.selfSkill.levels.length > 0 && (
                 <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
                   <Label className="text-xs font-medium text-muted-foreground">Accepted Skill Level Range</Label>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Select value={String(ratingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
                       <SelectTrigger data-testid="select-skill-min-level"><SelectValue /></SelectTrigger>
                       <SelectContent>
@@ -580,7 +580,7 @@ export default function AdminEventNew() {
               <Switch data-testid="switch-court-fee-enabled" checked={form.courtFeeEnabled} onCheckedChange={v => setField("courtFeeEnabled", v)} />
             </div>
             {form.courtFeeEnabled && (
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="member-fee">Member Fee ($)</Label>
                   <NumericInput id="member-fee" data-testid="input-member-fee" min={0} step={0.01} value={form.memberFee} onChange={v => setField("memberFee", v)} />
@@ -596,7 +596,7 @@ export default function AdminEventNew() {
           {/* Signup Window */}
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Signup Window</h2>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="signup-start">Signup Opens *</Label>
                 <Input id="signup-start" data-testid="input-signup-start" type="datetime-local" value={form.signupStartDatetime} onChange={e => setField("signupStartDatetime", e.target.value)} required />
@@ -624,7 +624,7 @@ export default function AdminEventNew() {
             </div>
             {recurrenceEnabled && (
               <>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Frequency</Label>
                     <Select value={recurrenceFrequency} onValueChange={setRecurrenceFrequency}>

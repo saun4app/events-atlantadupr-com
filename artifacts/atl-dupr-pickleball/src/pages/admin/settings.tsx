@@ -301,7 +301,7 @@ export default function AdminSettings() {
 
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rotating Partners</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="min-participants">Min Participants</Label>
                     <NumericInput id="min-participants" data-testid="input-min-participants" min={2} value={form.minParticipants} onChange={v => update("minParticipants", v)} />
@@ -315,7 +315,7 @@ export default function AdminSettings() {
 
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fixed Partner</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label htmlFor="min-teams">Min Teams</Label>
                     <NumericInput id="min-teams" data-testid="input-min-teams" min={1} value={form.minTeams} onChange={v => update("minTeams", v)} />
@@ -469,7 +469,7 @@ export default function AdminSettings() {
                   <div className="space-y-3 pl-1">
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Allowed Range for Events</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Min Allowed</Label>
                           <NumericInput data-testid="input-dupr-min-allowed" min={2.0} max={8.0} step={0.1} value={rrc.dupr.minAllowed} onChange={v => updateRrc("dupr", { minAllowed: v })} />
@@ -482,7 +482,7 @@ export default function AdminSettings() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Default Values for New Events</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min</Label>
                           <NumericInput data-testid="input-dupr-default-min" min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} step={0.1} value={rrc.dupr.defaultMin} onChange={v => updateRrc("dupr", { defaultMin: v })} />
@@ -517,7 +517,7 @@ export default function AdminSettings() {
                   <div className="space-y-3 pl-1">
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Allowed Range for Events</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Min Allowed</Label>
                           <NumericInput data-testid="input-self-numeric-min-allowed" min={2.0} max={6.0} step={0.1} value={rrc.selfNumeric.minAllowed} onChange={v => updateRrc("selfNumeric", { minAllowed: v })} />
@@ -530,7 +530,7 @@ export default function AdminSettings() {
                     </div>
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Default Values for New Events</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min</Label>
                           <NumericInput data-testid="input-self-numeric-default-min" min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} step={0.1} value={rrc.selfNumeric.defaultMin} onChange={v => updateRrc("selfNumeric", { defaultMin: v })} />
@@ -558,7 +558,7 @@ export default function AdminSettings() {
                   <div className="space-y-3 pl-1">
                     <div>
                       <p className="text-xs font-medium text-muted-foreground mb-2">Default Range for New Events</p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min Level</Label>
                           <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => { if (v) updateRrc("selfSkill", { defaultMinLevel: Number(v) }); }}>
@@ -722,7 +722,7 @@ export default function AdminSettings() {
               <Switch id="loc-court-fee-enabled" data-testid="input-location-court-fee-enabled" checked={locationForm.courtFeeEnabled} onCheckedChange={v => setLocationForm(f => ({ ...f, courtFeeEnabled: v }))} />
             </div>
             {locationForm.courtFeeEnabled && (
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="loc-member-fee">Member Fee ($)</Label>
                   <NumericInput id="loc-member-fee" data-testid="input-location-member-fee" min={0} step={0.01} value={locationForm.memberFee} onChange={v => setLocationForm(f => ({ ...f, memberFee: v }))} />
