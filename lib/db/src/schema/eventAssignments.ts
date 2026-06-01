@@ -3,7 +3,7 @@ import { usersTable } from "./users";
 import { eventsTable } from "./events";
 
 export const eventAssignmentsTable = pgTable(
-  "event_assignments",
+  "atl_dupr_event_roles",
   {
     userId: integer("user_id")
       .notNull()

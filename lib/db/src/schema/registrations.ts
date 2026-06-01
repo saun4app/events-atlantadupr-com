@@ -5,7 +5,7 @@ import { eventsTable } from "./events";
 import { membersTable } from "./members";
 import { usersTable } from "./users";
 
-export const registrationsTable = pgTable("registrations", {
+export const registrationsTable = pgTable("atl_dupr_signups", {
   id: serial("id").primaryKey(),
   eventId: integer("event_id")
     .notNull()

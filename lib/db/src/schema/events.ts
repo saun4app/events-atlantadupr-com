@@ -2,7 +2,7 @@ import { pgTable, serial, text, boolean, integer, timestamp, real } from "drizzl
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
-export const eventsTable = pgTable("events", {
+export const eventsTable = pgTable("atl_dupr_events", {
   id: serial("id").primaryKey(),
   seriesId: text("series_id"),
   name: text("name").notNull(),
