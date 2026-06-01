@@ -560,7 +560,7 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min Level</Label>
-                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMinLevel: Number(v) })}>
+                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => { if (v) updateRrc("selfSkill", { defaultMinLevel: Number(v) }); }}>
                             <SelectTrigger data-testid="select-skill-default-min"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
@@ -571,7 +571,7 @@ export default function AdminSettings() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Default Max Level</Label>
-                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMaxLevel: Number(v) })}>
+                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => { if (v) updateRrc("selfSkill", { defaultMaxLevel: Number(v) }); }}>
                             <SelectTrigger data-testid="select-skill-default-max"><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
