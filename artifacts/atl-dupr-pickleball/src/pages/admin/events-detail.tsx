@@ -140,7 +140,7 @@ export default function AdminEventDetail() {
   const [addDuprId, setAddDuprId] = useState("");
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
   const [visibleCols, setVisibleCols] = useState<Set<string>>(
-    () => new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone"])
+    () => new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone", "signedUp"])
   );
   const toggleCol = (k: string) => setVisibleCols(prev => { const next = new Set(prev); if (next.has(k)) next.delete(k); else next.add(k); return next; });
   const col = (k: string) => visibleCols.has(k);
@@ -197,6 +197,7 @@ export default function AdminEventDetail() {
       else if (s.col === "partner") { av = (a.partnerName ?? "").toLowerCase(); bv = (b.partnerName ?? "").toLowerCase(); }
       else if (s.col === "email") { av = ((a as any).playerEmail ?? "").toLowerCase(); bv = ((b as any).playerEmail ?? "").toLowerCase(); }
       else if (s.col === "phone") { av = ((a as any).playerPhone ?? "").toLowerCase(); bv = ((b as any).playerPhone ?? "").toLowerCase(); }
+      else if (s.col === "signedUp") { av = new Date(a.registeredAt).getTime(); bv = new Date(b.registeredAt).getTime(); }
       else return 0;
       if (typeof av === "string") return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       return s.dir === "asc" ? av - bv : bv - av;
@@ -498,6 +499,7 @@ export default function AdminEventDetail() {
                 { key: "role", label: "Role" },
                 { key: "email", label: "Email" },
                 { key: "phone", label: "Phone" },
+                { key: "signedUp", label: "Signed Up" },
               ].map(({ key, label }) => (
                 <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
                   <input
@@ -564,6 +566,7 @@ export default function AdminEventDetail() {
                               {col("role") && <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />}
                               {col("email") && <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />}
                               {col("phone") && <SortHeader label="Phone" col="phone" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "phone")} />}
+                              {col("signedUp") && <SortHeader label="Signed Up" col="signedUp" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "signedUp")} />}
                               <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                             </tr>
                           </thead>
@@ -656,6 +659,11 @@ export default function AdminEventDetail() {
                                   {col("phone") && (
                                     <td className="px-5 py-3 text-xs text-muted-foreground">
                                       {(reg as any).playerPhone || "—"}
+                                    </td>
+                                  )}
+                                  {col("signedUp") && (
+                                    <td className="px-5 py-3 text-xs text-muted-foreground whitespace-nowrap">
+                                      {reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d, yyyy h:mm a") : "—"}
                                     </td>
                                   )}
                                   <td className="px-5 py-3">
