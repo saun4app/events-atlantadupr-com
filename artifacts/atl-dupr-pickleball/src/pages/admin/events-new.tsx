@@ -242,7 +242,7 @@ export default function AdminEventNew() {
         nonMemberFee: matched.nonMemberFee ?? 0,
       }));
     } else {
-      setForm(f => ({ ...f, locationName: val }));
+      setForm(f => ({ ...f, locationName: val, courtFeeEnabled: false, memberFee: 0, nonMemberFee: 0 }));
     }
   }
 
