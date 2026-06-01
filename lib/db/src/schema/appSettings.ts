@@ -19,6 +19,61 @@ export interface RatingRequirement {
   label: string;
 }
 
+export interface SkillLevel {
+  text: string;
+  level: number;
+}
+
+export interface DuprRatingConfig {
+  enabled: boolean;
+  minAllowed: number;
+  maxAllowed: number;
+  defaultMin: number;
+  defaultMax: number;
+  defaultNrAllowed: boolean;
+}
+
+export interface SelfNumericConfig {
+  enabled: boolean;
+  minAllowed: number;
+  maxAllowed: number;
+  defaultMin: number;
+  defaultMax: number;
+}
+
+export interface SelfSkillConfig {
+  enabled: boolean;
+  levels: SkillLevel[];
+}
+
+export interface RatingRequirementsConfig {
+  dupr: DuprRatingConfig;
+  selfNumeric: SelfNumericConfig;
+  selfSkill: SelfSkillConfig;
+}
+
+export const DEFAULT_RATING_REQUIREMENTS_CONFIG: RatingRequirementsConfig = {
+  dupr: {
+    enabled: true,
+    minAllowed: 2.0,
+    maxAllowed: 8.0,
+    defaultMin: 2.0,
+    defaultMax: 4.0,
+    defaultNrAllowed: false,
+  },
+  selfNumeric: {
+    enabled: true,
+    minAllowed: 2.0,
+    maxAllowed: 6.0,
+    defaultMin: 2.0,
+    defaultMax: 4.0,
+  },
+  selfSkill: {
+    enabled: true,
+    levels: [],
+  },
+};
+
 export const appSettingsTable = pgTable("app_settings", {
   id: integer("id").primaryKey().default(1),
   defaultTimezone: text("default_timezone").notNull().default("America/New_York"),
@@ -34,6 +89,7 @@ export const appSettingsTable = pgTable("app_settings", {
   defaultEventNames: jsonb("default_event_names").$type<string[]>().notNull().default([]),
   defaultEventDurationHours: integer("default_event_duration_hours").notNull().default(2),
   defaultRatingRequirements: jsonb("default_rating_requirements").$type<RatingRequirement[]>().notNull().default([]),
+  ratingRequirementsConfig: jsonb("rating_requirements_config").$type<RatingRequirementsConfig>(),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;

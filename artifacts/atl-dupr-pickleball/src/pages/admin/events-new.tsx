@@ -20,7 +20,17 @@ import { ChevronLeft, Calendar, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
 interface DefaultLocation { id: string; name: string; address: string; memberFee?: number; nonMemberFee?: number; courtFeeEnabled?: boolean; }
-interface RatingRequirement { key: string; label: string; }
+interface SkillLevel { text: string; level: number; }
+interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
+interface SelfNumericConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; }
+interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; }
+interface RatingRequirementsConfig { dupr: DuprRatingConfig; selfNumeric: SelfNumericConfig; selfSkill: SelfSkillConfig; }
+
+const DEFAULT_RRC: RatingRequirementsConfig = {
+  dupr: { enabled: true, minAllowed: 2.0, maxAllowed: 8.0, defaultMin: 2.0, defaultMax: 4.0, defaultNrAllowed: false },
+  selfNumeric: { enabled: true, minAllowed: 2.0, maxAllowed: 6.0, defaultMin: 2.0, defaultMax: 4.0 },
+  selfSkill: { enabled: true, levels: [] },
+};
 
 function toLocalDateTimeString(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -30,13 +40,8 @@ function toLocalDateTimeString(d: Date) {
 function toDatetimeLocalInTz(date: Date, tz: string): string {
   try {
     const parts = new Intl.DateTimeFormat("en-CA", {
-      timeZone: tz,
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
+      timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hour12: false,
     }).formatToParts(date);
     const get = (type: string) => parts.find(p => p.type === type)?.value ?? "00";
     const hour = get("hour") === "24" ? "00" : get("hour");
@@ -60,6 +65,29 @@ function generateAdditionalDates(startDate: Date, frequency: string, count: numb
     else dates.push(addMonths(startDate, i));
   }
   return dates;
+}
+
+function getRrc(settings: any): RatingRequirementsConfig {
+  const rrc = (settings as any)?.ratingRequirementsConfig ?? DEFAULT_RRC;
+  return {
+    dupr: { ...DEFAULT_RRC.dupr, ...(rrc.dupr ?? {}) },
+    selfNumeric: { ...DEFAULT_RRC.selfNumeric, ...(rrc.selfNumeric ?? {}) },
+    selfSkill: { ...DEFAULT_RRC.selfSkill, ...(rrc.selfSkill ?? {}) },
+  };
+}
+
+function getDefaultRatingType(rrc: RatingRequirementsConfig): string {
+  if (rrc.dupr.enabled) return "dupr";
+  if (rrc.selfNumeric.enabled) return "self_numeric";
+  if (rrc.selfSkill.enabled) return "self_skill";
+  return "none";
+}
+
+function getDefaultRatingConfig(type: string, rrc: RatingRequirementsConfig): any {
+  if (type === "dupr") return { min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed };
+  if (type === "self_numeric") return { min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax };
+  if (type === "self_skill") return { maxLevel: rrc.selfSkill.levels[0]?.level ?? 1 };
+  return null;
 }
 
 export default function AdminEventNew() {
@@ -101,6 +129,7 @@ export default function AdminEventNew() {
     nonMemberFee: 0,
   });
 
+  const [ratingConfig, setRatingConfig] = useState<any>(null);
   const [cloneFrom, setCloneFrom] = useState<string>("none");
   const [descriptionGeneration, setDescriptionGeneration] = useState(0);
   const [nameOpen, setNameOpen] = useState(false);
@@ -113,22 +142,21 @@ export default function AdminEventNew() {
 
   const defaultEventNames = (settings?.defaultEventNames as string[] | undefined) ?? [];
   const defaultLocations: DefaultLocation[] = (settings?.defaultLocations as DefaultLocation[] | undefined) ?? [];
-  const defaultRatingRequirements: RatingRequirement[] = (settings?.defaultRatingRequirements as RatingRequirement[] | undefined) ?? [];
-  const ratingOptions: RatingRequirement[] = defaultRatingRequirements.length > 0
-    ? defaultRatingRequirements
-    : [
-        { key: "dupr", label: "DUPR Required" },
-        { key: "national", label: "National Rating Required" },
-        { key: "none", label: "All Levels (No Rating Required)" },
-      ];
+  const rrc = getRrc(settings);
+  const enabledRatingTypes = [
+    { key: "none", label: "No Rating Required" },
+    ...(rrc.dupr.enabled ? [{ key: "dupr", label: "DUPR Rating" }] : []),
+    ...(rrc.selfNumeric.enabled ? [{ key: "self_numeric", label: "Self-Rating (Numeric)" }] : []),
+    ...(rrc.selfSkill.enabled ? [{ key: "self_skill", label: "Self-Rating (Skill Level)" }] : []),
+  ];
 
   useEffect(() => {
     if (settings && !defaultsApplied.current && cloneFrom === "none") {
       defaultsApplied.current = true;
       const tz = settings.defaultTimezone || "America/New_York";
       const nowInTz = toDatetimeLocalInTz(new Date(), tz);
-      const ratingReqs = (settings.defaultRatingRequirements as RatingRequirement[] | undefined) ?? [];
-      const firstRatingKey = ratingReqs.length > 0 ? ratingReqs[0].key : "none";
+      const rrc = getRrc(settings);
+      const defaultType = getDefaultRatingType(rrc);
       setDescriptionGeneration(g => g + 1);
       setForm(f => ({
         ...f,
@@ -136,8 +164,9 @@ export default function AdminEventNew() {
         maxParticipants: settings.maxParticipants,
         description: settings.rotatingPartnersDescription || "",
         signupStartDatetime: nowInTz,
-        ratingTypeRequired: firstRatingKey,
+        ratingTypeRequired: defaultType,
       }));
+      setRatingConfig(getDefaultRatingConfig(defaultType, rrc));
     }
   }, [settings, cloneFrom]);
 
@@ -173,6 +202,12 @@ export default function AdminEventNew() {
     setForm(f => ({ ...f, [key]: value }));
   }
 
+  function handleRatingTypeChange(type: string) {
+    setField("ratingTypeRequired", type);
+    const rrc = getRrc(settings);
+    setRatingConfig(getDefaultRatingConfig(type, rrc));
+  }
+
   function handleFormatChange(newFormat: "rotating" | "fixed_partner") {
     const oldFormat = form.formatType;
     setForm(f => {
@@ -185,15 +220,9 @@ export default function AdminEventNew() {
         if (f.minParticipants === oldMin) next.minParticipants = newMin;
         if (f.maxParticipants === oldMax) next.maxParticipants = newMax;
         if (!descriptionEdited.current) {
-          const oldDesc = (oldFormat === "rotating"
-            ? settings.rotatingPartnersDescription
-            : settings.fixedPartnerDescription) || "";
-          const newDesc = (newFormat === "rotating"
-            ? settings.rotatingPartnersDescription
-            : settings.fixedPartnerDescription) || "";
-          if (f.description === oldDesc || f.description === "") {
-            next.description = newDesc;
-          }
+          const oldDesc = (oldFormat === "rotating" ? settings.rotatingPartnersDescription : settings.fixedPartnerDescription) || "";
+          const newDesc = (newFormat === "rotating" ? settings.rotatingPartnersDescription : settings.fixedPartnerDescription) || "";
+          if (f.description === oldDesc || f.description === "") next.description = newDesc;
         }
       }
       return next;
@@ -236,19 +265,13 @@ export default function AdminEventNew() {
       memberFee: (ev as any).memberFee ?? 0,
       nonMemberFee: (ev as any).nonMemberFee ?? 0,
     });
+    setRatingConfig((ev as any).ratingConfig ?? getDefaultRatingConfig(ev.ratingTypeRequired, getRrc(settings)));
   }
 
   function handleLocationChange(val: string) {
     const matched = defaultLocations.find(l => l.name === val);
     if (matched) {
-      setForm(f => ({
-        ...f,
-        locationName: val,
-        locationAddress: matched.address,
-        courtFeeEnabled: matched.courtFeeEnabled ?? false,
-        memberFee: matched.memberFee ?? 0,
-        nonMemberFee: matched.nonMemberFee ?? 0,
-      }));
+      setForm(f => ({ ...f, locationName: val, locationAddress: matched.address, courtFeeEnabled: matched.courtFeeEnabled ?? false, memberFee: matched.memberFee ?? 0, nonMemberFee: matched.nonMemberFee ?? 0 }));
     } else {
       setForm(f => ({ ...f, locationName: val, courtFeeEnabled: false, memberFee: 0, nonMemberFee: 0 }));
     }
@@ -269,9 +292,7 @@ export default function AdminEventNew() {
       const d = new Date(val);
       if (isNaN(d.getTime())) return null;
       return format(d, "EEE, MMM d, yyyy 'at' h:mm a");
-    } catch {
-      return null;
-    }
+    } catch { return null; }
   }
 
   const isFixed = form.formatType === "fixed_partner";
@@ -293,6 +314,7 @@ export default function AdminEventNew() {
       locationAddress: form.locationAddress || null,
       formatType: form.formatType,
       ratingTypeRequired: form.ratingTypeRequired,
+      ratingConfig: form.ratingTypeRequired !== "none" ? ratingConfig : null,
       minParticipants: Number(form.minParticipants),
       maxParticipants: Number(form.maxParticipants),
       waitlistEnabled: form.waitlistEnabled,
@@ -333,14 +355,10 @@ export default function AdminEventNew() {
         <div className="bg-card border border-card-border rounded-lg p-5 mb-4">
           <Label className="mb-1.5 block">Clone from existing event</Label>
           <Select value={cloneFrom} onValueChange={handleClone}>
-            <SelectTrigger data-testid="select-clone-event">
-              <SelectValue placeholder="Select event to clone..." />
-            </SelectTrigger>
+            <SelectTrigger data-testid="select-clone-event"><SelectValue placeholder="Select event to clone..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None — start fresh</SelectItem>
-              {allEvents?.map(ev => (
-                <SelectItem key={ev.id} value={String(ev.id)}>{ev.name}</SelectItem>
-              ))}
+              {allEvents?.map(ev => <SelectItem key={ev.id} value={String(ev.id)}>{ev.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
@@ -351,13 +369,11 @@ export default function AdminEventNew() {
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
 
-            {/* Format Type — first */}
+            {/* Format Type */}
             <div className="space-y-1.5">
               <Label>Format Type *</Label>
               <Select value={form.formatType} onValueChange={v => handleFormatChange(v as "rotating" | "fixed_partner")}>
-                <SelectTrigger data-testid="select-format-type">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger data-testid="select-format-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="rotating">Rotating Partners</SelectItem>
                   <SelectItem value="fixed_partner">Fixed-Partner</SelectItem>
@@ -365,46 +381,30 @@ export default function AdminEventNew() {
               </Select>
             </div>
 
-            {/* Event Name — combobox with filterable suggestion list */}
+            {/* Event Name combobox */}
             <div className="space-y-1.5">
               <Label htmlFor="name">Event Name *</Label>
               <div className="relative">
                 <Input
-                  id="name"
-                  data-testid="input-event-name"
-                  value={form.name}
+                  id="name" data-testid="input-event-name" value={form.name}
                   onChange={e => { setField("name", e.target.value); setNameOpen(true); }}
                   onFocus={() => setNameOpen(true)}
                   onBlur={() => setTimeout(() => setNameOpen(false), 150)}
-                  required
-                  placeholder="Saturday Morning Round Robin"
-                  autoComplete="off"
+                  required placeholder="Saturday Morning Round Robin" autoComplete="off"
                   className={defaultEventNames.length > 0 ? "pr-8" : ""}
                 />
                 {defaultEventNames.length > 0 && (
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onMouseDown={e => { e.preventDefault(); setNameOpen(o => !o); }}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  >
+                  <button type="button" tabIndex={-1} onMouseDown={e => { e.preventDefault(); setNameOpen(o => !o); }} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
                     <ChevronDown className="w-4 h-4" />
                   </button>
                 )}
                 {nameOpen && (() => {
-                  const filtered = defaultEventNames.filter(n =>
-                    !form.name || n.toLowerCase().includes(form.name.toLowerCase())
-                  );
+                  const filtered = defaultEventNames.filter(n => !form.name || n.toLowerCase().includes(form.name.toLowerCase()));
                   return filtered.length > 0 ? (
                     <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md overflow-hidden">
                       <div className="max-h-52 overflow-y-auto py-1">
                         {filtered.map((name, i) => (
-                          <button
-                            key={i}
-                            type="button"
-                            onMouseDown={e => { e.preventDefault(); setField("name", name); setNameOpen(false); }}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                          >
+                          <button key={i} type="button" onMouseDown={e => { e.preventDefault(); setField("name", name); setNameOpen(false); }} className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground">
                             {name}
                           </button>
                         ))}
@@ -415,17 +415,13 @@ export default function AdminEventNew() {
               </div>
             </div>
 
-            {/* Description — RichTextEditor, pre-fills from settings */}
+            {/* Description */}
             <div className="space-y-1.5">
               <Label>Description *</Label>
               <RichTextEditor
                 key={`${form.formatType}-${descriptionGeneration}`}
-                data-testid="input-event-description"
-                value={form.description}
-                onChange={v => {
-                  descriptionEdited.current = true;
-                  setField("description", v);
-                }}
+                data-testid="input-event-description" value={form.description}
+                onChange={v => { descriptionEdited.current = true; setField("description", v); }}
                 placeholder="Tell participants what to expect..."
               />
             </div>
@@ -434,17 +430,8 @@ export default function AdminEventNew() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="start">Start Date & Time *</Label>
-                <Input
-                  id="start"
-                  data-testid="input-event-start"
-                  type="datetime-local"
-                  value={form.startDatetime}
-                  onChange={e => setField("startDatetime", e.target.value)}
-                  required
-                />
-                {dtDow(form.startDatetime) && (
-                  <p className="text-xs text-muted-foreground">{dtDow(form.startDatetime)}</p>
-                )}
+                <Input id="start" data-testid="input-event-start" type="datetime-local" value={form.startDatetime} onChange={e => setField("startDatetime", e.target.value)} required />
+                {dtDow(form.startDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.startDatetime)}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="end">
@@ -453,55 +440,25 @@ export default function AdminEventNew() {
                     <span className="ml-1.5 text-xs font-normal text-muted-foreground">(auto: {settings.defaultEventDurationHours}h after start)</span>
                   )}
                 </Label>
-                <Input
-                  id="end"
-                  data-testid="input-event-end"
-                  type="datetime-local"
-                  value={form.endDatetime}
-                  onChange={e => {
-                    endEdited.current = true;
-                    setField("endDatetime", e.target.value);
-                  }}
-                  required
-                />
-                {dtDow(form.endDatetime) && (
-                  <p className="text-xs text-muted-foreground">{dtDow(form.endDatetime)}</p>
-                )}
+                <Input id="end" data-testid="input-event-end" type="datetime-local" value={form.endDatetime} onChange={e => { endEdited.current = true; setField("endDatetime", e.target.value); }} required />
+                {dtDow(form.endDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.endDatetime)}</p>}
               </div>
             </div>
 
-            {/* Location — combobox via datalist, auto-fills address */}
+            {/* Location */}
             <div className="space-y-1.5">
               <Label htmlFor="location-name">Location Name *</Label>
               <div className="relative">
-                <Input
-                  id="location-name"
-                  list="default-locations-list"
-                  data-testid="input-event-location-name"
-                  value={form.locationName}
-                  onChange={e => handleLocationChange(e.target.value)}
-                  required
-                  placeholder="Chastain Park Tennis Center"
-                  autoComplete="off"
-                />
+                <Input id="location-name" list="default-locations-list" data-testid="input-event-location-name" value={form.locationName} onChange={e => handleLocationChange(e.target.value)} required placeholder="Chastain Park Tennis Center" autoComplete="off" />
                 <datalist id="default-locations-list">
-                  {defaultLocations.map(loc => (
-                    <option key={loc.id} value={loc.name} />
-                  ))}
+                  {defaultLocations.map(loc => <option key={loc.id} value={loc.name} />)}
                 </datalist>
               </div>
             </div>
 
             <div className="space-y-1.5">
               <Label htmlFor="location-address">Location Address *</Label>
-              <Input
-                id="location-address"
-                data-testid="input-event-location-address"
-                value={form.locationAddress}
-                onChange={e => setField("locationAddress", e.target.value)}
-                required
-                placeholder="4000 Damascus Dr NW, Atlanta, GA 30342"
-              />
+              <Input id="location-address" data-testid="input-event-location-address" value={form.locationAddress} onChange={e => setField("locationAddress", e.target.value)} required placeholder="4000 Damascus Dr NW, Atlanta, GA 30342" />
             </div>
           </div>
 
@@ -509,63 +466,97 @@ export default function AdminEventNew() {
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Format & Settings</h2>
 
-            {/* Min/Max — labels change by format type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="min">{minLabel} *</Label>
-                <Input
-                  id="min"
-                  data-testid="input-min-participants"
-                  type="number"
-                  min={1}
-                  required
-                  value={form.minParticipants}
-                  onChange={e => setField("minParticipants", Number(e.target.value))}
-                />
+                <Input id="min" data-testid="input-min-participants" type="number" min={1} required value={form.minParticipants} onChange={e => setField("minParticipants", Number(e.target.value))} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="max">{maxLabel} *</Label>
-                <Input
-                  id="max"
-                  data-testid="input-max-participants"
-                  type="number"
-                  min={1}
-                  required
-                  value={form.maxParticipants}
-                  onChange={e => setField("maxParticipants", Number(e.target.value))}
-                />
+                <Input id="max" data-testid="input-max-participants" type="number" min={1} required value={form.maxParticipants} onChange={e => setField("maxParticipants", Number(e.target.value))} />
               </div>
             </div>
 
+            {/* Rating Requirement */}
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Rating Requirement</Label>
-                <Select value={form.ratingTypeRequired} onValueChange={v => setField("ratingTypeRequired", v)}>
-                  <SelectTrigger data-testid="select-rating-required">
-                    <SelectValue placeholder="Select requirement..." />
-                  </SelectTrigger>
+                <Select value={form.ratingTypeRequired} onValueChange={handleRatingTypeChange}>
+                  <SelectTrigger data-testid="select-rating-required"><SelectValue placeholder="Select requirement..." /></SelectTrigger>
                   <SelectContent>
-                    {ratingOptions.map(opt => (
-                      <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
-                    ))}
+                    {enabledRatingTypes.map(opt => <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* DUPR config */}
+              {form.ratingTypeRequired === "dupr" && ratingConfig && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">DUPR Rating Range</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Min Rating</Label>
+                      <Input data-testid="input-rating-min" type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.min} onChange={e => setRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                      <p className="text-xs text-muted-foreground">Range: {rrc.dupr.minAllowed}–{rrc.dupr.maxAllowed}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Max Rating</Label>
+                      <Input data-testid="input-rating-max" type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.max} onChange={e => setRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input type="checkbox" id="nr-allowed" className="w-4 h-4 accent-primary" checked={!!ratingConfig.nrAllowed} onChange={e => setRatingConfig((c: any) => ({ ...c, nrAllowed: e.target.checked }))} />
+                    <label htmlFor="nr-allowed" className="text-sm cursor-pointer">Allow NR (Not Rated) players</label>
+                  </div>
+                </div>
+              )}
+
+              {/* Self-Numeric config */}
+              {form.ratingTypeRequired === "self_numeric" && ratingConfig && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground">Self-Rating Numeric Range</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label className="text-xs">Min Rating</Label>
+                      <Input data-testid="input-rating-min" type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.min} onChange={e => setRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                      <p className="text-xs text-muted-foreground">Range: {rrc.selfNumeric.minAllowed}–{rrc.selfNumeric.maxAllowed}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">Max Rating</Label>
+                      <Input data-testid="input-rating-max" type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={ratingConfig.max} onChange={e => setRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Self-Skill config */}
+              {form.ratingTypeRequired === "self_skill" && ratingConfig && rrc.selfSkill.levels.length > 0 && (
+                <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                  <Label className="text-xs font-medium text-muted-foreground">Max Accepted Skill Level</Label>
+                  <Select value={String(ratingConfig.maxLevel)} onValueChange={v => setRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
+                    <SelectTrigger data-testid="select-skill-max-level"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {rrc.selfSkill.levels.map(lv => (
+                        <SelectItem key={lv.level} value={String(lv.level)}>
+                          Level {lv.level}: {lv.text}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Players at this level and better (lower level numbers) can register.</p>
+                </div>
+              )}
+              {form.ratingTypeRequired === "self_skill" && rrc.selfSkill.levels.length === 0 && (
+                <p className="text-xs text-amber-600">No skill levels defined in Settings yet. Add skill levels in App Settings before creating skill-level events.</p>
+              )}
+
               <div className="flex items-center justify-between">
                 <Label>Enable Waitlist</Label>
-                <Switch
-                  data-testid="switch-waitlist"
-                  checked={form.waitlistEnabled}
-                  onCheckedChange={v => setField("waitlistEnabled", v)}
-                />
+                <Switch data-testid="switch-waitlist" checked={form.waitlistEnabled} onCheckedChange={v => setField("waitlistEnabled", v)} />
               </div>
               <div className="flex items-center justify-between">
                 <Label>Require Approval</Label>
-                <Switch
-                  data-testid="switch-approval"
-                  checked={form.requireApproval}
-                  onCheckedChange={v => setField("requireApproval", v)}
-                />
+                <Switch data-testid="switch-approval" checked={form.requireApproval} onCheckedChange={v => setField("requireApproval", v)} />
               </div>
             </div>
           </div>
@@ -577,37 +568,17 @@ export default function AdminEventNew() {
                 <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Court Fees</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Optionally collect a court fee for this event.</p>
               </div>
-              <Switch
-                data-testid="switch-court-fee-enabled"
-                checked={form.courtFeeEnabled}
-                onCheckedChange={v => setField("courtFeeEnabled", v)}
-              />
+              <Switch data-testid="switch-court-fee-enabled" checked={form.courtFeeEnabled} onCheckedChange={v => setField("courtFeeEnabled", v)} />
             </div>
             {form.courtFeeEnabled && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="member-fee">Member Fee ($)</Label>
-                  <Input
-                    id="member-fee"
-                    data-testid="input-member-fee"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={form.memberFee}
-                    onChange={e => setField("memberFee", Number(e.target.value))}
-                  />
+                  <Input id="member-fee" data-testid="input-member-fee" type="number" min={0} step={0.01} value={form.memberFee} onChange={e => setField("memberFee", Number(e.target.value))} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="non-member-fee">Non-Member Fee ($)</Label>
-                  <Input
-                    id="non-member-fee"
-                    data-testid="input-non-member-fee"
-                    type="number"
-                    min={0}
-                    step={0.01}
-                    value={form.nonMemberFee}
-                    onChange={e => setField("nonMemberFee", Number(e.target.value))}
-                  />
+                  <Input id="non-member-fee" data-testid="input-non-member-fee" type="number" min={0} step={0.01} value={form.nonMemberFee} onChange={e => setField("nonMemberFee", Number(e.target.value))} />
                 </div>
               </div>
             )}
@@ -619,37 +590,16 @@ export default function AdminEventNew() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="signup-start">Signup Opens *</Label>
-                <Input
-                  id="signup-start"
-                  data-testid="input-signup-start"
-                  type="datetime-local"
-                  value={form.signupStartDatetime}
-                  onChange={e => setField("signupStartDatetime", e.target.value)}
-                  required
-                />
-                {dtDow(form.signupStartDatetime) && (
-                  <p className="text-xs text-muted-foreground">{dtDow(form.signupStartDatetime)}</p>
-                )}
+                <Input id="signup-start" data-testid="input-signup-start" type="datetime-local" value={form.signupStartDatetime} onChange={e => setField("signupStartDatetime", e.target.value)} required />
+                {dtDow(form.signupStartDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.signupStartDatetime)}</p>}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="signup-end">
                   Signup Closes *
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">(auto: 12h before start)</span>
                 </Label>
-                <Input
-                  id="signup-end"
-                  data-testid="input-signup-end"
-                  type="datetime-local"
-                  value={form.signupEndDatetime}
-                  onChange={e => {
-                    signupEndEdited.current = true;
-                    setField("signupEndDatetime", e.target.value);
-                  }}
-                  required
-                />
-                {dtDow(form.signupEndDatetime) && (
-                  <p className="text-xs text-muted-foreground">{dtDow(form.signupEndDatetime)}</p>
-                )}
+                <Input id="signup-end" data-testid="input-signup-end" type="datetime-local" value={form.signupEndDatetime} onChange={e => { signupEndEdited.current = true; setField("signupEndDatetime", e.target.value); }} required />
+                {dtDow(form.signupEndDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.signupEndDatetime)}</p>}
               </div>
             </div>
           </div>
@@ -661,22 +611,15 @@ export default function AdminEventNew() {
                 <h2 className="font-semibold text-foreground">Repeating Event</h2>
                 <p className="text-xs text-muted-foreground mt-0.5">Generate multiple instances of this event</p>
               </div>
-              <Switch
-                data-testid="switch-recurrence"
-                checked={recurrenceEnabled}
-                onCheckedChange={setRecurrenceEnabled}
-              />
+              <Switch data-testid="switch-recurrence" checked={recurrenceEnabled} onCheckedChange={setRecurrenceEnabled} />
             </div>
-
             {recurrenceEnabled && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Frequency</Label>
                     <Select value={recurrenceFrequency} onValueChange={setRecurrenceFrequency}>
-                      <SelectTrigger data-testid="select-recurrence-frequency">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger data-testid="select-recurrence-frequency"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="daily">Daily</SelectItem>
                         <SelectItem value="weekly">Weekly</SelectItem>
@@ -686,17 +629,9 @@ export default function AdminEventNew() {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Number of Occurrences</Label>
-                    <Input
-                      data-testid="input-recurrence-count"
-                      type="number"
-                      min={1}
-                      max={52}
-                      value={recurrenceOccurrences}
-                      onChange={e => setRecurrenceOccurrences(Math.max(1, Number(e.target.value)))}
-                    />
+                    <Input data-testid="input-recurrence-count" type="number" min={1} max={52} value={recurrenceOccurrences} onChange={e => setRecurrenceOccurrences(Math.max(1, Number(e.target.value)))} />
                   </div>
                 </div>
-
                 {additionalDates.length > 0 && (
                   <div className="space-y-2">
                     <div>
@@ -708,28 +643,17 @@ export default function AdminEventNew() {
                         const iso = d.toISOString();
                         const checked = selectedDates.has(iso);
                         return (
-                          <label
-                            key={i}
-                            className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 cursor-pointer transition-colors"
-                            data-testid={`recurrence-date-${i}`}
-                          >
-                            <Checkbox
-                              checked={checked}
-                              onCheckedChange={() => toggleDate(iso)}
-                              data-testid={`recurrence-checkbox-${i}`}
-                            />
+                          <label key={i} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 cursor-pointer transition-colors" data-testid={`recurrence-date-${i}`}>
+                            <Checkbox checked={checked} onCheckedChange={() => toggleDate(iso)} data-testid={`recurrence-checkbox-${i}`} />
                             <Calendar className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
                             <span className="text-sm font-mono">{format(d, "EEE, MMM d, yyyy 'at' h:mm a")}</span>
                           </label>
                         );
                       })}
                     </div>
-                    {selectedDates.size === 0 && (
-                      <p className="text-xs text-amber-600">No additional dates selected — only the main event will be created.</p>
-                    )}
+                    {selectedDates.size === 0 && <p className="text-xs text-amber-600">No additional dates selected — only the main event will be created.</p>}
                   </div>
                 )}
-
                 {recurrenceEnabled && !form.startDatetime && (
                   <p className="text-xs text-muted-foreground">Set a start date above to see recurrence dates.</p>
                 )}
@@ -741,9 +665,7 @@ export default function AdminEventNew() {
             <Button type="submit" data-testid="button-submit-event" disabled={createEvent.isPending} className="flex-1">
               {createEvent.isPending ? "Creating..." : "Create Event"}
             </Button>
-            <Link href="/admin/events">
-              <Button type="button" variant="outline">Cancel</Button>
-            </Link>
+            <Link href="/admin/events"><Button type="button" variant="outline">Cancel</Button></Link>
           </div>
         </form>
       </main>

@@ -1,6 +1,23 @@
-import { pgTable, serial, text, boolean, integer, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, boolean, integer, timestamp, real, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+
+export interface DuprEventRatingConfig {
+  min: number;
+  max: number;
+  nrAllowed: boolean;
+}
+
+export interface SelfNumericEventRatingConfig {
+  min: number;
+  max: number;
+}
+
+export interface SelfSkillEventRatingConfig {
+  maxLevel: number;
+}
+
+export type EventRatingConfig = DuprEventRatingConfig | SelfNumericEventRatingConfig | SelfSkillEventRatingConfig | null;
 
 export const eventsTable = pgTable("atl_dupr_events", {
   id: serial("id").primaryKey(),
@@ -13,6 +30,7 @@ export const eventsTable = pgTable("atl_dupr_events", {
   locationAddress: text("location_address").notNull().default(""),
   formatType: text("format_type", { enum: ["fixed_partner", "rotating"] }).notNull(),
   ratingTypeRequired: text("rating_type_required").notNull().default("none"),
+  ratingConfig: jsonb("rating_config").$type<EventRatingConfig>(),
   minParticipants: integer("min_participants").notNull().default(4),
   maxParticipants: integer("max_participants").notNull().default(16),
   waitlistEnabled: boolean("waitlist_enabled").notNull().default(true),

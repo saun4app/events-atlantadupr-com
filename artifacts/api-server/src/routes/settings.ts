@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { db } from "@workspace/db";
-import { appSettingsTable } from "@workspace/db";
+import { db, appSettingsTable, DEFAULT_RATING_REQUIREMENTS_CONFIG } from "@workspace/db";
 import { requireRole } from "../lib/auth.js";
 
 const router = Router();
@@ -12,6 +11,49 @@ const VALID_TIMEZONES = new Set([
 
 function validateEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+}
+
+function validateRatingRequirementsConfig(cfg: unknown): string | null {
+  if (typeof cfg !== "object" || cfg === null) return "ratingRequirementsConfig must be an object";
+  const c = cfg as Record<string, unknown>;
+
+  if (c.dupr !== undefined) {
+    const d = c.dupr as Record<string, unknown>;
+    if (typeof d !== "object" || d === null) return "ratingRequirementsConfig.dupr must be an object";
+    if (d.enabled !== undefined && typeof d.enabled !== "boolean") return "ratingRequirementsConfig.dupr.enabled must be boolean";
+    if (d.minAllowed !== undefined && (typeof d.minAllowed !== "number" || d.minAllowed < 2.0 || d.minAllowed > 8.0)) return "ratingRequirementsConfig.dupr.minAllowed must be 2.0–8.0";
+    if (d.maxAllowed !== undefined && (typeof d.maxAllowed !== "number" || d.maxAllowed < 2.0 || d.maxAllowed > 8.0)) return "ratingRequirementsConfig.dupr.maxAllowed must be 2.0–8.0";
+    if (d.defaultMin !== undefined && typeof d.defaultMin !== "number") return "ratingRequirementsConfig.dupr.defaultMin must be a number";
+    if (d.defaultMax !== undefined && typeof d.defaultMax !== "number") return "ratingRequirementsConfig.dupr.defaultMax must be a number";
+    if (d.defaultNrAllowed !== undefined && typeof d.defaultNrAllowed !== "boolean") return "ratingRequirementsConfig.dupr.defaultNrAllowed must be boolean";
+  }
+
+  if (c.selfNumeric !== undefined) {
+    const s = c.selfNumeric as Record<string, unknown>;
+    if (typeof s !== "object" || s === null) return "ratingRequirementsConfig.selfNumeric must be an object";
+    if (s.enabled !== undefined && typeof s.enabled !== "boolean") return "ratingRequirementsConfig.selfNumeric.enabled must be boolean";
+    if (s.minAllowed !== undefined && (typeof s.minAllowed !== "number" || s.minAllowed < 2.0 || s.minAllowed > 6.0)) return "ratingRequirementsConfig.selfNumeric.minAllowed must be 2.0–6.0";
+    if (s.maxAllowed !== undefined && (typeof s.maxAllowed !== "number" || s.maxAllowed < 2.0 || s.maxAllowed > 6.0)) return "ratingRequirementsConfig.selfNumeric.maxAllowed must be 2.0–6.0";
+    if (s.defaultMin !== undefined && typeof s.defaultMin !== "number") return "ratingRequirementsConfig.selfNumeric.defaultMin must be a number";
+    if (s.defaultMax !== undefined && typeof s.defaultMax !== "number") return "ratingRequirementsConfig.selfNumeric.defaultMax must be a number";
+  }
+
+  if (c.selfSkill !== undefined) {
+    const ss = c.selfSkill as Record<string, unknown>;
+    if (typeof ss !== "object" || ss === null) return "ratingRequirementsConfig.selfSkill must be an object";
+    if (ss.enabled !== undefined && typeof ss.enabled !== "boolean") return "ratingRequirementsConfig.selfSkill.enabled must be boolean";
+    if (ss.levels !== undefined) {
+      if (!Array.isArray(ss.levels)) return "ratingRequirementsConfig.selfSkill.levels must be an array";
+      for (let i = 0; i < ss.levels.length; i++) {
+        const lv = ss.levels[i];
+        if (typeof lv !== "object" || lv === null) return `selfSkill.levels[${i}] must be an object`;
+        if (typeof (lv as any).text !== "string" || !(lv as any).text.trim()) return `selfSkill.levels[${i}].text is required`;
+        if (typeof (lv as any).level !== "number" || !Number.isInteger((lv as any).level) || (lv as any).level < 1) return `selfSkill.levels[${i}].level must be a positive integer`;
+      }
+    }
+  }
+
+  return null;
 }
 
 function validateSettingsInput(body: unknown): string | null {
@@ -131,6 +173,10 @@ function validateSettingsInput(body: unknown): string | null {
       keys.add(trimmedKey);
     }
   }
+  if (b.ratingRequirementsConfig !== undefined) {
+    const err = validateRatingRequirementsConfig(b.ratingRequirementsConfig);
+    if (err) return err;
+  }
   return null;
 }
 
@@ -140,7 +186,13 @@ router.get("/", async (_req, res) => {
     .values({ id: 1 })
     .onConflictDoUpdate({ target: appSettingsTable.id, set: { id: 1 } })
     .returning();
-  return res.json(settings);
+
+  const result = {
+    ...settings,
+    ratingRequirementsConfig: settings.ratingRequirementsConfig ?? DEFAULT_RATING_REQUIREMENTS_CONFIG,
+  };
+
+  return res.json(result);
 });
 
 router.put("/", requireRole("admin"), async (req, res) => {
@@ -163,6 +215,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
     defaultEventNames,
     defaultEventDurationHours,
     defaultRatingRequirements,
+    ratingRequirementsConfig,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -195,6 +248,9 @@ router.put("/", requireRole("admin"), async (req, res) => {
       label: String(r.label).trim(),
     }));
   }
+  if (ratingRequirementsConfig !== undefined) {
+    updates.ratingRequirementsConfig = ratingRequirementsConfig;
+  }
 
   const [updated] = await db
     .insert(appSettingsTable)
@@ -202,7 +258,10 @@ router.put("/", requireRole("admin"), async (req, res) => {
     .onConflictDoUpdate({ target: appSettingsTable.id, set: updates })
     .returning();
 
-  return res.json(updated);
+  return res.json({
+    ...updated,
+    ratingRequirementsConfig: updated.ratingRequirementsConfig ?? DEFAULT_RATING_REQUIREMENTS_CONFIG,
+  });
 });
 
 export default router;

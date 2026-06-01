@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
 import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon } from "lucide-react";
 
+interface SkillLevel { text: string; level: number; }
+
 function isNonNumeric(rating: string | null | undefined): boolean {
   if (!rating) return false;
   return isNaN(parseFloat(rating)) || rating === "NR";
@@ -35,6 +37,28 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function formatRatingInfo(event: any, skillLevels: SkillLevel[]): { label: string; detail?: string } | null {
+  const type = event.ratingTypeRequired;
+  const cfg = event.ratingConfig;
+  if (type === "none" || !type) return null;
+  if (type === "dupr") {
+    if (cfg) return { label: "DUPR Rating Required", detail: `${cfg.min}–${cfg.max}${cfg.nrAllowed ? " (NR OK)" : ""}` };
+    return { label: "DUPR Rating Required" };
+  }
+  if (type === "self_numeric") {
+    if (cfg) return { label: "Self-Rating Required", detail: `${cfg.min}–${cfg.max}` };
+    return { label: "Self-Rating Required" };
+  }
+  if (type === "self_skill") {
+    if (cfg && skillLevels.length > 0) {
+      const lv = skillLevels.find(l => l.level === cfg.maxLevel);
+      if (lv) return { label: "Skill Level Required", detail: `Up to: ${lv.text}` };
+    }
+    return { label: "Skill Level Required" };
+  }
+  return { label: "Rating Required" };
+}
+
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>();
   const eventId = Number(id);
@@ -51,11 +75,12 @@ export default function EventDetail() {
     query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventId) }
   });
   const { data: settings } = useGetSettings();
-
   const createReg = useCreateRegistration();
 
   const [duprId, setDuprId] = useState("");
   const [partnerDuprId, setPartnerDuprId] = useState("");
+
+  const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
 
   if (settings?.maintenanceMode) {
     return (
@@ -64,9 +89,7 @@ export default function EventDetail() {
         <div className="flex flex-col items-center justify-center min-h-[70vh] px-4 text-center">
           <WrenchIcon className="w-14 h-14 text-muted-foreground/40 mb-5" />
           <h1 className="text-2xl font-bold text-foreground mb-2">Site Under Maintenance</h1>
-          <p className="text-muted-foreground max-w-md">
-            This site is temporarily under maintenance. Please check back soon.
-          </p>
+          <p className="text-muted-foreground max-w-md">This site is temporarily under maintenance. Please check back soon.</p>
         </div>
       </div>
     );
@@ -92,18 +115,19 @@ export default function EventDetail() {
         <div className="max-w-3xl mx-auto px-4 py-16 text-center text-muted-foreground">
           <AlertCircle className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">Event not found</p>
-          <Link href="/"><a className="text-primary text-sm mt-2 block hover:underline">Back to events</a></Link>
+          <Link href="/"><span className="text-primary text-sm mt-2 block hover:underline">Back to events</span></Link>
         </div>
       </div>
     );
   }
 
-  const now = new Date();
   const signupOpen =
     event.status === "upcoming" &&
     isFuture(new Date(event.signupEndDatetime)) &&
     isPast(new Date(event.signupStartDatetime));
   const signupNotYet = isFuture(new Date(event.signupStartDatetime));
+
+  const ratingInfo = formatRatingInfo(event, skillLevels);
 
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -131,8 +155,6 @@ export default function EventDetail() {
     );
   }
 
-  const showSelfRating = (reg: any) => isNonNumeric(reg.doubleRating) && reg.selfRating;
-
   return (
     <div className="min-h-screen bg-background">
       <PublicNav />
@@ -148,6 +170,7 @@ export default function EventDetail() {
       </div>
 
       <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+        {/* Event Info Card */}
         <div className="bg-card border border-card-border rounded-lg p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
             <div className="flex items-center gap-2 text-muted-foreground">
@@ -160,23 +183,38 @@ export default function EventDetail() {
             </div>
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
               <MapPin className="w-4 h-4 text-primary" />
-              <span>{event.locationName} — {event.locationAddress}</span>
+              <span>{event.locationName}{event.locationAddress ? ` — ${event.locationAddress}` : ""}</span>
             </div>
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
-            <Badge variant="outline" className="text-xs">{event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}</Badge>
-            {event.ratingTypeRequired !== "none" && <Badge variant="outline" className="text-xs">DUPR Required</Badge>}
-            {event.requireApproval && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>}
-            {event.waitlistEnabled && <Badge variant="outline" className="text-xs">Waitlist Enabled</Badge>}
+            <Badge variant="outline" className="text-xs">
+              {event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
+            </Badge>
+            {ratingInfo ? (
+              <Badge variant="outline" className="text-xs">
+                {ratingInfo.label}{ratingInfo.detail ? `: ${ratingInfo.detail}` : ""}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs">All Levels</Badge>
+            )}
+            {event.requireApproval && (
+              <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>
+            )}
+            {event.waitlistEnabled && (
+              <Badge variant="outline" className="text-xs">Waitlist Enabled</Badge>
+            )}
           </div>
 
-          {event.description && <p className="text-sm text-muted-foreground">{event.description}</p>}
+          {event.description && (
+            <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
+          )}
 
-          <div className="mt-4 pt-4 border-t border-border flex items-center gap-4 text-sm">
+          <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center gap-3 text-sm">
             <span className="text-muted-foreground">Signup Window:</span>
             <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
-              {format(new Date(event.signupStartDatetime), "EEE, MMM d, h:mm a")} – {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
+              {format(new Date(event.signupStartDatetime), "EEE, MMM d, h:mm a")} –{" "}
+              {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
             </span>
             {signupOpen && <Badge className="text-xs">Open</Badge>}
             {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
@@ -184,22 +222,46 @@ export default function EventDetail() {
           </div>
 
           {rosterSummary && (
-            <div className="mt-3 flex gap-4 text-sm">
-              <span data-testid="text-confirmed-count"><span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed</span>
-              {rosterSummary.waitlisted > 0 && <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>}
-              {rosterSummary.pendingApproval > 0 && <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>}
+            <div className="mt-3 flex flex-wrap gap-4 text-sm">
+              <span data-testid="text-confirmed-count">
+                <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed
+              </span>
+              {rosterSummary.waitlisted > 0 && (
+                <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>
+              )}
+              {rosterSummary.pendingApproval > 0 && (
+                <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>
+              )}
               <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
             </div>
           )}
         </div>
 
+        {/* Approval notice */}
         {event.requireApproval && (
           <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>This event requires organizer approval. Your registration will be <strong>Pending Approval</strong> until confirmed.</span>
+            <span>
+              This event requires organizer approval. Your registration will be{" "}
+              <strong>Pending Approval</strong> until confirmed.
+            </span>
           </div>
         )}
 
+        {/* Rating notice */}
+        {ratingInfo && (
+          <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              <strong>Rating Required:</strong> {ratingInfo.label}{ratingInfo.detail ? ` — ${ratingInfo.detail}` : ""}.
+              {(event as any).ratingTypeRequired === "dupr" && " Your DUPR doubles rating will be verified."}
+              {(event as any).ratingTypeRequired === "self_numeric" && " Please self-report your numeric rating."}
+              {(event as any).ratingTypeRequired === "self_skill" && " Please indicate your skill level when registering."}
+            </span>
+          </div>
+        )}
+
+        {/* Registration form */}
         {signupOpen && (
           <div className="bg-card border border-card-border rounded-lg p-5">
             <h2 className="font-semibold text-foreground mb-4">Register for This Event</h2>
@@ -240,13 +302,14 @@ export default function EventDetail() {
           </div>
         )}
 
+        {/* Participant list */}
         <div className="bg-card border border-card-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border">
             <h2 className="font-semibold text-foreground">Participants</h2>
           </div>
           {regLoading ? (
             <div className="p-5 space-y-2">
-              {[1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+              {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
           ) : registrations && registrations.filter(r => r.status !== "rejected").length > 0 ? (
             <div className="overflow-x-auto">
@@ -276,7 +339,7 @@ export default function EventDetail() {
                           <span data-testid={`text-rating-${reg.id}`} className="font-mono">
                             {reg.doubleRating || "NR"}
                           </span>
-                          {showSelfRating(reg) && (
+                          {isNonNumeric(reg.doubleRating) && reg.selfRating && (
                             <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>
                           )}
                         </td>
