@@ -132,6 +132,8 @@ export default function AdminSettings() {
   const [contactDialog, setContactDialog] = useState<ContactDialog>({ open: false });
   const [contactForm, setContactForm] = useState({ name: "", email: "" });
   const [deleteContactIdx, setDeleteContactIdx] = useState<number | null>(null);
+  const [deleteEventNameIdx, setDeleteEventNameIdx] = useState<number | null>(null);
+  const [deleteRatingIdx, setDeleteRatingIdx] = useState<number | null>(null);
 
   function openAddContact() {
     setContactForm({ name: "", email: "" });
@@ -226,6 +228,17 @@ export default function AdminSettings() {
   function deleteRatingRequirement(i: number) {
     if (editingRatingIdx === i) setEditingRatingIdx(null);
     update("defaultRatingRequirements", form.defaultRatingRequirements.filter((_, idx) => idx !== i));
+  }
+  function confirmDeleteEventName() {
+    if (deleteEventNameIdx === null) return;
+    if (editingEventNameIdx === deleteEventNameIdx) setEditingEventNameIdx(null);
+    update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== deleteEventNameIdx));
+    setDeleteEventNameIdx(null);
+  }
+  function confirmDeleteRating() {
+    if (deleteRatingIdx === null) return;
+    deleteRatingRequirement(deleteRatingIdx);
+    setDeleteRatingIdx(null);
   }
   function startEditRatingRequirement(i: number) {
     setEditingRatingIdx(i);
@@ -558,10 +571,7 @@ export default function AdminSettings() {
                             type="button" variant="ghost" size="sm"
                             className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
                             data-testid={`button-delete-event-name-${i}`}
-                            onClick={() => {
-                              if (editingEventNameIdx === i) setEditingEventNameIdx(null);
-                              update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== i));
-                            }}
+                            onClick={() => setDeleteEventNameIdx(i)}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -672,7 +682,7 @@ export default function AdminSettings() {
                             type="button" variant="ghost" size="sm"
                             className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
                             data-testid={`button-delete-rating-req-${i}`}
-                            onClick={() => deleteRatingRequirement(i)}
+                            onClick={() => setDeleteRatingIdx(i)}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -896,6 +906,54 @@ export default function AdminSettings() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Event Name delete confirm ────────────────────────── */}
+      <AlertDialog open={deleteEventNameIdx !== null} onOpenChange={open => !open && setDeleteEventNameIdx(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this event name?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteEventNameIdx !== null && form.defaultEventNames[deleteEventNameIdx]
+                ? `"${form.defaultEventNames[deleteEventNameIdx]}" will be removed from the default names list.`
+                : "This event name will be removed."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteEventName}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-event-name"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Rating Requirement delete confirm ───────────────── */}
+      <AlertDialog open={deleteRatingIdx !== null} onOpenChange={open => !open && setDeleteRatingIdx(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this rating requirement?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteRatingIdx !== null && form.defaultRatingRequirements[deleteRatingIdx]
+                ? `"${form.defaultRatingRequirements[deleteRatingIdx].label}" will be removed from the rating requirements list.`
+                : "This rating requirement will be removed."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteRating}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              data-testid="button-confirm-delete-rating-req"
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Location delete confirm ─────────────────────────── */}
       <AlertDialog open={deleteLocationIdx !== null} onOpenChange={open => !open && setDeleteLocationIdx(null)}>
