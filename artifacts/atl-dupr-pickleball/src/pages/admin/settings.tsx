@@ -79,6 +79,7 @@ export default function AdminSettings() {
     defaultLocations: [] as DefaultLocation[],
     maintenanceMode: false,
     defaultEventNames: [] as string[],
+    eventRoles: [] as string[],
     defaultEventDurationHours: 2,
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
   });
@@ -88,6 +89,11 @@ export default function AdminSettings() {
   const [editingEventNameIdx, setEditingEventNameIdx] = useState<number | null>(null);
   const [editEventNameValue, setEditEventNameValue] = useState("");
   const [deleteEventNameIdx, setDeleteEventNameIdx] = useState<number | null>(null);
+
+  const [newEventRole, setNewEventRole] = useState("");
+  const [editingEventRoleIdx, setEditingEventRoleIdx] = useState<number | null>(null);
+  const [editEventRoleValue, setEditEventRoleValue] = useState("");
+  const [deleteEventRoleIdx, setDeleteEventRoleIdx] = useState<number | null>(null);
 
   useEffect(() => {
     if (settings && settings !== lastSyncedSettings.current) {
@@ -105,6 +111,7 @@ export default function AdminSettings() {
         defaultLocations: (settings.defaultLocations as DefaultLocation[]) ?? [],
         maintenanceMode: settings.maintenanceMode ?? false,
         defaultEventNames: (settings.defaultEventNames as string[]) ?? [],
+        eventRoles: ((settings as any).eventRoles as string[]) ?? [],
         defaultEventDurationHours: (settings.defaultEventDurationHours as number) ?? 2,
         ratingRequirementsConfig: {
           dupr: { ...DEFAULT_RATING_CONFIG.dupr, ...(rrc.dupr ?? {}) },
@@ -449,6 +456,85 @@ export default function AdminSettings() {
               </div>
             </section>
 
+            {/* ── Event Roles ──────────────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Event Roles</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Roles available to assign to participants on the event detail page (e.g. Event Captain, Court Leader).</p>
+              </div>
+              {form.eventRoles.length > 0 && (
+                <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
+                  {form.eventRoles.map((role, i) => (
+                    <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`event-role-row-${i}`}>
+                      {editingEventRoleIdx === i ? (
+                        <>
+                          <Input
+                            data-testid={`input-edit-event-role-${i}`}
+                            value={editEventRoleValue}
+                            onChange={e => setEditEventRoleValue(e.target.value)}
+                            className="flex-1 h-7 text-sm"
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === "Enter") {
+                                e.preventDefault();
+                                const v = editEventRoleValue.trim();
+                                if (v && !form.eventRoles.some((r, idx) => r === v && idx !== i)) {
+                                  update("eventRoles", form.eventRoles.map((r, idx) => idx === i ? v : r), true);
+                                  setEditingEventRoleIdx(null);
+                                }
+                              }
+                              if (e.key === "Escape") setEditingEventRoleIdx(null);
+                            }}
+                          />
+                          <Button type="button" variant="ghost" size="sm" className="text-primary h-7 px-2 shrink-0 text-xs" data-testid={`button-save-event-role-${i}`} onClick={() => {
+                            const v = editEventRoleValue.trim();
+                            if (v && !form.eventRoles.some((r, idx) => r === v && idx !== i)) {
+                              update("eventRoles", form.eventRoles.map((r, idx) => idx === i ? v : r), true);
+                              setEditingEventRoleIdx(null);
+                            }
+                          }}>Save</Button>
+                          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 shrink-0 text-xs" data-testid={`button-cancel-event-role-${i}`} onClick={() => setEditingEventRoleIdx(null)}>Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <span className="flex-1 text-sm text-foreground truncate">{role}</span>
+                          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground h-7 w-7 p-0 shrink-0" data-testid={`button-edit-event-role-${i}`} onClick={() => { setEditingEventRoleIdx(i); setEditEventRoleValue(role); }}><Pencil className="w-3.5 h-3.5" /></Button>
+                          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0" data-testid={`button-delete-event-role-${i}`} onClick={() => setDeleteEventRoleIdx(i)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  data-testid="input-new-event-role"
+                  value={newEventRole}
+                  onChange={e => setNewEventRole(e.target.value)}
+                  placeholder="Event Captain"
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const t = newEventRole.trim();
+                      if (t && !form.eventRoles.includes(t)) {
+                        update("eventRoles", [...form.eventRoles, t], true);
+                        setNewEventRole("");
+                      }
+                    }
+                  }}
+                />
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" data-testid="button-add-event-role" onClick={() => {
+                  const t = newEventRole.trim();
+                  if (t && !form.eventRoles.includes(t)) {
+                    update("eventRoles", [...form.eventRoles, t], true);
+                    setNewEventRole("");
+                  }
+                }}>
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </Button>
+              </div>
+            </section>
+
             {/* ── Rating Requirements Config ────────────────── */}
             <section className="bg-card border border-card-border rounded-lg p-5 space-y-5">
               <div>
@@ -741,6 +827,20 @@ export default function AdminSettings() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Event Role delete confirm ────────────────────────── */}
+      <AlertDialog open={deleteEventRoleIdx !== null} onOpenChange={open => !open && setDeleteEventRoleIdx(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this event role?</AlertDialogTitle>
+            <AlertDialogDescription>{deleteEventRoleIdx !== null && form.eventRoles[deleteEventRoleIdx] ? `"${form.eventRoles[deleteEventRoleIdx]}" will be removed from the event roles list.` : "This event role will be removed."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteEventRole} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete-event-role">Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* ── Event Name delete confirm ────────────────────────── */}
       <AlertDialog open={deleteEventNameIdx !== null} onOpenChange={open => !open && setDeleteEventNameIdx(null)}>
         <AlertDialogContent>
@@ -794,5 +894,12 @@ export default function AdminSettings() {
     if (editingEventNameIdx === deleteEventNameIdx) setEditingEventNameIdx(null);
     update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== deleteEventNameIdx), true);
     setDeleteEventNameIdx(null);
+  }
+
+  function confirmDeleteEventRole() {
+    if (deleteEventRoleIdx === null) return;
+    if (editingEventRoleIdx === deleteEventRoleIdx) setEditingEventRoleIdx(null);
+    update("eventRoles", form.eventRoles.filter((_, idx) => idx !== deleteEventRoleIdx), true);
+    setDeleteEventRoleIdx(null);
   }
 }

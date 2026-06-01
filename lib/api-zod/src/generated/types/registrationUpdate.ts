@@ -12,6 +12,6 @@ export interface RegistrationUpdate {
   /** @nullable */
   partnerDuprId?: string | null;
   /** @nullable */
-  eventRole?: 'event_captain' | 'court_leader' | null;
+  eventRole?: string | null;
   isNew?: boolean;
 }

@@ -91,6 +91,7 @@ export const appSettingsTable = pgTable("app_settings", {
   defaultLocations: jsonb("default_locations").$type<DefaultLocation[]>().notNull().default([]),
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   defaultEventNames: jsonb("default_event_names").$type<string[]>().notNull().default([]),
+  eventRoles: jsonb("event_roles").$type<string[]>().notNull().default([]),
   defaultEventDurationHours: integer("default_event_duration_hours").notNull().default(2),
   defaultRatingRequirements: jsonb("default_rating_requirements").$type<RatingRequirement[]>().notNull().default([]),
   ratingRequirementsConfig: jsonb("rating_requirements_config").$type<RatingRequirementsConfig>(),

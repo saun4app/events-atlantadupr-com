@@ -103,6 +103,7 @@ export default function AdminEventDetail() {
     query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventId) }
   });
   const { data: settings } = useGetSettings();
+  const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const isAdminOrOrganizer = user?.role === "admin" || user?.role === "event_organizer";
 
   const { data: allUsers } = useListUsers({ query: { enabled: isAdminOrOrganizer, queryKey: ["listUsers"] } });
@@ -456,7 +457,7 @@ export default function AdminEventDetail() {
                                 {reg.eventRole ? (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
                                     <Star className="w-3 h-3" />
-                                    {reg.eventRole === "event_captain" ? "Event Captain" : "Court Leader"}
+                                    {reg.eventRole}
                                   </span>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">—</span>
@@ -470,7 +471,7 @@ export default function AdminEventDetail() {
                                         Actions <ChevronDown className="w-3 h-3" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-44">
+                                    <DropdownMenuContent align="end" className="w-48">
                                       {reg.status === "pending_approval" && (
                                         <>
                                           <DropdownMenuItem data-testid={`action-approve-${reg.id}`} className="text-primary gap-2" onClick={() => handleApprove(reg.id)}>
@@ -490,29 +491,25 @@ export default function AdminEventDetail() {
                                           <DropdownMenuSeparator />
                                         </>
                                       )}
-                                      <DropdownMenuItem
-                                        data-testid={`action-role-captain-${reg.id}`}
-                                        className="gap-2"
-                                        onClick={() => updateReg.mutate(
-                                          { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === "event_captain" ? null : "event_captain" } },
-                                          { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
-                                        )}
-                                      >
-                                        <Star className="w-3.5 h-3.5" />
-                                        {reg.eventRole === "event_captain" ? "Remove Captain" : "Set Event Captain"}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuItem
-                                        data-testid={`action-role-leader-${reg.id}`}
-                                        className="gap-2"
-                                        onClick={() => updateReg.mutate(
-                                          { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === "court_leader" ? null : "court_leader" } },
-                                          { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
-                                        )}
-                                      >
-                                        <Star className="w-3.5 h-3.5" />
-                                        {reg.eventRole === "court_leader" ? "Remove Leader" : "Set Court Leader"}
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
+                                      {eventRolesList.length > 0 && (
+                                        <>
+                                          {eventRolesList.map(role => (
+                                            <DropdownMenuItem
+                                              key={role}
+                                              data-testid={`action-role-${role.replace(/\s+/g, "-").toLowerCase()}-${reg.id}`}
+                                              className="gap-2"
+                                              onClick={() => updateReg.mutate(
+                                                { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === role ? null : role } },
+                                                { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
+                                              )}
+                                            >
+                                              <Star className="w-3.5 h-3.5" />
+                                              {reg.eventRole === role ? `Remove ${role}` : `Set ${role}`}
+                                            </DropdownMenuItem>
+                                          ))}
+                                          <DropdownMenuSeparator />
+                                        </>
+                                      )}
                                       <DropdownMenuItem
                                         data-testid={`action-delete-${reg.id}`}
                                         className="text-destructive gap-2"

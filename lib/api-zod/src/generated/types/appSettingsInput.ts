@@ -21,6 +21,7 @@ export interface AppSettingsInput {
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;
   defaultEventNames?: string[];
+  eventRoles?: string[];
   defaultEventDurationHours?: number;
   defaultRatingRequirements?: RatingRequirement[];
 }

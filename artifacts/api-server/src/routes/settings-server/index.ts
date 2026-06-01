@@ -156,6 +156,14 @@ function validateSettingsInput(body: unknown): string | null {
       }
     }
   }
+  if (b.eventRoles !== undefined) {
+    if (!Array.isArray(b.eventRoles)) return "eventRoles must be an array";
+    for (let i = 0; i < b.eventRoles.length; i++) {
+      if (typeof b.eventRoles[i] !== "string" || !b.eventRoles[i].trim()) {
+        return `eventRoles[${i}] must be a non-empty string`;
+      }
+    }
+  }
   if (b.defaultRatingRequirements !== undefined) {
     if (!Array.isArray(b.defaultRatingRequirements)) return "defaultRatingRequirements must be an array";
     const keys = new Set<string>();
@@ -217,6 +225,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
     defaultLocations,
     maintenanceMode,
     defaultEventNames,
+    eventRoles,
     defaultEventDurationHours,
     defaultRatingRequirements,
     ratingRequirementsConfig,
@@ -235,6 +244,9 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (defaultEventDurationHours !== undefined) updates.defaultEventDurationHours = defaultEventDurationHours;
   if (defaultEventNames !== undefined) {
     updates.defaultEventNames = (defaultEventNames as string[]).map((n: string) => n.trim()).filter(Boolean);
+  }
+  if (eventRoles !== undefined) {
+    updates.eventRoles = (eventRoles as string[]).map((r: string) => r.trim()).filter(Boolean);
   }
   if (defaultLocations !== undefined) {
     updates.defaultLocations = (defaultLocations as any[]).map((loc: any) => ({
