@@ -504,6 +504,8 @@ export default function AdminEventDetail() {
                               <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />
                               <SortHeader label="New" col="new" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "new")} />
                               <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Email</th>
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground whitespace-nowrap">Phone</th>
                               <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                             </tr>
                           </thead>
@@ -575,6 +577,14 @@ export default function AdminEventDetail() {
                                     ) : (
                                       <span className="text-xs text-muted-foreground">—</span>
                                     )}
+                                  </td>
+                                  <td className="px-5 py-3 text-xs">
+                                    {(reg as any).playerEmail ? (
+                                      <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a>
+                                    ) : <span className="text-muted-foreground">—</span>}
+                                  </td>
+                                  <td className="px-5 py-3 text-xs text-muted-foreground">
+                                    {(reg as any).playerPhone || "—"}
                                   </td>
                                   <td className="px-5 py-3">
                                     <div className="flex items-center justify-end">

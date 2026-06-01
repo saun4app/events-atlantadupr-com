@@ -34,6 +34,7 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, inc
     singleRating: member?.singleRating ?? null,
     selfRating: member?.selfRating ?? null,
     partnerName,
+    ...(includeAdminFields ? { playerEmail: member?.email ?? null, playerPhone: member?.phone ?? null } : {}),
   };
 }
 

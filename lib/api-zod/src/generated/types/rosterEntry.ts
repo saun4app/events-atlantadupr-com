@@ -33,4 +33,8 @@ export interface RosterEntry {
   partnerName?: string | null;
   /** @nullable */
   assignedRating?: number | null;
+  /** @nullable */
+  playerEmail?: string | null;
+  /** @nullable */
+  playerPhone?: string | null;
 }

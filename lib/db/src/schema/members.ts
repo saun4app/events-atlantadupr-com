@@ -10,6 +10,8 @@ export const membersTable = pgTable("atl_dupr_member_list", {
   singleRating: text("single_rating"),
   singleReliability: integer("single_reliability"),
   selfRating: text("self_rating"),
+  email: text("email"),
+  phone: text("phone"),
 });
 
 export const insertMemberSchema = createInsertSchema(membersTable);

@@ -22,9 +22,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
-type MemberRow = { duprId: string; playerName: string; doubleRating?: string | null; doubleReliability?: number | null; singleRating?: string | null; singleReliability?: number | null; selfRating?: string | null };
+type MemberRow = { duprId: string; playerName: string; doubleRating?: string | null; doubleReliability?: number | null; singleRating?: string | null; singleReliability?: number | null; selfRating?: string | null; email?: string | null; phone?: string | null };
 
-const emptyForm = { duprId: "", playerName: "", doubleRating: "", doubleReliability: "", singleRating: "", singleReliability: "", selfRating: "" };
+const emptyForm = { duprId: "", playerName: "", doubleRating: "", doubleReliability: "", singleRating: "", singleReliability: "", selfRating: "", email: "", phone: "" };
 
 export default function AdminMembers() {
   const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
@@ -94,7 +94,9 @@ export default function AdminMembers() {
         singleRating: addForm.singleRating.trim() || null,
         singleReliability: addForm.singleReliability ? Number(addForm.singleReliability) : null,
         selfRating: addForm.selfRating.trim() || null,
-      }
+        email: addForm.email.trim() || null,
+        phone: addForm.phone.trim() || null,
+      } as any
     }, {
       onSuccess: () => { toast({ title: "Member added" }); invalidate(); setShowAddDialog(false); setAddForm(emptyForm); },
       onError: (err: any) => toast({ title: err?.data?.error || "Failed to add member", variant: "destructive" }),
@@ -111,6 +113,8 @@ export default function AdminMembers() {
       singleRating: m.singleRating ?? "",
       singleReliability: m.singleReliability != null ? String(m.singleReliability) : "",
       selfRating: m.selfRating ?? "",
+      email: m.email ?? "",
+      phone: m.phone ?? "",
     });
   }
 
@@ -126,7 +130,9 @@ export default function AdminMembers() {
         singleRating: editForm.singleRating.trim() || null,
         singleReliability: editForm.singleReliability ? Number(editForm.singleReliability) : null,
         selfRating: editForm.selfRating.trim() || null,
-      }
+        email: editForm.email.trim() || null,
+        phone: editForm.phone.trim() || null,
+      } as any
     }, {
       onSuccess: () => { toast({ title: "Member updated" }); invalidate(); setEditMember(null); },
       onError: (err: any) => toast({ title: err?.data?.error || "Failed to update member", variant: "destructive" }),
@@ -248,6 +254,8 @@ export default function AdminMembers() {
                     <SortTh label="Single Rating" col="singleRating" />
                     <SortTh label="S. Reliability" col="singleReliability" />
                     <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Self-Rating</th>
+                    <SortTh label="Email" col="email" />
+                    <SortTh label="Phone" col="phone" />
                     <th className="px-4 py-2.5" />
                   </tr>
                 </thead>
@@ -261,6 +269,8 @@ export default function AdminMembers() {
                       <td className="px-4 py-3 font-mono">{m.singleRating ?? "—"}</td>
                       <td className="px-4 py-3">{m.singleReliability != null ? `${m.singleReliability}%` : "—"}</td>
                       <td className="px-4 py-3">{m.selfRating ?? "—"}</td>
+                      <td className="px-4 py-3 text-xs">{(m as any).email ? <a href={`mailto:${(m as any).email}`} className="text-primary hover:underline">{(m as any).email}</a> : "—"}</td>
+                      <td className="px-4 py-3 text-xs">{(m as any).phone || "—"}</td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-1">
                           <Button
@@ -353,6 +363,14 @@ export default function AdminMembers() {
                 <Label htmlFor="add-self-rating">Self-Rating</Label>
                 <Input id="add-self-rating" value={addForm.selfRating} onChange={e => setAddForm(f => ({ ...f, selfRating: e.target.value }))} placeholder="3.5" />
               </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="add-email">Email</Label>
+                <Input id="add-email" type="email" value={addForm.email} onChange={e => setAddForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@example.com" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="add-phone">Phone</Label>
+                <Input id="add-phone" type="tel" value={addForm.phone} onChange={e => setAddForm(f => ({ ...f, phone: e.target.value }))} placeholder="404-555-0100" />
+              </div>
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
@@ -394,6 +412,14 @@ export default function AdminMembers() {
               <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="edit-self-rating">Self-Rating</Label>
                 <Input id="edit-self-rating" value={editForm.selfRating} onChange={e => setEditForm(f => ({ ...f, selfRating: e.target.value }))} placeholder="3.5" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="edit-email">Email</Label>
+                <Input id="edit-email" type="email" value={editForm.email} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} placeholder="jane@example.com" />
+              </div>
+              <div className="space-y-1.5 col-span-2">
+                <Label htmlFor="edit-phone">Phone</Label>
+                <Input id="edit-phone" type="tel" value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} placeholder="404-555-0100" />
               </div>
             </div>
             <DialogFooter>
