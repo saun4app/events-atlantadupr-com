@@ -1,11 +1,11 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import {
-  useGetEvent, useListRegistrations, useUpdateEvent,
+  useGetEvent, useListRegistrations, useUpdateEvent, useDeleteEvent,
   useApproveRegistration, useRejectRegistration, usePromoteFromWaitlist,
   useDeleteRegistration, useCreateRegistration, useListUsers, useGetSettings,
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
-  getListEventsQueryKey
+  getListEventsQueryKey, getGetEventsSummaryQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminNav } from "@/components/admin-nav";
@@ -105,6 +105,7 @@ export default function AdminEventDetail() {
   const { data: allUsers } = useListUsers({ query: { enabled: isAdminOrOrganizer, queryKey: ["listUsers"] } });
 
   const updateEvent = useUpdateEvent();
+  const deleteEvent = useDeleteEvent();
   const approveReg = useApproveRegistration();
   const rejectReg = useRejectRegistration();
   const promoteReg = usePromoteFromWaitlist();
@@ -112,6 +113,7 @@ export default function AdminEventDetail() {
   const createReg = useCreateRegistration();
 
   const [deleteRegId, setDeleteRegId] = useState<number | null>(null);
+  const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [addDuprId, setAddDuprId] = useState("");
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
 
@@ -189,6 +191,17 @@ export default function AdminEventDetail() {
     } else if (type === "self_skill") {
       setEditRatingConfig({ minLevel: rrc.selfSkill.defaultMinLevel, maxLevel: rrc.selfSkill.defaultMaxLevel });
     }
+  }
+
+  function handleDeleteEvent() {
+    deleteEvent.mutate({ id: eventId }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
+        queryClient.invalidateQueries({ queryKey: getGetEventsSummaryQueryKey() });
+        setLocation("/admin/events");
+      },
+      onError: () => toast({ title: "Delete failed", variant: "destructive" }),
+    });
   }
 
   function handleEditSubmit(e: React.FormEvent) {
@@ -605,7 +618,18 @@ export default function AdminEventDetail() {
                 </label>
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-row items-center gap-2">
+              {user?.role === "admin" && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 gap-1.5 mr-auto"
+                  onClick={() => setShowDeleteEventDialog(true)}
+                  disabled={deleteEvent.isPending}
+                >
+                  <Trash2 className="w-4 h-4" /> Delete Event
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
               <Button type="submit" data-testid="button-submit-edit-event" disabled={updateEvent.isPending}>
                 {updateEvent.isPending ? "Saving..." : "Save Changes"}
@@ -614,6 +638,26 @@ export default function AdminEventDetail() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* ── Delete Event confirm ───────────────────────────── */}
+      <AlertDialog open={showDeleteEventDialog} onOpenChange={setShowDeleteEventDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this event?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the event and all its registrations. This cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="button-cancel-delete-event">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="button-confirm-delete-event"
+              onClick={handleDeleteEvent}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Event
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Delete Registration confirm ────────────────────── */}
       <AlertDialog open={deleteRegId !== null} onOpenChange={open => !open && setDeleteRegId(null)}>
