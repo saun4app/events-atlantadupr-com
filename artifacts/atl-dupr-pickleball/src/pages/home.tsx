@@ -67,14 +67,13 @@ function EventCard({ event }: { event: any }) {
             Max {event.maxParticipants} players
             {event.waitlistEnabled && " · Waitlist On"}
           </div>
-          {event.courtFeeEnabled && (
-            <div className="flex items-center gap-1.5 col-span-2">
-              <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span>
-                Court fee: Member ${event.memberFee % 1 === 0 ? event.memberFee : event.memberFee.toFixed(2)} / Non-member ${event.nonMemberFee % 1 === 0 ? event.nonMemberFee : event.nonMemberFee.toFixed(2)}
-              </span>
-            </div>
-          )}
+          <div className="flex items-center gap-1.5 col-span-2">
+            <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
+            {event.courtFeeEnabled
+              ? <span>Court fee: Member ${event.memberFee % 1 === 0 ? event.memberFee : event.memberFee.toFixed(2)} / Non-member ${event.nonMemberFee % 1 === 0 ? event.nonMemberFee : event.nonMemberFee.toFixed(2)}</span>
+              : <span>Free</span>
+            }
+          </div>
         </div>
       </div>
     </Link>
