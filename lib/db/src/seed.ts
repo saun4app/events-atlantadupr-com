@@ -68,6 +68,9 @@ async function seed() {
       signupStartDatetime: new Date("2026-05-25T00:00:00Z"),
       signupEndDatetime: new Date("2026-06-13T23:59:00Z"),
       status: "upcoming" as const,
+      courtFeeEnabled: true,
+      memberFee: 5,
+      nonMemberFee: 10,
     },
     {
       name: "Blackburn Park Fixed-Partner Tournament",
