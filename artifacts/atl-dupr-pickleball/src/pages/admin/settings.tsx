@@ -555,16 +555,8 @@ export default function AdminSettings() {
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Default Min Level</Label>
-                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => {
-                            const min = Number(v);
-                            const max = rrc.selfSkill.defaultMaxLevel;
-                            if (min > max) {
-                              updateRrc("selfSkill", { defaultMinLevel: min, defaultMaxLevel: min });
-                            } else {
-                              updateRrc("selfSkill", { defaultMinLevel: min });
-                            }
-                          }}>
-                            <SelectTrigger data-testid="select-skill-default-min"><SelectValue /></SelectTrigger>
+                          <Select value={String(rrc.selfSkill.defaultMinLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMinLevel: Number(v) })}>
+                            <SelectTrigger data-testid="select-skill-default-min" className={rrc.selfSkill.defaultMinLevel > rrc.selfSkill.defaultMaxLevel ? "border-destructive focus:ring-destructive" : ""}><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
                                 <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
@@ -574,16 +566,8 @@ export default function AdminSettings() {
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Default Max Level</Label>
-                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => {
-                            const max = Number(v);
-                            const min = rrc.selfSkill.defaultMinLevel;
-                            if (max < min) {
-                              updateRrc("selfSkill", { defaultMaxLevel: max, defaultMinLevel: max });
-                            } else {
-                              updateRrc("selfSkill", { defaultMaxLevel: max });
-                            }
-                          }}>
-                            <SelectTrigger data-testid="select-skill-default-max"><SelectValue /></SelectTrigger>
+                          <Select value={String(rrc.selfSkill.defaultMaxLevel)} onValueChange={v => updateRrc("selfSkill", { defaultMaxLevel: Number(v) })}>
+                            <SelectTrigger data-testid="select-skill-default-max" className={rrc.selfSkill.defaultMinLevel > rrc.selfSkill.defaultMaxLevel ? "border-destructive focus:ring-destructive" : ""}><SelectValue /></SelectTrigger>
                             <SelectContent>
                               {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map(lv => (
                                 <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
@@ -592,6 +576,9 @@ export default function AdminSettings() {
                           </Select>
                         </div>
                       </div>
+                      {rrc.selfSkill.defaultMinLevel > rrc.selfSkill.defaultMaxLevel && (
+                        <p className="text-xs text-destructive">Min level must be less than or equal to max level.</p>
+                      )}
                     </div>
                     {rrc.selfSkill.levels.length > 0 && (
                       <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
