@@ -507,6 +507,7 @@ export default function AdminEventDetail() {
                             <tr className="border-b border-border">
                               <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
                               <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />
+                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>
                               {event.formatType === "fixed_partner" && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
                               <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />
                               <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />
@@ -541,7 +542,8 @@ export default function AdminEventDetail() {
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
                                   <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{curPage * pageSize + idx + 1}</td>
-                                  <td className="px-5 py-3"><div className="font-medium">{reg.playerName}</div><div className="text-xs text-muted-foreground">{reg.memberDuprId}</div></td>
+                                  <td className="px-5 py-3 font-medium">{reg.playerName}</td>
+                                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>
                                   {event.formatType === "fixed_partner" && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
                                   <td className="px-5 py-3 font-mono">
                                     {reg.doubleRating || "NR"}
