@@ -262,6 +262,17 @@ export default function AdminEventNew() {
     });
   }
 
+  function dtDow(val: string) {
+    if (!val) return null;
+    try {
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return null;
+      return format(d, "EEE, MMM d, yyyy 'at' h:mm a");
+    } catch {
+      return null;
+    }
+  }
+
   const isFixed = form.formatType === "fixed_partner";
   const minLabel = isFixed ? "Min Teams" : "Min Participants";
   const maxLabel = isFixed ? "Max Teams" : "Max Participants";
@@ -402,6 +413,9 @@ export default function AdminEventNew() {
                   onChange={e => setField("startDatetime", e.target.value)}
                   required
                 />
+                {dtDow(form.startDatetime) && (
+                  <p className="text-xs text-muted-foreground">{dtDow(form.startDatetime)}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="end">
@@ -421,6 +435,9 @@ export default function AdminEventNew() {
                   }}
                   required
                 />
+                {dtDow(form.endDatetime) && (
+                  <p className="text-xs text-muted-foreground">{dtDow(form.endDatetime)}</p>
+                )}
               </div>
             </div>
 
@@ -581,6 +598,9 @@ export default function AdminEventNew() {
                   onChange={e => setField("signupStartDatetime", e.target.value)}
                   required
                 />
+                {dtDow(form.signupStartDatetime) && (
+                  <p className="text-xs text-muted-foreground">{dtDow(form.signupStartDatetime)}</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="signup-end">
@@ -598,6 +618,9 @@ export default function AdminEventNew() {
                   }}
                   required
                 />
+                {dtDow(form.signupEndDatetime) && (
+                  <p className="text-xs text-muted-foreground">{dtDow(form.signupEndDatetime)}</p>
+                )}
               </div>
             </div>
           </div>
