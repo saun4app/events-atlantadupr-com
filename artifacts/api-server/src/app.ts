@@ -34,13 +34,14 @@ app.use(express.text({ type: "text/plain" }));
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser(SESSION_SECRET));
 
-app.use((req, _res, next) => {
+app.use(async (req, _res, next) => {
   const sid = req.signedCookies?.sid;
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
   if (req.url.startsWith("/api/auth")) {
     logger.info({ sid: sid ? "present" : "missing", bearer: token ? "present" : "missing", url: req.url }, "auth debug");
   }
-  (req as any).session = getSession(sid) ?? getSession(token) ?? null;
+  const session = (await getSession(sid)) ?? (await getSession(token)) ?? null;
+  (req as any).session = session;
   next();
 });
 
@@ -52,7 +53,7 @@ app.use((req, res, next) => {
 
     if (session) {
       const sid = existingSid ?? (Math.random().toString(36).slice(2) + Date.now().toString(36));
-      setSession(sid, session);
+      setSession(sid, session).catch(() => {});
       res.cookie("sid", sid, {
         signed: true,
         httpOnly: true,
@@ -60,7 +61,7 @@ app.use((req, res, next) => {
         maxAge: 7 * 24 * 60 * 60 * 1000,
       });
     } else if (existingSid && session === null) {
-      deleteSession(existingSid);
+      deleteSession(existingSid).catch(() => {});
       res.clearCookie("sid");
     }
 

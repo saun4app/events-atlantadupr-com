@@ -21,7 +21,7 @@ router.post("/login", async (req, res) => {
   (req as any).session = { userId: user.id, role: user.role, name: user.name, username: user.username };
 
   const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  setSession(token, (req as any).session);
+  await setSession(token, (req as any).session);
 
   return res.json({
     id: user.id,
@@ -33,10 +33,10 @@ router.post("/login", async (req, res) => {
   });
 });
 
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
   const sid = req.signedCookies?.sid;
   if (sid) {
-    deleteSession(sid);
+    await deleteSession(sid);
   }
   (req as any).session = null;
   res.clearCookie("sid");
