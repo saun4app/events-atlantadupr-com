@@ -16,7 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
-import { ChevronLeft, Calendar } from "lucide-react";
+import { ChevronLeft, Calendar, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
 
 interface DefaultLocation { id: string; name: string; address: string; memberFee?: number; nonMemberFee?: number; courtFeeEnabled?: boolean; }
@@ -103,6 +103,7 @@ export default function AdminEventNew() {
 
   const [cloneFrom, setCloneFrom] = useState<string>("none");
   const [descriptionGeneration, setDescriptionGeneration] = useState(0);
+  const [nameOpen, setNameOpen] = useState(false);
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState("weekly");
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(4);
@@ -364,25 +365,53 @@ export default function AdminEventNew() {
               </Select>
             </div>
 
-            {/* Event Name — combobox via datalist */}
+            {/* Event Name — combobox with filterable suggestion list */}
             <div className="space-y-1.5">
               <Label htmlFor="name">Event Name *</Label>
               <div className="relative">
                 <Input
                   id="name"
-                  list="default-event-names-list"
                   data-testid="input-event-name"
                   value={form.name}
-                  onChange={e => setField("name", e.target.value)}
+                  onChange={e => { setField("name", e.target.value); setNameOpen(true); }}
+                  onFocus={() => setNameOpen(true)}
+                  onBlur={() => setTimeout(() => setNameOpen(false), 150)}
                   required
                   placeholder="Saturday Morning Round Robin"
                   autoComplete="off"
+                  className={defaultEventNames.length > 0 ? "pr-8" : ""}
                 />
-                <datalist id="default-event-names-list">
-                  {defaultEventNames.map((n, i) => (
-                    <option key={i} value={n} />
-                  ))}
-                </datalist>
+                {defaultEventNames.length > 0 && (
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    onMouseDown={e => { e.preventDefault(); setNameOpen(o => !o); }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                )}
+                {nameOpen && (() => {
+                  const filtered = defaultEventNames.filter(n =>
+                    !form.name || n.toLowerCase().includes(form.name.toLowerCase())
+                  );
+                  return filtered.length > 0 ? (
+                    <div className="absolute z-50 w-full mt-1 bg-popover border border-border rounded-md shadow-md overflow-hidden">
+                      <div className="max-h-52 overflow-y-auto py-1">
+                        {filtered.map((name, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onMouseDown={e => { e.preventDefault(); setField("name", name); setNameOpen(false); }}
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                          >
+                            {name}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null;
+                })()}
               </div>
             </div>
 
