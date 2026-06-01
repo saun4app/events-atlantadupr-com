@@ -187,6 +187,7 @@ export default function AdminEventDetail() {
       else if (s.col === "status") { av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; }
       else if (s.col === "new") { av = a.isNew ? 1 : 0; bv = b.isNew ? 1 : 0; }
       else if (s.col === "role") { av = (a.eventRole ?? "").toLowerCase(); bv = (b.eventRole ?? "").toLowerCase(); }
+      else if (s.col === "partner") { av = (a.partnerName ?? "").toLowerCase(); bv = (b.partnerName ?? "").toLowerCase(); }
       else return 0;
       if (typeof av === "string") return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       return s.dir === "asc" ? av - bv : bv - av;
@@ -497,7 +498,7 @@ export default function AdminEventDetail() {
                           <thead>
                             <tr className="border-b border-border">
                               <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />
-                              {event.formatType === "fixed_partner" && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Partner</th>}
+                              {event.formatType === "fixed_partner" && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
                               <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />
                               <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />
                               <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />

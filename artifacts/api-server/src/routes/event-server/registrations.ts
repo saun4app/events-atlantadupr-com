@@ -37,16 +37,21 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, inc
   };
 }
 
-const ADMIN_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
-
-function isAdminSession(req: Request): boolean {
-  return ADMIN_ROLES.includes((req as any).session?.role);
+async function canIncludeAdminFields(eventId: number, req: Request): Promise<boolean> {
+  const role = (req as any).session?.role;
+  if (!role) return false;
+  if (role === "admin" || role === "event_organizer") return true;
+  if (role === "event_captain" || role === "court_leader") {
+    return canAccessEvent(eventId, req);
+  }
+  return false;
 }
 
 router.get("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
+  const includeAdminFields = await canIncludeAdminFields(eventId, req);
   const regs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
-  const entries = await Promise.all(regs.map(r => buildRosterEntry(r, isAdminSession(req))));
+  const entries = await Promise.all(regs.map(r => buildRosterEntry(r, includeAdminFields)));
   return res.json(entries);
 });
 
@@ -119,7 +124,7 @@ router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
       and(eq(registrationsTable.id, Number(req.params.regId)), eq(registrationsTable.eventId, Number(req.params.id))),
     );
   if (!reg) return res.status(404).json({ error: "Registration not found" });
-  return res.json(await buildRosterEntry(reg, isAdminSession(req)));
+  return res.json(await buildRosterEntry(reg, await canIncludeAdminFields(Number(req.params.id), req)));
 });
 
 router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
