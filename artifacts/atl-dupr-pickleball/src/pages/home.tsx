@@ -3,7 +3,7 @@ import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryK
 import { PublicNav } from "@/components/public-nav";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Calendar, Users, Clock, WrenchIcon } from "lucide-react";
+import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign } from "lucide-react";
 import { format, isPast, isFuture } from "date-fns";
 
 function formatType(t: string) {
@@ -67,6 +67,14 @@ function EventCard({ event }: { event: any }) {
             Max {event.maxParticipants} players
             {event.waitlistEnabled && " · Waitlist On"}
           </div>
+          {event.courtFeeEnabled && (
+            <div className="flex items-center gap-1.5 col-span-2">
+              <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span>
+                Court fee: Member ${event.memberFee % 1 === 0 ? event.memberFee : event.memberFee.toFixed(2)} / Non-member ${event.nonMemberFee % 1 === 0 ? event.nonMemberFee : event.nonMemberFee.toFixed(2)}
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </Link>
