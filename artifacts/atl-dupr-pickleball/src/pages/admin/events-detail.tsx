@@ -139,6 +139,11 @@ export default function AdminEventDetail() {
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [addDuprId, setAddDuprId] = useState("");
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
+  const [visibleCols, setVisibleCols] = useState<Set<string>>(
+    () => new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone"])
+  );
+  const toggleCol = (k: string) => setVisibleCols(prev => { const next = new Set(prev); if (next.has(k)) next.delete(k); else next.add(k); return next; });
+  const col = (k: string) => visibleCols.has(k);
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
@@ -480,6 +485,32 @@ export default function AdminEventDetail() {
               </form>
             </div>
 
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 px-1 py-2 bg-muted/30 rounded-md border border-border">
+              <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Columns:</span>
+              {[
+                { key: "name", label: "Name" },
+                { key: "duprId", label: "DUPR ID" },
+                ...(event.formatType === "fixed_partner" ? [{ key: "partner", label: "Partner" }] : []),
+                { key: "dupr", label: "DUPR Double" },
+                { key: "assigned", label: "Assigned" },
+                { key: "status", label: "Status" },
+                { key: "new", label: "New" },
+                { key: "role", label: "Role" },
+                { key: "email", label: "Email" },
+                { key: "phone", label: "Phone" },
+              ].map(({ key, label }) => (
+                <label key={key} className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="w-3.5 h-3.5 accent-primary cursor-pointer"
+                    checked={col(key)}
+                    onChange={() => toggleCol(key)}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+
             {regLoading ? (
               <div className="space-y-3">{[1,2,3].map(i => <Skeleton key={i} className="h-12 w-full" />)}</div>
             ) : (
@@ -523,16 +554,16 @@ export default function AdminEventDetail() {
                           <thead>
                             <tr className="border-b border-border">
                               <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
-                              <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />
-                              <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>
-                              {event.formatType === "fixed_partner" && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
-                              <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />
-                              <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />
-                              <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />
-                              <SortHeader label="New" col="new" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "new")} />
-                              <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />
-                              <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />
-                              <SortHeader label="Phone" col="phone" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "phone")} />
+                              {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
+                              {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
+                              {event.formatType === "fixed_partner" && col("partner") && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
+                              {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
+                              {col("assigned") && <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />}
+                              {col("status") && <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />}
+                              {col("new") && <SortHeader label="New" col="new" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "new")} />}
+                              {col("role") && <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />}
+                              {col("email") && <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />}
+                              {col("phone") && <SortHeader label="Phone" col="phone" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "phone")} />}
                               <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                             </tr>
                           </thead>
@@ -559,62 +590,74 @@ export default function AdminEventDetail() {
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
                                   <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{curPage * pageSize + idx + 1}</td>
-                                  <td className="px-5 py-3 font-medium">{reg.playerName}</td>
-                                  <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>
-                                  {event.formatType === "fixed_partner" && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
-                                  <td className="px-5 py-3 font-mono">
-                                    {reg.doubleRating || "NR"}
-                                    {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
-                                  </td>
-                                  <td className="px-2 py-2">
-                                    <input
-                                      data-testid={`input-assigned-rating-${reg.id}`}
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      max="8"
-                                      placeholder="—"
-                                      className="w-20 h-7 text-sm font-mono px-2 rounded border border-transparent bg-transparent hover:border-border focus:border-primary focus:bg-background focus:outline-none focus:ring-0 transition-colors"
-                                      value={editVal}
-                                      onChange={e => setEditingRatings(prev => ({ ...prev, [reg.id]: e.target.value }))}
-                                      onBlur={e => saveRating(e.target.value)}
-                                      onKeyDown={e => {
-                                        if (e.key === "Enter") e.currentTarget.blur();
-                                        if (e.key === "Escape") setEditingRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
-                                      }}
-                                    />
-                                  </td>
-                                  <td className="px-5 py-3"><StatusBadge status={reg.status} /></td>
-                                  <td className="px-5 py-3">
-                                    <input
-                                      type="checkbox"
-                                      data-testid={`checkbox-new-${reg.id}`}
-                                      className="w-4 h-4 accent-primary cursor-pointer"
-                                      checked={!!reg.isNew}
-                                      onChange={e => updateReg.mutate(
-                                        { id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
-                                        { onSuccess: invalidate, onError: () => toast({ title: "Failed to update", variant: "destructive" }) }
+                                  {col("name") && <td className="px-5 py-3 font-medium">{reg.playerName}</td>}
+                                  {col("duprId") && <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
+                                  {event.formatType === "fixed_partner" && col("partner") && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
+                                  {col("dupr") && (
+                                    <td className="px-5 py-3 font-mono">
+                                      {reg.doubleRating || "NR"}
+                                      {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
+                                    </td>
+                                  )}
+                                  {col("assigned") && (
+                                    <td className="px-2 py-2">
+                                      <input
+                                        data-testid={`input-assigned-rating-${reg.id}`}
+                                        type="number"
+                                        step="0.01"
+                                        min="0"
+                                        max="8"
+                                        placeholder="—"
+                                        className="w-20 h-7 text-sm font-mono px-2 rounded border border-transparent bg-transparent hover:border-border focus:border-primary focus:bg-background focus:outline-none focus:ring-0 transition-colors"
+                                        value={editVal}
+                                        onChange={e => setEditingRatings(prev => ({ ...prev, [reg.id]: e.target.value }))}
+                                        onBlur={e => saveRating(e.target.value)}
+                                        onKeyDown={e => {
+                                          if (e.key === "Enter") e.currentTarget.blur();
+                                          if (e.key === "Escape") setEditingRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                        }}
+                                      />
+                                    </td>
+                                  )}
+                                  {col("status") && <td className="px-5 py-3"><StatusBadge status={reg.status} /></td>}
+                                  {col("new") && (
+                                    <td className="px-5 py-3">
+                                      <input
+                                        type="checkbox"
+                                        data-testid={`checkbox-new-${reg.id}`}
+                                        className="w-4 h-4 accent-primary cursor-pointer"
+                                        checked={!!reg.isNew}
+                                        onChange={e => updateReg.mutate(
+                                          { id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
+                                          { onSuccess: invalidate, onError: () => toast({ title: "Failed to update", variant: "destructive" }) }
+                                        )}
+                                      />
+                                    </td>
+                                  )}
+                                  {col("role") && (
+                                    <td className="px-5 py-3">
+                                      {reg.eventRole ? (
+                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                                          <Star className="w-3 h-3" />
+                                          {reg.eventRole}
+                                        </span>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">—</span>
                                       )}
-                                    />
-                                  </td>
-                                  <td className="px-5 py-3">
-                                    {reg.eventRole ? (
-                                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
-                                        <Star className="w-3 h-3" />
-                                        {reg.eventRole}
-                                      </span>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">—</span>
-                                    )}
-                                  </td>
-                                  <td className="px-5 py-3 text-xs">
-                                    {(reg as any).playerEmail ? (
-                                      <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a>
-                                    ) : <span className="text-muted-foreground">—</span>}
-                                  </td>
-                                  <td className="px-5 py-3 text-xs text-muted-foreground">
-                                    {(reg as any).playerPhone || "—"}
-                                  </td>
+                                    </td>
+                                  )}
+                                  {col("email") && (
+                                    <td className="px-5 py-3 text-xs">
+                                      {(reg as any).playerEmail ? (
+                                        <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a>
+                                      ) : <span className="text-muted-foreground">—</span>}
+                                    </td>
+                                  )}
+                                  {col("phone") && (
+                                    <td className="px-5 py-3 text-xs text-muted-foreground">
+                                      {(reg as any).playerPhone || "—"}
+                                    </td>
+                                  )}
                                   <td className="px-5 py-3">
                                     <div className="flex items-center justify-end">
                                       <DropdownMenu>
