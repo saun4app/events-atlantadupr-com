@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import {
-  useGetEvent, useListRegistrations, useUpdateEvent, useDeleteEvent,
+  useGetEvent, useListRegistrations, useUpdateEvent, useDeleteEvent, useUpdateRegistration,
   useApproveRegistration, useRejectRegistration, usePromoteFromWaitlist,
   useDeleteRegistration, useCreateRegistration, useListUsers, useGetSettings,
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
@@ -18,7 +18,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, MapPin, Calendar, Pencil, UserCog, X } from "lucide-react";
+import { ChevronLeft, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, MapPin, Calendar, Pencil, UserCog, X, ChevronDown, Star } from "lucide-react";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -106,6 +109,7 @@ export default function AdminEventDetail() {
 
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
+  const updateReg = useUpdateRegistration();
   const approveReg = useApproveRegistration();
   const rejectReg = useRejectRegistration();
   const promoteReg = usePromoteFromWaitlist();
@@ -421,6 +425,8 @@ export default function AdminEventDetail() {
                             {event.formatType === "fixed_partner" && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Partner</th>}
                             <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR Double</th>
                             <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Status</th>
+                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">New</th>
+                            <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Role</th>
                             <th className="text-right px-5 py-2.5 font-medium text-muted-foreground">Actions</th>
                           </tr>
                         </thead>
@@ -435,17 +441,87 @@ export default function AdminEventDetail() {
                               </td>
                               <td className="px-5 py-3"><StatusBadge status={reg.status} /></td>
                               <td className="px-5 py-3">
-                                <div className="flex items-center justify-end gap-1">
-                                  {reg.status === "pending_approval" && (
-                                    <>
-                                      <Button data-testid={`button-approve-${reg.id}`} size="sm" variant="ghost" className="text-primary hover:text-primary gap-1" onClick={() => handleApprove(reg.id)}><CheckCircle className="w-3.5 h-3.5" />Approve</Button>
-                                      <Button data-testid={`button-reject-${reg.id}`} size="sm" variant="ghost" className="text-destructive hover:text-destructive gap-1" onClick={() => handleReject(reg.id)}><XCircle className="w-3.5 h-3.5" />Reject</Button>
-                                    </>
+                                <input
+                                  type="checkbox"
+                                  data-testid={`checkbox-new-${reg.id}`}
+                                  className="w-4 h-4 accent-primary cursor-pointer"
+                                  checked={!!reg.isNew}
+                                  onChange={e => updateReg.mutate(
+                                    { id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
+                                    { onSuccess: invalidate, onError: () => toast({ title: "Failed to update", variant: "destructive" }) }
                                   )}
-                                  {reg.status === "waitlisted" && (
-                                    <Button data-testid={`button-promote-${reg.id}`} size="sm" variant="ghost" className="text-primary hover:text-primary gap-1" onClick={() => handlePromote(reg.id)}><ArrowUp className="w-3.5 h-3.5" />Promote</Button>
-                                  )}
-                                  <Button data-testid={`button-remove-${reg.id}`} size="sm" variant="ghost" className="text-muted-foreground hover:text-destructive" onClick={() => setDeleteRegId(reg.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                                />
+                              </td>
+                              <td className="px-5 py-3">
+                                {reg.eventRole ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-primary/10 text-primary border border-primary/20">
+                                    <Star className="w-3 h-3" />
+                                    {reg.eventRole === "event_captain" ? "Event Captain" : "Court Leader"}
+                                  </span>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                              <td className="px-5 py-3">
+                                <div className="flex items-center justify-end">
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
+                                        Actions <ChevronDown className="w-3 h-3" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-44">
+                                      {reg.status === "pending_approval" && (
+                                        <>
+                                          <DropdownMenuItem data-testid={`action-approve-${reg.id}`} className="text-primary gap-2" onClick={() => handleApprove(reg.id)}>
+                                            <CheckCircle className="w-3.5 h-3.5" /> Approve
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-reject-${reg.id}`} className="text-destructive gap-2" onClick={() => handleReject(reg.id)}>
+                                            <XCircle className="w-3.5 h-3.5" /> Reject
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                        </>
+                                      )}
+                                      {reg.status === "waitlisted" && (
+                                        <>
+                                          <DropdownMenuItem data-testid={`action-promote-${reg.id}`} className="text-primary gap-2" onClick={() => handlePromote(reg.id)}>
+                                            <ArrowUp className="w-3.5 h-3.5" /> Promote
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                        </>
+                                      )}
+                                      <DropdownMenuItem
+                                        data-testid={`action-role-captain-${reg.id}`}
+                                        className="gap-2"
+                                        onClick={() => updateReg.mutate(
+                                          { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === "event_captain" ? null : "event_captain" } },
+                                          { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
+                                        )}
+                                      >
+                                        <Star className="w-3.5 h-3.5" />
+                                        {reg.eventRole === "event_captain" ? "Remove Captain" : "Set Event Captain"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        data-testid={`action-role-leader-${reg.id}`}
+                                        className="gap-2"
+                                        onClick={() => updateReg.mutate(
+                                          { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === "court_leader" ? null : "court_leader" } },
+                                          { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
+                                        )}
+                                      >
+                                        <Star className="w-3.5 h-3.5" />
+                                        {reg.eventRole === "court_leader" ? "Remove Leader" : "Set Court Leader"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        data-testid={`action-delete-${reg.id}`}
+                                        className="text-destructive gap-2"
+                                        onClick={() => setDeleteRegId(reg.id)}
+                                      >
+                                        <Trash2 className="w-3.5 h-3.5" /> Remove
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
                                 </div>
                               </td>
                             </tr>

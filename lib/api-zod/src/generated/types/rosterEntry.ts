@@ -14,6 +14,9 @@ export interface RosterEntry {
   /** @nullable */
   partnerDuprId?: string | null;
   status: RosterEntryStatus;
+  /** @nullable */
+  eventRole?: 'event_captain' | 'court_leader' | null;
+  isNew?: boolean;
   registeredAt: Date;
   /** @nullable */
   approvedAt?: string | null;

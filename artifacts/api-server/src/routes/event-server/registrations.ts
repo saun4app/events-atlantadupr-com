@@ -23,6 +23,8 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
     memberDuprId: reg.memberDuprId,
     partnerDuprId: reg.partnerDuprId ?? null,
     status: reg.status,
+    eventRole: reg.eventRole ?? null,
+    isNew: reg.isNew === "true",
     registeredAt: reg.registeredAt,
     approvedAt: reg.approvedAt ?? null,
     approvedBy: reg.approvedBy ?? null,
@@ -128,6 +130,8 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
   const updates: any = {};
   if (req.body.status !== undefined) updates.status = req.body.status;
   if (req.body.partnerDuprId !== undefined) updates.partnerDuprId = req.body.partnerDuprId;
+  if (req.body.eventRole !== undefined) updates.eventRole = req.body.eventRole ?? null;
+  if (req.body.isNew !== undefined) updates.isNew = req.body.isNew ? "true" : "false";
 
   const [updated] = await db
     .update(registrationsTable)

@@ -19,6 +19,10 @@ export const registrationsTable = pgTable("atl_dupr_signups", {
   })
     .notNull()
     .default("confirmed"),
+  eventRole: text("event_role", {
+    enum: ["event_captain", "court_leader"],
+  }),
+  isNew: text("is_new", { enum: ["true", "false"] }).default("false"),
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
   approvedBy: integer("approved_by").references(() => usersTable.id),

@@ -11,4 +11,7 @@ export interface RegistrationUpdate {
   status?: RegistrationUpdateStatus;
   /** @nullable */
   partnerDuprId?: string | null;
+  /** @nullable */
+  eventRole?: 'event_captain' | 'court_leader' | null;
+  isNew?: boolean;
 }
