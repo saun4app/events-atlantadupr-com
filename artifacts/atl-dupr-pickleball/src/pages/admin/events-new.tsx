@@ -102,6 +102,7 @@ export default function AdminEventNew() {
   });
 
   const [cloneFrom, setCloneFrom] = useState<string>("none");
+  const [descriptionGeneration, setDescriptionGeneration] = useState(0);
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
   const [recurrenceFrequency, setRecurrenceFrequency] = useState("weekly");
   const [recurrenceOccurrences, setRecurrenceOccurrences] = useState(4);
@@ -127,6 +128,7 @@ export default function AdminEventNew() {
       const nowInTz = toDatetimeLocalInTz(new Date(), tz);
       const ratingReqs = (settings.defaultRatingRequirements as RatingRequirement[] | undefined) ?? [];
       const firstRatingKey = ratingReqs.length > 0 ? ratingReqs[0].key : "none";
+      setDescriptionGeneration(g => g + 1);
       setForm(f => ({
         ...f,
         minParticipants: settings.minParticipants,
@@ -204,12 +206,14 @@ export default function AdminEventNew() {
       descriptionEdited.current = false;
       signupEndEdited.current = false;
       endEdited.current = false;
+      setDescriptionGeneration(g => g + 1);
       setForm(f => ({ ...f, name: "", description: "" }));
       return;
     }
     const ev = allEvents.find(e => String(e.id) === eventIdStr);
     if (!ev) return;
     descriptionEdited.current = true;
+    setDescriptionGeneration(g => g + 1);
     signupEndEdited.current = false;
     endEdited.current = false;
     setForm({
@@ -371,7 +375,7 @@ export default function AdminEventNew() {
             <div className="space-y-1.5">
               <Label>Description</Label>
               <RichTextEditor
-                key={form.formatType}
+                key={`${form.formatType}-${descriptionGeneration}`}
                 data-testid="input-event-description"
                 value={form.description}
                 onChange={v => {
