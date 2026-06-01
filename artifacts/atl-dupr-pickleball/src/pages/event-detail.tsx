@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign } from "lucide-react";
 
 interface SkillLevel { text: string; level: number; }
 
@@ -186,6 +186,13 @@ export default function EventDetail() {
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
               <MapPin className="w-4 h-4 text-primary" />
               <span>{event.locationName}{event.locationAddress ? ` — ${event.locationAddress}` : ""}</span>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+              <DollarSign className="w-4 h-4 text-primary" />
+              {event.courtFeeEnabled
+                ? <span>Court fee: Member ${(event as any).memberFee % 1 === 0 ? (event as any).memberFee : (event as any).memberFee.toFixed(2)} / Non-member ${(event as any).nonMemberFee % 1 === 0 ? (event as any).nonMemberFee : (event as any).nonMemberFee.toFixed(2)}</span>
+                : <span>Free</span>
+              }
             </div>
           </div>
 
