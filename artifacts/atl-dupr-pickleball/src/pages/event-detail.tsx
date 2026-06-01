@@ -176,7 +176,7 @@ export default function EventDetail() {
           <div className="mt-4 pt-4 border-t border-border flex items-center gap-4 text-sm">
             <span className="text-muted-foreground">Signup Window:</span>
             <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
-              {format(new Date(event.signupStartDatetime), "MMM d, h:mm a")} – {format(new Date(event.signupEndDatetime), "MMM d, h:mm a")}
+              {format(new Date(event.signupStartDatetime), "EEE, MMM d, h:mm a")} – {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
             </span>
             {signupOpen && <Badge className="text-xs">Open</Badge>}
             {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}

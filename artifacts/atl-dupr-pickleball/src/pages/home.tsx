@@ -15,7 +15,7 @@ function signupStatus(event: { signupStartDatetime: string; signupEndDatetime: s
   const start = new Date(event.signupStartDatetime);
   const end = new Date(event.signupEndDatetime);
   if (event.status === "ended" || event.status === "closed") return { label: "Registration Closed", color: "secondary" as const };
-  if (isFuture(start)) return { label: `Opens ${format(start, "MMM d")}`, color: "secondary" as const };
+  if (isFuture(start)) return { label: `Opens ${format(start, "EEE, MMM d")}`, color: "secondary" as const };
   if (isPast(end)) return { label: "Signup Closed", color: "secondary" as const };
   return { label: "Open for Signup", color: "default" as const };
 }

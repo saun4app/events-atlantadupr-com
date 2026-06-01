@@ -260,7 +260,7 @@ export default function AdminEventDetail() {
                 <div className="flex-1 min-w-0">
                   <h1 className="text-xl font-bold text-foreground">{event.name}</h1>
                   <div className="flex items-center gap-3 text-sm text-muted-foreground mt-2">
-                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{format(new Date(event.startDatetime), "MMM d, yyyy 'at' h:mm a")}</span>
+                    <span className="flex items-center gap-1"><Calendar className="w-3.5 h-3.5" />{format(new Date(event.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a")}</span>
                     <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{event.locationName}</span>
                   </div>
                   <div className="flex gap-2 mt-3">

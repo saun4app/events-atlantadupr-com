@@ -268,6 +268,10 @@ export default function AdminEventNew() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.description) {
+      toast({ title: "Description is required", variant: "destructive" });
+      return;
+    }
     const payload: any = {
       name: form.name,
       description: form.description || null,
@@ -373,7 +377,7 @@ export default function AdminEventNew() {
 
             {/* Description — RichTextEditor, pre-fills from settings */}
             <div className="space-y-1.5">
-              <Label>Description</Label>
+              <Label>Description *</Label>
               <RichTextEditor
                 key={`${form.formatType}-${descriptionGeneration}`}
                 data-testid="input-event-description"
