@@ -443,12 +443,13 @@ export default function AdminEventNew() {
             </div>
 
             <div className="space-y-1.5">
-              <Label htmlFor="location-address">Location Address</Label>
+              <Label htmlFor="location-address">Location Address *</Label>
               <Input
                 id="location-address"
                 data-testid="input-event-location-address"
                 value={form.locationAddress}
                 onChange={e => setField("locationAddress", e.target.value)}
+                required
                 placeholder="4000 Damascus Dr NW, Atlanta, GA 30342"
               />
             </div>
@@ -461,23 +462,25 @@ export default function AdminEventNew() {
             {/* Min/Max — labels change by format type */}
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1.5">
-                <Label htmlFor="min">{minLabel}</Label>
+                <Label htmlFor="min">{minLabel} *</Label>
                 <Input
                   id="min"
                   data-testid="input-min-participants"
                   type="number"
                   min={1}
+                  required
                   value={form.minParticipants}
                   onChange={e => setField("minParticipants", Number(e.target.value))}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="max">{maxLabel}</Label>
+                <Label htmlFor="max">{maxLabel} *</Label>
                 <Input
                   id="max"
                   data-testid="input-max-participants"
                   type="number"
                   min={1}
+                  required
                   value={form.maxParticipants}
                   onChange={e => setField("maxParticipants", Number(e.target.value))}
                 />
