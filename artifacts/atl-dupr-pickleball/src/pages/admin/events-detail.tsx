@@ -12,6 +12,7 @@ import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -330,15 +331,22 @@ export default function AdminEventDetail() {
     if (deleteRegId === null) return;
     deleteReg.mutate({ id: eventId, regId: deleteRegId }, { onSuccess: () => { toast({ title: "Removed" }); invalidate(); setDeleteRegId(null); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
   }
-  function handleAdd(e: React.FormEvent) {
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    createReg.mutate(
-      { id: eventId, data: { memberDuprId: addDuprId.trim(), partnerDuprId: event?.formatType === "fixed_partner" ? addPartnerDuprId.trim() || null : null } },
-      {
-        onSuccess: () => { toast({ title: "Participant added" }); setAddDuprId(""); setAddPartnerDuprId(""); invalidate(); },
-        onError: (err: any) => toast({ title: err?.data?.error || "Failed to add participant", variant: "destructive" }),
+    const ids = addDuprId.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
+    if (ids.length === 0) return;
+    let succeeded = 0;
+    const failures: string[] = [];
+    for (const id of ids) {
+      try {
+        await createReg.mutateAsync({ id: eventId, data: { memberDuprId: id, partnerDuprId: event?.formatType === "fixed_partner" ? addPartnerDuprId.trim() || null : null } });
+        succeeded++;
+      } catch (err: any) {
+        failures.push(`${id}: ${err?.data?.error || "failed"}`);
       }
-    );
+    }
+    if (succeeded > 0) { toast({ title: `${succeeded} participant${succeeded !== 1 ? "s" : ""} added` }); setAddDuprId(""); setAddPartnerDuprId(""); invalidate(); }
+    if (failures.length > 0) toast({ title: failures.join(" · "), variant: "destructive" });
   }
 
   function formatRatingBadge(event: any): string {
@@ -446,10 +454,19 @@ export default function AdminEventDetail() {
 
             <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>
-              <form onSubmit={handleAdd} className="flex items-end gap-3 flex-wrap">
+              <form onSubmit={handleAdd} className="flex items-start gap-3 flex-wrap">
                 <div className="space-y-1.5">
                   <Label htmlFor="add-dupr">DUPR ID</Label>
-                  <Input id="add-dupr" data-testid="input-add-dupr-id" value={addDuprId} onChange={e => setAddDuprId(e.target.value)} placeholder="ATL001" className="w-32" required />
+                  <Textarea
+                    id="add-dupr"
+                    data-testid="input-add-dupr-id"
+                    value={addDuprId}
+                    onChange={e => setAddDuprId(e.target.value)}
+                    placeholder={"DUPR-001\nDUPR-002, DUPR-003"}
+                    className="w-56 h-20 text-sm font-mono resize-none"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">Separate multiple IDs with commas or new lines.</p>
                 </div>
                 {event.formatType === "fixed_partner" && (
                   <div className="space-y-1.5">
