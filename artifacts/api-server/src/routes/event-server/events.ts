@@ -1,8 +1,8 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { eventsTable, registrationsTable, eventAssignmentsTable, usersTable } from "@workspace/db";
-import { eq, and, gte, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../lib/auth.js";
+import { eq, and } from "drizzle-orm";
+import { requireAuth, requireRole } from "../../lib/auth.js";
 import { randomUUID } from "crypto";
 
 const router = Router();
@@ -26,7 +26,7 @@ function generateRecurringDates(
   return results;
 }
 
-async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
+export async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
   const session = (req as any).session;
   if (!session?.userId) return false;
   const role: string = session.role ?? "";

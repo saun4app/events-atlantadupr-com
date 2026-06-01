@@ -1,8 +1,9 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { registrationsTable, eventsTable, membersTable, eventAssignmentsTable } from "@workspace/db";
+import { registrationsTable, eventsTable, membersTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
-import { requireAuth, requireRole } from "../lib/auth.js";
+import { requireAuth, requireRole } from "../../lib/auth.js";
+import { canAccessEvent } from "./events.js";
 
 const router = Router({ mergeParams: true });
 
@@ -31,21 +32,6 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect) {
     selfRating: member?.selfRating ?? null,
     partnerName,
   };
-}
-
-async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
-  const session = (req as any).session;
-  if (!session?.userId) return false;
-  const role: string = session.role ?? "";
-  if (role === "admin" || role === "event_organizer") return true;
-  if (role === "event_captain" || role === "court_leader") {
-    const [assignment] = await db
-      .select()
-      .from(eventAssignmentsTable)
-      .where(and(eq(eventAssignmentsTable.userId, Number(session.userId)), eq(eventAssignmentsTable.eventId, eventId)));
-    return !!assignment;
-  }
-  return false;
 }
 
 router.get("/", async (req: Request<EventParams>, res: Response) => {
