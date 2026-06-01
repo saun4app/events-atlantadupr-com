@@ -15,7 +15,7 @@ export const registrationsTable = pgTable("atl_dupr_signups", {
     .references(() => membersTable.duprId, { onDelete: "cascade" }),
   partnerDuprId: text("partner_dupr_id"),
   status: text("status", {
-    enum: ["confirmed", "waitlisted", "pending_approval", "rejected"],
+    enum: ["confirmed", "waitlisted", "pending_approval", "rejected", "cancelled"],
   })
     .notNull()
     .default("confirmed"),

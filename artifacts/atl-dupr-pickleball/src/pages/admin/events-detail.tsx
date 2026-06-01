@@ -66,6 +66,7 @@ function StatusBadge({ status }: { status: string }) {
     waitlisted: { label: "Waitlisted", className: "bg-yellow-100 text-yellow-700 border-yellow-200 border" },
     pending_approval: { label: "Pending", className: "bg-blue-100 text-blue-700 border-blue-200 border" },
     rejected: { label: "Rejected", className: "bg-destructive/10 text-destructive border-destructive/20 border" },
+    cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground border border-border" },
   };
   const s = map[status] ?? { label: status, className: "" };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.className}`}>{s.label}</span>;
@@ -323,6 +324,7 @@ export default function AdminEventDetail() {
   function handleReject(regId: number) { rejectReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handlePromote(regId: number) { promoteReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Promoted from waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleMoveToWaitlist(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleCancelReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleDeleteReg() {
     if (deleteRegId === null) return;
     deleteReg.mutate({ id: eventId, regId: deleteRegId }, { onSuccess: () => { toast({ title: "Removed" }); invalidate(); setDeleteRegId(null); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
@@ -355,6 +357,7 @@ export default function AdminEventDetail() {
   const waitlisted = registrations?.filter(r => r.status === "waitlisted") ?? [];
   const pending = registrations?.filter(r => r.status === "pending_approval") ?? [];
   const rejected = registrations?.filter(r => r.status === "rejected") ?? [];
+  const cancelled = registrations?.filter(r => r.status === "cancelled") ?? [];
   const assignableUsers = (allUsers ?? []).filter(u => u.role === "event_captain" || u.role === "court_leader");
   const assignedUserIds = new Set(assignments.map(a => a.userId));
   const unassignedUsers = assignableUsers.filter(u => !assignedUserIds.has(u.id));
@@ -468,6 +471,7 @@ export default function AdminEventDetail() {
                   { label: "Pending Approval", regs: pending, color: "text-blue-600" },
                   { label: "Waitlisted", regs: waitlisted, color: "text-yellow-600" },
                   { label: "Rejected", regs: rejected, color: "text-muted-foreground" },
+                  { label: "Cancelled", regs: cancelled, color: "text-muted-foreground" },
                 ].map(section => {
                   if (section.regs.length === 0) return null;
                   const key = section.label;
@@ -646,13 +650,23 @@ export default function AdminEventDetail() {
                                               <DropdownMenuSeparator />
                                             </>
                                           )}
-                                          <DropdownMenuItem
-                                            data-testid={`action-delete-${reg.id}`}
-                                            className="text-destructive gap-2"
-                                            onClick={() => setDeleteRegId(reg.id)}
-                                          >
-                                            <Trash2 className="w-3.5 h-3.5" /> Remove
-                                          </DropdownMenuItem>
+                                          {(reg.status === "confirmed" || reg.status === "waitlisted") ? (
+                                            <DropdownMenuItem
+                                              data-testid={`action-cancel-${reg.id}`}
+                                              className="text-destructive gap-2"
+                                              onClick={() => handleCancelReg(reg.id)}
+                                            >
+                                              <XCircle className="w-3.5 h-3.5" /> Cancel
+                                            </DropdownMenuItem>
+                                          ) : (
+                                            <DropdownMenuItem
+                                              data-testid={`action-delete-${reg.id}`}
+                                              className="text-destructive gap-2"
+                                              onClick={() => setDeleteRegId(reg.id)}
+                                            >
+                                              <Trash2 className="w-3.5 h-3.5" /> Remove
+                                            </DropdownMenuItem>
+                                          )}
                                         </DropdownMenuContent>
                                       </DropdownMenu>
                                     </div>

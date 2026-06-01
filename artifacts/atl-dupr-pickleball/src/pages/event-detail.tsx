@@ -313,7 +313,7 @@ export default function EventDetail() {
             <div className="p-5 space-y-2">
               {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
-          ) : registrations && registrations.filter(r => r.status !== "rejected").length > 0 ? (
+          ) : registrations && registrations.filter(r => r.status !== "rejected" && r.status !== "cancelled").length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
