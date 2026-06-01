@@ -834,7 +834,7 @@ components:
 
     Event:
       type: object
-      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, status, createdAt]
+      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, status, courtFeeEnabled, memberFee, nonMemberFee, createdAt]
       properties:
         id:
           type: integer
@@ -859,7 +859,6 @@ components:
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
           type: string
-          enum: [dupr, national, none]
         minParticipants:
           type: integer
         maxParticipants:
@@ -877,6 +876,12 @@ components:
         status:
           type: string
           enum: [upcoming, closed, ended]
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+        nonMemberFee:
+          type: number
         createdAt:
           type: string
           format: date-time
@@ -928,7 +933,6 @@ components:
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
           type: string
-          enum: [dupr, national, none]
         minParticipants:
           type: integer
         maxParticipants:
@@ -943,6 +947,12 @@ components:
         signupEndDatetime:
           type: string
           format: date-time
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+        nonMemberFee:
+          type: number
         recurrence:
           $ref: "#/components/schemas/RecurrenceInput"
 
@@ -968,7 +978,6 @@ components:
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
           type: string
-          enum: [dupr, national, none]
         minParticipants:
           type: integer
         maxParticipants:
@@ -986,6 +995,12 @@ components:
         status:
           type: string
           enum: [upcoming, closed, ended]
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+        nonMemberFee:
+          type: number
 
     EventsSummary:
       type: object
@@ -1074,6 +1089,15 @@ components:
           type: string
           format: email
 
+    RatingRequirement:
+      type: object
+      required: [key, label]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+
     DefaultLocation:
       type: object
       required: [id, name, address]
@@ -1084,10 +1108,18 @@ components:
           type: string
         address:
           type: string
+        memberFee:
+          type: number
+          description: Default court fee for members (dollars)
+        nonMemberFee:
+          type: number
+          description: Default court fee for non-members (dollars)
+        courtFeeEnabled:
+          type: boolean
 
     AppSettings:
       type: object
-      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations, maintenanceMode, defaultEventNames]
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations, maintenanceMode, defaultEventNames, defaultEventDurationHours, defaultRatingRequirements]
       properties:
         defaultTimezone:
           type: string
@@ -1118,6 +1150,14 @@ components:
           items:
             type: string
           description: Preset event names available for selection when creating events
+        defaultEventDurationHours:
+          type: integer
+          description: Default event duration in hours (used to auto-calculate end time)
+        defaultRatingRequirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingRequirement"
+          description: Admin-defined list of rating requirement options
 
     AppSettingsInput:
       type: object
@@ -1150,3 +1190,9 @@ components:
           type: array
           items:
             type: string
+        defaultEventDurationHours:
+          type: integer
+        defaultRatingRequirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingRequirement"

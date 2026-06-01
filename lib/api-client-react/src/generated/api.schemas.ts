@@ -128,15 +128,6 @@ export const EventFormatType = {
   rotating: 'rotating',
 } as const;
 
-export type EventRatingTypeRequired = typeof EventRatingTypeRequired[keyof typeof EventRatingTypeRequired];
-
-
-export const EventRatingTypeRequired = {
-  dupr: 'dupr',
-  national: 'national',
-  none: 'none',
-} as const;
-
 export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
 
 
@@ -158,7 +149,7 @@ export interface Event {
   locationName: string;
   locationAddress: string;
   formatType: EventFormatType;
-  ratingTypeRequired: EventRatingTypeRequired;
+  ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
@@ -166,6 +157,9 @@ export interface Event {
   signupStartDatetime: string;
   signupEndDatetime: string;
   status: EventStatus;
+  courtFeeEnabled: boolean;
+  memberFee: number;
+  nonMemberFee: number;
   createdAt: string;
 }
 
@@ -202,15 +196,6 @@ export const EventInputFormatType = {
   rotating: 'rotating',
 } as const;
 
-export type EventInputRatingTypeRequired = typeof EventInputRatingTypeRequired[keyof typeof EventInputRatingTypeRequired];
-
-
-export const EventInputRatingTypeRequired = {
-  dupr: 'dupr',
-  national: 'national',
-  none: 'none',
-} as const;
-
 export interface EventInput {
   name: string;
   /** @nullable */
@@ -220,13 +205,16 @@ export interface EventInput {
   locationName: string;
   locationAddress: string;
   formatType: EventInputFormatType;
-  ratingTypeRequired: EventInputRatingTypeRequired;
+  ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
   requireApproval: boolean;
   signupStartDatetime: string;
   signupEndDatetime: string;
+  courtFeeEnabled?: boolean;
+  memberFee?: number;
+  nonMemberFee?: number;
   recurrence?: RecurrenceInput;
 }
 
@@ -236,15 +224,6 @@ export type EventUpdateFormatType = typeof EventUpdateFormatType[keyof typeof Ev
 export const EventUpdateFormatType = {
   fixed_partner: 'fixed_partner',
   rotating: 'rotating',
-} as const;
-
-export type EventUpdateRatingTypeRequired = typeof EventUpdateRatingTypeRequired[keyof typeof EventUpdateRatingTypeRequired];
-
-
-export const EventUpdateRatingTypeRequired = {
-  dupr: 'dupr',
-  national: 'national',
-  none: 'none',
 } as const;
 
 export type EventUpdateStatus = typeof EventUpdateStatus[keyof typeof EventUpdateStatus];
@@ -265,7 +244,7 @@ export interface EventUpdate {
   locationName?: string;
   locationAddress?: string;
   formatType?: EventUpdateFormatType;
-  ratingTypeRequired?: EventUpdateRatingTypeRequired;
+  ratingTypeRequired?: string;
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;
@@ -273,6 +252,9 @@ export interface EventUpdate {
   signupStartDatetime?: string;
   signupEndDatetime?: string;
   status?: EventUpdateStatus;
+  courtFeeEnabled?: boolean;
+  memberFee?: number;
+  nonMemberFee?: number;
 }
 
 export interface EventsSummary {
@@ -349,10 +331,20 @@ export interface ContactPerson {
   email: string;
 }
 
+export interface RatingRequirement {
+  key: string;
+  label: string;
+}
+
 export interface DefaultLocation {
   id: string;
   name: string;
   address: string;
+  /** Default court fee for members (dollars) */
+  memberFee?: number;
+  /** Default court fee for non-members (dollars) */
+  nonMemberFee?: number;
+  courtFeeEnabled?: boolean;
 }
 
 export interface AppSettings {
@@ -368,6 +360,10 @@ export interface AppSettings {
   maintenanceMode: boolean;
   /** Preset event names available for selection when creating events */
   defaultEventNames: string[];
+  /** Default event duration in hours (used to auto-calculate end time) */
+  defaultEventDurationHours: number;
+  /** Admin-defined list of rating requirement options */
+  defaultRatingRequirements: RatingRequirement[];
 }
 
 export interface AppSettingsInput {
@@ -382,6 +378,8 @@ export interface AppSettingsInput {
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;
   defaultEventNames?: string[];
+  defaultEventDurationHours?: number;
+  defaultRatingRequirements?: RatingRequirement[];
 }
 
 export type ListMembersParams = {

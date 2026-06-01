@@ -21,6 +21,7 @@ async function seed() {
     maxParticipants: 24,
     minTeams: 4,
     maxTeams: 12,
+    defaultEventDurationHours: 2,
     defaultEventNames: [
       "Saturday Morning Round Robin",
       "Sunday Doubles Social",
@@ -30,11 +31,16 @@ async function seed() {
       "Intermediate Tournament",
       "Advanced Competitive Play",
     ],
+    defaultRatingRequirements: [
+      { key: "dupr", label: "DUPR Required" },
+      { key: "national", label: "National Rating Required" },
+      { key: "none", label: "All Levels (No Rating Required)" },
+    ],
     contactPersons: [{ name: "Admin User", email: "admin@atldupr.com" }],
     defaultLocations: [
-      { id: "loc-1", name: "Chastain Park Tennis Center", address: "315 West Wieuca Rd NW, Atlanta, GA 30342" },
-      { id: "loc-2", name: "Blackburn Park", address: "3493 Ashford Dunwoody Rd NE, Atlanta, GA 30319" },
-      { id: "loc-3", name: "Freedom Park", address: "800 Freedom Pkwy NE, Atlanta, GA 30307" },
+      { id: "loc-1", name: "Chastain Park Tennis Center", address: "315 West Wieuca Rd NW, Atlanta, GA 30342", memberFee: 5, nonMemberFee: 10, courtFeeEnabled: true },
+      { id: "loc-2", name: "Blackburn Park", address: "3493 Ashford Dunwoody Rd NE, Atlanta, GA 30319", memberFee: 0, nonMemberFee: 0, courtFeeEnabled: false },
+      { id: "loc-3", name: "Freedom Park", address: "800 Freedom Pkwy NE, Atlanta, GA 30307", memberFee: 0, nonMemberFee: 0, courtFeeEnabled: false },
     ],
   });
 

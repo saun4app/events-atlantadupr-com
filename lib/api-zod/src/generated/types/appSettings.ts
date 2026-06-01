@@ -7,6 +7,7 @@
  */
 import type { ContactPerson } from './contactPerson';
 import type { DefaultLocation } from './defaultLocation';
+import type { RatingRequirement } from './ratingRequirement';
 
 export interface AppSettings {
   defaultTimezone: string;
@@ -21,4 +22,8 @@ export interface AppSettings {
   maintenanceMode: boolean;
   /** Preset event names available for selection when creating events */
   defaultEventNames: string[];
+  /** Default event duration in hours (used to auto-calculate end time) */
+  defaultEventDurationHours: number;
+  /** Admin-defined list of rating requirement options */
+  defaultRatingRequirements: RatingRequirement[];
 }

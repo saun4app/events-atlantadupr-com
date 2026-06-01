@@ -7,6 +7,7 @@
  */
 import type { ContactPerson } from './contactPerson';
 import type { DefaultLocation } from './defaultLocation';
+import type { RatingRequirement } from './ratingRequirement';
 
 export interface AppSettingsInput {
   defaultTimezone?: string;
@@ -20,4 +21,6 @@ export interface AppSettingsInput {
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;
   defaultEventNames?: string[];
+  defaultEventDurationHours?: number;
+  defaultRatingRequirements?: RatingRequirement[];
 }

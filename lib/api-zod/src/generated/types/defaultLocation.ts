@@ -10,4 +10,9 @@ export interface DefaultLocation {
   id: string;
   name: string;
   address: string;
+  /** Default court fee for members (dollars) */
+  memberFee?: number;
+  /** Default court fee for non-members (dollars) */
+  nonMemberFee?: number;
+  courtFeeEnabled?: boolean;
 }

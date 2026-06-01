@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Plus, Trash2, Pencil, MapPin, User, AlertTriangle } from "lucide-react";
+import { Settings, Plus, Trash2, Pencil, MapPin, User, AlertTriangle, DollarSign, Tag } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -39,6 +39,14 @@ interface DefaultLocation {
   id: string;
   name: string;
   address: string;
+  memberFee?: number;
+  nonMemberFee?: number;
+  courtFeeEnabled?: boolean;
+}
+
+interface RatingRequirement {
+  key: string;
+  label: string;
 }
 
 function genId() {
@@ -47,6 +55,7 @@ function genId() {
 
 type ContactDialog = { open: false } | { open: true; mode: "add" } | { open: true; mode: "edit"; index: number; data: ContactPerson };
 type LocationDialog = { open: false } | { open: true; mode: "add" } | { open: true; mode: "edit"; index: number; data: DefaultLocation };
+type RatingDialog = { open: false } | { open: true };
 
 export default function AdminSettings() {
   const { isAuthenticated, isLoading, isAdmin } = useAuth();
@@ -73,6 +82,8 @@ export default function AdminSettings() {
     defaultLocations: [] as DefaultLocation[],
     maintenanceMode: false,
     defaultEventNames: [] as string[],
+    defaultEventDurationHours: 2,
+    defaultRatingRequirements: [] as RatingRequirement[],
   });
   const [dirty, setDirty] = useState(false);
   const formInitialized = useRef(false);
@@ -93,6 +104,8 @@ export default function AdminSettings() {
         defaultLocations: (settings.defaultLocations as DefaultLocation[]) ?? [],
         maintenanceMode: settings.maintenanceMode ?? false,
         defaultEventNames: (settings.defaultEventNames as string[]) ?? [],
+        defaultEventDurationHours: (settings.defaultEventDurationHours as number) ?? 2,
+        defaultRatingRequirements: (settings.defaultRatingRequirements as RatingRequirement[]) ?? [],
       });
     }
   }, [settings]);
@@ -149,16 +162,17 @@ export default function AdminSettings() {
 
   // ── Default Locations ────────────────────────────────────────
   const [locationDialog, setLocationDialog] = useState<LocationDialog>({ open: false });
-  const [locationForm, setLocationForm] = useState({ name: "", address: "" });
+  const [locationForm, setLocationForm] = useState({ name: "", address: "", memberFee: 0, nonMemberFee: 0, courtFeeEnabled: false });
   const [deleteLocationIdx, setDeleteLocationIdx] = useState<number | null>(null);
 
   function openAddLocation() {
-    setLocationForm({ name: "", address: "" });
+    setLocationForm({ name: "", address: "", memberFee: 0, nonMemberFee: 0, courtFeeEnabled: false });
     setLocationDialog({ open: true, mode: "add" });
   }
   function openEditLocation(i: number) {
-    setLocationForm({ name: form.defaultLocations[i].name, address: form.defaultLocations[i].address });
-    setLocationDialog({ open: true, mode: "edit", index: i, data: form.defaultLocations[i] });
+    const loc = form.defaultLocations[i];
+    setLocationForm({ name: loc.name, address: loc.address, memberFee: loc.memberFee ?? 0, nonMemberFee: loc.nonMemberFee ?? 0, courtFeeEnabled: loc.courtFeeEnabled ?? false });
+    setLocationDialog({ open: true, mode: "edit", index: i, data: loc });
   }
   function closeLocationDialog() {
     setLocationDialog({ open: false });
@@ -166,11 +180,19 @@ export default function AdminSettings() {
   function saveLocation(e: React.FormEvent) {
     e.preventDefault();
     if (!locationForm.name.trim()) return;
+    const locData: DefaultLocation = {
+      id: locationDialog.open && locationDialog.mode === "edit" ? locationDialog.data.id : genId(),
+      name: locationForm.name.trim(),
+      address: locationForm.address.trim(),
+      memberFee: locationForm.memberFee,
+      nonMemberFee: locationForm.nonMemberFee,
+      courtFeeEnabled: locationForm.courtFeeEnabled,
+    };
     if (locationDialog.open && locationDialog.mode === "add") {
-      update("defaultLocations", [...form.defaultLocations, { id: genId(), name: locationForm.name.trim(), address: locationForm.address.trim() }]);
+      update("defaultLocations", [...form.defaultLocations, locData]);
     } else if (locationDialog.open && locationDialog.mode === "edit") {
       update("defaultLocations", form.defaultLocations.map((loc, idx) =>
-        idx === locationDialog.index ? { ...loc, name: locationForm.name.trim(), address: locationForm.address.trim() } : loc
+        idx === locationDialog.index ? locData : loc
       ));
     }
     setLocationDialog({ open: false });
@@ -179,6 +201,25 @@ export default function AdminSettings() {
     if (deleteLocationIdx === null) return;
     update("defaultLocations", form.defaultLocations.filter((_, idx) => idx !== deleteLocationIdx));
     setDeleteLocationIdx(null);
+  }
+
+  // ── Rating Requirements ──────────────────────────────────────
+  const [newRatingKey, setNewRatingKey] = useState("");
+  const [newRatingLabel, setNewRatingLabel] = useState("");
+
+  function addRatingRequirement() {
+    const key = newRatingKey.trim();
+    const label = newRatingLabel.trim();
+    if (!key || !label) return;
+    if (form.defaultRatingRequirements.some(r => r.key === key)) {
+      return;
+    }
+    update("defaultRatingRequirements", [...form.defaultRatingRequirements, { key, label }]);
+    setNewRatingKey("");
+    setNewRatingLabel("");
+  }
+  function deleteRatingRequirement(i: number) {
+    update("defaultRatingRequirements", form.defaultRatingRequirements.filter((_, idx) => idx !== i));
   }
 
   return (
@@ -270,6 +311,20 @@ export default function AdminSettings() {
                     />
                   </div>
                 </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="event-duration">Default Event Duration (hours)</Label>
+                <Input
+                  id="event-duration"
+                  data-testid="input-event-duration-hours"
+                  type="number"
+                  min={1}
+                  max={24}
+                  value={form.defaultEventDurationHours}
+                  onChange={e => update("defaultEventDurationHours", Math.max(1, Number(e.target.value)))}
+                />
+                <p className="text-xs text-muted-foreground">Used to auto-calculate the end time when creating new events.</p>
               </div>
             </section>
 
@@ -379,6 +434,12 @@ export default function AdminSettings() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-foreground truncate">{loc.name}</p>
                         <p className="text-xs text-muted-foreground truncate">{loc.address || "No address"}</p>
+                        {loc.courtFeeEnabled && (
+                          <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1">
+                            <DollarSign className="w-3 h-3" />
+                            Member ${loc.memberFee ?? 0} / Non-member ${loc.nonMemberFee ?? 0}
+                          </p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         <Button
@@ -459,6 +520,64 @@ export default function AdminSettings() {
                       setNewEventName("");
                     }
                   }}
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </Button>
+              </div>
+            </section>
+
+            {/* ── Rating Requirements ─────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Rating Requirements</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Options shown in the Rating Requirement dropdown when creating new events.</p>
+              </div>
+
+              {form.defaultRatingRequirements.length > 0 && (
+                <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
+                  {form.defaultRatingRequirements.map((req, i) => (
+                    <div key={req.key} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`rating-req-row-${i}`}>
+                      <Tag className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground truncate">{req.label}</p>
+                        <p className="text-xs text-muted-foreground font-mono truncate">{req.key}</p>
+                      </div>
+                      <Button
+                        type="button" variant="ghost" size="sm"
+                        className="text-muted-foreground hover:text-destructive h-7 w-7 p-0 shrink-0"
+                        data-testid={`button-delete-rating-req-${i}`}
+                        onClick={() => deleteRatingRequirement(i)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <Input
+                  data-testid="input-new-rating-key"
+                  value={newRatingKey}
+                  onChange={e => setNewRatingKey(e.target.value)}
+                  placeholder="key (e.g. dupr)"
+                  className="w-32 shrink-0"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addRatingRequirement(); } }}
+                />
+                <Input
+                  data-testid="input-new-rating-label"
+                  value={newRatingLabel}
+                  onChange={e => setNewRatingLabel(e.target.value)}
+                  placeholder="Label (e.g. DUPR Required)"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addRatingRequirement(); } }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-1.5 shrink-0"
+                  data-testid="button-add-rating-req"
+                  onClick={addRatingRequirement}
                 >
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
@@ -600,6 +719,46 @@ export default function AdminSettings() {
                 placeholder="123 Main St, Atlanta, GA 30301"
               />
             </div>
+            <div className="flex items-center justify-between pt-1">
+              <div className="space-y-0.5">
+                <Label htmlFor="loc-court-fee-enabled" className="text-sm font-medium">Court Fee Enabled</Label>
+                <p className="text-xs text-muted-foreground">Charge a court fee at this venue.</p>
+              </div>
+              <Switch
+                id="loc-court-fee-enabled"
+                data-testid="input-location-court-fee-enabled"
+                checked={locationForm.courtFeeEnabled}
+                onCheckedChange={v => setLocationForm(f => ({ ...f, courtFeeEnabled: v }))}
+              />
+            </div>
+            {locationForm.courtFeeEnabled && (
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="loc-member-fee">Member Fee ($)</Label>
+                  <Input
+                    id="loc-member-fee"
+                    data-testid="input-location-member-fee"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={locationForm.memberFee}
+                    onChange={e => setLocationForm(f => ({ ...f, memberFee: Number(e.target.value) }))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="loc-non-member-fee">Non-Member Fee ($)</Label>
+                  <Input
+                    id="loc-non-member-fee"
+                    data-testid="input-location-non-member-fee"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={locationForm.nonMemberFee}
+                    onChange={e => setLocationForm(f => ({ ...f, nonMemberFee: Number(e.target.value) }))}
+                  />
+                </div>
+              </div>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={closeLocationDialog}>Cancel</Button>
               <Button type="submit" data-testid="button-save-location">

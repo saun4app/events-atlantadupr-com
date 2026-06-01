@@ -19,7 +19,8 @@ import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { ChevronLeft, Calendar } from "lucide-react";
 import { Link } from "wouter";
 
-interface DefaultLocation { id: string; name: string; address: string; }
+interface DefaultLocation { id: string; name: string; address: string; memberFee?: number; nonMemberFee?: number; courtFeeEnabled?: boolean; }
+interface RatingRequirement { key: string; label: string; }
 
 function toLocalDateTimeString(d: Date) {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -78,6 +79,7 @@ export default function AdminEventNew() {
   const defaultsApplied = useRef(false);
   const signupEndEdited = useRef(false);
   const descriptionEdited = useRef(false);
+  const endEdited = useRef(false);
 
   const [form, setForm] = useState({
     formatType: "rotating" as "rotating" | "fixed_partner",
@@ -87,13 +89,16 @@ export default function AdminEventNew() {
     endDatetime: "",
     locationName: "",
     locationAddress: "",
-    ratingTypeRequired: "dupr" as "dupr" | "national" | "none",
+    ratingTypeRequired: "none" as string,
     minParticipants: 8,
     maxParticipants: 24,
     waitlistEnabled: true,
     requireApproval: false,
     signupStartDatetime: "",
     signupEndDatetime: "",
+    courtFeeEnabled: false,
+    memberFee: 0,
+    nonMemberFee: 0,
   });
 
   const [cloneFrom, setCloneFrom] = useState<string>("none");
@@ -106,6 +111,14 @@ export default function AdminEventNew() {
 
   const defaultEventNames = (settings?.defaultEventNames as string[] | undefined) ?? [];
   const defaultLocations: DefaultLocation[] = (settings?.defaultLocations as DefaultLocation[] | undefined) ?? [];
+  const defaultRatingRequirements: RatingRequirement[] = (settings?.defaultRatingRequirements as RatingRequirement[] | undefined) ?? [];
+  const ratingOptions: RatingRequirement[] = defaultRatingRequirements.length > 0
+    ? defaultRatingRequirements
+    : [
+        { key: "dupr", label: "DUPR Required" },
+        { key: "national", label: "National Rating Required" },
+        { key: "none", label: "All Levels (No Rating Required)" },
+      ];
 
   useEffect(() => {
     if (settings && !defaultsApplied.current && cloneFrom === "none") {
@@ -127,6 +140,15 @@ export default function AdminEventNew() {
       setForm(f => ({ ...f, signupEndDatetime: signupClosesDefault(form.startDatetime) }));
     }
   }, [form.startDatetime]);
+
+  useEffect(() => {
+    if (form.startDatetime && !endEdited.current && settings) {
+      const durationHours = (settings.defaultEventDurationHours as number | undefined) ?? 2;
+      const startMs = new Date(form.startDatetime).getTime();
+      const endDate = new Date(startMs + durationHours * 60 * 60 * 1000);
+      setForm(f => ({ ...f, endDatetime: toLocalDateTimeString(endDate) }));
+    }
+  }, [form.startDatetime, settings]);
 
   const additionalDates = recurrenceEnabled && form.startDatetime
     ? generateAdditionalDates(new Date(form.startDatetime), recurrenceFrequency, recurrenceOccurrences)
@@ -178,6 +200,7 @@ export default function AdminEventNew() {
       defaultsApplied.current = false;
       descriptionEdited.current = false;
       signupEndEdited.current = false;
+      endEdited.current = false;
       setForm(f => ({ ...f, name: "", description: "" }));
       return;
     }
@@ -185,6 +208,7 @@ export default function AdminEventNew() {
     if (!ev) return;
     descriptionEdited.current = true;
     signupEndEdited.current = false;
+    endEdited.current = false;
     setForm({
       formatType: ev.formatType as "rotating" | "fixed_partner",
       name: ev.name + " (Copy)",
@@ -193,20 +217,30 @@ export default function AdminEventNew() {
       endDatetime: "",
       locationName: ev.locationName,
       locationAddress: ev.locationAddress ?? "",
-      ratingTypeRequired: ev.ratingTypeRequired as "dupr" | "national" | "none",
+      ratingTypeRequired: ev.ratingTypeRequired,
       minParticipants: ev.minParticipants,
       maxParticipants: ev.maxParticipants,
       waitlistEnabled: ev.waitlistEnabled,
       requireApproval: ev.requireApproval,
       signupStartDatetime: "",
       signupEndDatetime: "",
+      courtFeeEnabled: (ev as any).courtFeeEnabled ?? false,
+      memberFee: (ev as any).memberFee ?? 0,
+      nonMemberFee: (ev as any).nonMemberFee ?? 0,
     });
   }
 
   function handleLocationChange(val: string) {
     const matched = defaultLocations.find(l => l.name === val);
     if (matched) {
-      setForm(f => ({ ...f, locationName: val, locationAddress: matched.address }));
+      setForm(f => ({
+        ...f,
+        locationName: val,
+        locationAddress: matched.address,
+        courtFeeEnabled: matched.courtFeeEnabled ?? false,
+        memberFee: matched.memberFee ?? 0,
+        nonMemberFee: matched.nonMemberFee ?? 0,
+      }));
     } else {
       setForm(f => ({ ...f, locationName: val }));
     }
@@ -242,6 +276,9 @@ export default function AdminEventNew() {
       requireApproval: form.requireApproval,
       signupStartDatetime: new Date(form.signupStartDatetime).toISOString(),
       signupEndDatetime: new Date(form.signupEndDatetime).toISOString(),
+      courtFeeEnabled: form.courtFeeEnabled,
+      memberFee: form.memberFee,
+      nonMemberFee: form.nonMemberFee,
     };
 
     if (recurrenceEnabled && selectedDates.size > 0) {
@@ -355,13 +392,21 @@ export default function AdminEventNew() {
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="end">End Date & Time *</Label>
+                <Label htmlFor="end">
+                  End Date & Time *
+                  {!endEdited.current && settings?.defaultEventDurationHours && (
+                    <span className="ml-1.5 text-xs font-normal text-muted-foreground">(auto: {settings.defaultEventDurationHours}h after start)</span>
+                  )}
+                </Label>
                 <Input
                   id="end"
                   data-testid="input-event-end"
                   type="datetime-local"
                   value={form.endDatetime}
-                  onChange={e => setField("endDatetime", e.target.value)}
+                  onChange={e => {
+                    endEdited.current = true;
+                    setField("endDatetime", e.target.value);
+                  }}
                   required
                 />
               </div>
@@ -434,14 +479,14 @@ export default function AdminEventNew() {
             <div className="space-y-3">
               <div className="space-y-1.5">
                 <Label>Rating Requirement</Label>
-                <Select value={form.ratingTypeRequired} onValueChange={v => setField("ratingTypeRequired", v as "dupr" | "national" | "none")}>
+                <Select value={form.ratingTypeRequired} onValueChange={v => setField("ratingTypeRequired", v)}>
                   <SelectTrigger data-testid="select-rating-required">
                     <SelectValue placeholder="Select requirement..." />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="dupr">DUPR Required</SelectItem>
-                    <SelectItem value="national">National Rating Required</SelectItem>
-                    <SelectItem value="none">All Levels (No Rating Required)</SelectItem>
+                    {ratingOptions.map(opt => (
+                      <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -462,6 +507,49 @@ export default function AdminEventNew() {
                 />
               </div>
             </div>
+          </div>
+
+          {/* Court Fees */}
+          <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Court Fees</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Optionally collect a court fee for this event.</p>
+              </div>
+              <Switch
+                data-testid="switch-court-fee-enabled"
+                checked={form.courtFeeEnabled}
+                onCheckedChange={v => setField("courtFeeEnabled", v)}
+              />
+            </div>
+            {form.courtFeeEnabled && (
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="member-fee">Member Fee ($)</Label>
+                  <Input
+                    id="member-fee"
+                    data-testid="input-member-fee"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.memberFee}
+                    onChange={e => setField("memberFee", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="non-member-fee">Non-Member Fee ($)</Label>
+                  <Input
+                    id="non-member-fee"
+                    data-testid="input-non-member-fee"
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={form.nonMemberFee}
+                    onChange={e => setField("nonMemberFee", Number(e.target.value))}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Signup Window */}

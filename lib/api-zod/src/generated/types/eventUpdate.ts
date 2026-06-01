@@ -6,7 +6,6 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { EventUpdateFormatType } from './eventUpdateFormatType';
-import type { EventUpdateRatingTypeRequired } from './eventUpdateRatingTypeRequired';
 import type { EventUpdateStatus } from './eventUpdateStatus';
 
 export interface EventUpdate {
@@ -18,7 +17,7 @@ export interface EventUpdate {
   locationName?: string;
   locationAddress?: string;
   formatType?: EventUpdateFormatType;
-  ratingTypeRequired?: EventUpdateRatingTypeRequired;
+  ratingTypeRequired?: string;
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;
@@ -26,4 +25,7 @@ export interface EventUpdate {
   signupStartDatetime?: Date;
   signupEndDatetime?: Date;
   status?: EventUpdateStatus;
+  courtFeeEnabled?: boolean;
+  memberFee?: number;
+  nonMemberFee?: number;
 }

@@ -81,12 +81,16 @@ router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (re
     name, description, startDatetime, endDatetime, locationName, locationAddress,
     formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled,
     requireApproval, signupStartDatetime, signupEndDatetime, recurrence,
+    courtFeeEnabled, memberFee, nonMemberFee,
   } = req.body;
 
   const baseEvent = {
     name, description: description ?? null, locationName, locationAddress,
     formatType, ratingTypeRequired, minParticipants, maxParticipants,
     waitlistEnabled, requireApproval, status: "upcoming" as const,
+    courtFeeEnabled: courtFeeEnabled ?? false,
+    memberFee: typeof memberFee === "number" ? memberFee : 0,
+    nonMemberFee: typeof nonMemberFee === "number" ? nonMemberFee : 0,
   };
 
   if (recurrence) {
@@ -161,7 +165,7 @@ router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event
   const fields = [
     "name", "description", "locationName", "locationAddress", "formatType",
     "ratingTypeRequired", "minParticipants", "maxParticipants", "waitlistEnabled",
-    "requireApproval", "status",
+    "requireApproval", "status", "courtFeeEnabled", "memberFee", "nonMemberFee",
   ];
   fields.forEach((f) => {
     if (req.body[f] !== undefined) updates[f] = req.body[f];

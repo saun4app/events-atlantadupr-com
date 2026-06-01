@@ -171,7 +171,7 @@ export const ListEventsResponseItem = zod.object({
   "locationName": zod.string(),
   "locationAddress": zod.string(),
   "formatType": zod.enum(['fixed_partner', 'rotating']),
-  "ratingTypeRequired": zod.enum(['dupr', 'national', 'none']),
+  "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
   "waitlistEnabled": zod.boolean(),
@@ -179,6 +179,9 @@ export const ListEventsResponseItem = zod.object({
   "signupStartDatetime": zod.coerce.date(),
   "signupEndDatetime": zod.coerce.date(),
   "status": zod.enum(['upcoming', 'closed', 'ended']),
+  "courtFeeEnabled": zod.boolean(),
+  "memberFee": zod.number(),
+  "nonMemberFee": zod.number(),
   "createdAt": zod.coerce.date()
 })
 export const ListEventsResponse = zod.array(ListEventsResponseItem)
@@ -200,13 +203,16 @@ export const CreateEventBody = zod.object({
   "locationName": zod.string(),
   "locationAddress": zod.string(),
   "formatType": zod.enum(['fixed_partner', 'rotating']),
-  "ratingTypeRequired": zod.enum(['dupr', 'national', 'none']),
+  "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.boolean(),
   "signupStartDatetime": zod.coerce.date(),
   "signupEndDatetime": zod.coerce.date(),
+  "courtFeeEnabled": zod.boolean().optional(),
+  "memberFee": zod.number().optional(),
+  "nonMemberFee": zod.number().optional(),
   "recurrence": zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
   "occurrences": zod.number().min(createEventBodyRecurrenceOccurrencesMin).max(createEventBodyRecurrenceOccurrencesMax).optional(),
@@ -232,7 +238,7 @@ export const GetEventResponse = zod.object({
   "locationName": zod.string(),
   "locationAddress": zod.string(),
   "formatType": zod.enum(['fixed_partner', 'rotating']),
-  "ratingTypeRequired": zod.enum(['dupr', 'national', 'none']),
+  "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
   "waitlistEnabled": zod.boolean(),
@@ -240,6 +246,9 @@ export const GetEventResponse = zod.object({
   "signupStartDatetime": zod.coerce.date(),
   "signupEndDatetime": zod.coerce.date(),
   "status": zod.enum(['upcoming', 'closed', 'ended']),
+  "courtFeeEnabled": zod.boolean(),
+  "memberFee": zod.number(),
+  "nonMemberFee": zod.number(),
   "createdAt": zod.coerce.date()
 })
 
@@ -259,14 +268,17 @@ export const UpdateEventBody = zod.object({
   "locationName": zod.string().optional(),
   "locationAddress": zod.string().optional(),
   "formatType": zod.enum(['fixed_partner', 'rotating']).optional(),
-  "ratingTypeRequired": zod.enum(['dupr', 'national', 'none']).optional(),
+  "ratingTypeRequired": zod.string().optional(),
   "minParticipants": zod.number().optional(),
   "maxParticipants": zod.number().optional(),
   "waitlistEnabled": zod.boolean().optional(),
   "requireApproval": zod.boolean().optional(),
   "signupStartDatetime": zod.coerce.date().optional(),
   "signupEndDatetime": zod.coerce.date().optional(),
-  "status": zod.enum(['upcoming', 'closed', 'ended']).optional()
+  "status": zod.enum(['upcoming', 'closed', 'ended']).optional(),
+  "courtFeeEnabled": zod.boolean().optional(),
+  "memberFee": zod.number().optional(),
+  "nonMemberFee": zod.number().optional()
 })
 
 export const UpdateEventResponse = zod.object({
@@ -279,7 +291,7 @@ export const UpdateEventResponse = zod.object({
   "locationName": zod.string(),
   "locationAddress": zod.string(),
   "formatType": zod.enum(['fixed_partner', 'rotating']),
-  "ratingTypeRequired": zod.enum(['dupr', 'national', 'none']),
+  "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
   "waitlistEnabled": zod.boolean(),
@@ -287,6 +299,9 @@ export const UpdateEventResponse = zod.object({
   "signupStartDatetime": zod.coerce.date(),
   "signupEndDatetime": zod.coerce.date(),
   "status": zod.enum(['upcoming', 'closed', 'ended']),
+  "courtFeeEnabled": zod.boolean(),
+  "memberFee": zod.number(),
+  "nonMemberFee": zod.number(),
   "createdAt": zod.coerce.date()
 })
 
@@ -328,7 +343,7 @@ export const CloseEventResponse = zod.object({
   "locationName": zod.string(),
   "locationAddress": zod.string(),
   "formatType": zod.enum(['fixed_partner', 'rotating']),
-  "ratingTypeRequired": zod.enum(['dupr', 'national', 'none']),
+  "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
   "waitlistEnabled": zod.boolean(),
@@ -336,6 +351,9 @@ export const CloseEventResponse = zod.object({
   "signupStartDatetime": zod.coerce.date(),
   "signupEndDatetime": zod.coerce.date(),
   "status": zod.enum(['upcoming', 'closed', 'ended']),
+  "courtFeeEnabled": zod.boolean(),
+  "memberFee": zod.number(),
+  "nonMemberFee": zod.number(),
   "createdAt": zod.coerce.date()
 })
 
@@ -551,10 +569,18 @@ export const GetSettingsResponse = zod.object({
   "defaultLocations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "address": zod.string()
+  "address": zod.string(),
+  "memberFee": zod.number().optional().describe('Default court fee for members (dollars)'),
+  "nonMemberFee": zod.number().optional().describe('Default court fee for non-members (dollars)'),
+  "courtFeeEnabled": zod.boolean().optional()
 })),
   "maintenanceMode": zod.boolean(),
-  "defaultEventNames": zod.array(zod.string()).describe('Preset event names available for selection when creating events')
+  "defaultEventNames": zod.array(zod.string()).describe('Preset event names available for selection when creating events'),
+  "defaultEventDurationHours": zod.number().describe('Default event duration in hours (used to auto-calculate end time)'),
+  "defaultRatingRequirements": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+})).describe('Admin-defined list of rating requirement options')
 })
 
 
@@ -576,10 +602,18 @@ export const UpdateSettingsBody = zod.object({
   "defaultLocations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "address": zod.string()
+  "address": zod.string(),
+  "memberFee": zod.number().optional().describe('Default court fee for members (dollars)'),
+  "nonMemberFee": zod.number().optional().describe('Default court fee for non-members (dollars)'),
+  "courtFeeEnabled": zod.boolean().optional()
 })).optional(),
   "maintenanceMode": zod.boolean().optional(),
-  "defaultEventNames": zod.array(zod.string()).optional()
+  "defaultEventNames": zod.array(zod.string()).optional(),
+  "defaultEventDurationHours": zod.number().optional(),
+  "defaultRatingRequirements": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+})).optional()
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -597,10 +631,18 @@ export const UpdateSettingsResponse = zod.object({
   "defaultLocations": zod.array(zod.object({
   "id": zod.string(),
   "name": zod.string(),
-  "address": zod.string()
+  "address": zod.string(),
+  "memberFee": zod.number().optional().describe('Default court fee for members (dollars)'),
+  "nonMemberFee": zod.number().optional().describe('Default court fee for non-members (dollars)'),
+  "courtFeeEnabled": zod.boolean().optional()
 })),
   "maintenanceMode": zod.boolean(),
-  "defaultEventNames": zod.array(zod.string()).describe('Preset event names available for selection when creating events')
+  "defaultEventNames": zod.array(zod.string()).describe('Preset event names available for selection when creating events'),
+  "defaultEventDurationHours": zod.number().describe('Default event duration in hours (used to auto-calculate end time)'),
+  "defaultRatingRequirements": zod.array(zod.object({
+  "key": zod.string(),
+  "label": zod.string()
+})).describe('Admin-defined list of rating requirement options')
 })
 
 

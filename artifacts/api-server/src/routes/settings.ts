@@ -85,10 +85,24 @@ function validateSettingsInput(body: unknown): string | null {
       if (typeof (loc as any).address !== "string") {
         return `defaultLocations[${i}].address must be a string`;
       }
+      if ((loc as any).memberFee !== undefined && typeof (loc as any).memberFee !== "number") {
+        return `defaultLocations[${i}].memberFee must be a number`;
+      }
+      if ((loc as any).nonMemberFee !== undefined && typeof (loc as any).nonMemberFee !== "number") {
+        return `defaultLocations[${i}].nonMemberFee must be a number`;
+      }
+      if ((loc as any).courtFeeEnabled !== undefined && typeof (loc as any).courtFeeEnabled !== "boolean") {
+        return `defaultLocations[${i}].courtFeeEnabled must be a boolean`;
+      }
     }
   }
   if (b.maintenanceMode !== undefined && typeof b.maintenanceMode !== "boolean") {
     return "maintenanceMode must be a boolean";
+  }
+  if (b.defaultEventDurationHours !== undefined) {
+    if (typeof b.defaultEventDurationHours !== "number" || !Number.isInteger(b.defaultEventDurationHours) || b.defaultEventDurationHours < 1) {
+      return "defaultEventDurationHours must be an integer >= 1";
+    }
   }
   if (b.defaultEventNames !== undefined) {
     if (!Array.isArray(b.defaultEventNames)) return "defaultEventNames must be an array";
@@ -96,6 +110,24 @@ function validateSettingsInput(body: unknown): string | null {
       if (typeof b.defaultEventNames[i] !== "string" || !b.defaultEventNames[i].trim()) {
         return `defaultEventNames[${i}] must be a non-empty string`;
       }
+    }
+  }
+  if (b.defaultRatingRequirements !== undefined) {
+    if (!Array.isArray(b.defaultRatingRequirements)) return "defaultRatingRequirements must be an array";
+    const keys = new Set<string>();
+    for (let i = 0; i < b.defaultRatingRequirements.length; i++) {
+      const r = b.defaultRatingRequirements[i];
+      if (typeof r !== "object" || r === null) return `defaultRatingRequirements[${i}] must be an object`;
+      if (typeof (r as any).key !== "string" || !(r as any).key.trim()) {
+        return `defaultRatingRequirements[${i}].key is required`;
+      }
+      if (typeof (r as any).label !== "string" || !(r as any).label.trim()) {
+        return `defaultRatingRequirements[${i}].label is required`;
+      }
+      if (keys.has((r as any).key)) {
+        return `defaultRatingRequirements: duplicate key "${(r as any).key}"`;
+      }
+      keys.add((r as any).key);
     }
   }
   return null;
@@ -128,6 +160,8 @@ router.put("/", requireRole("admin"), async (req, res) => {
     defaultLocations,
     maintenanceMode,
     defaultEventNames,
+    defaultEventDurationHours,
+    defaultRatingRequirements,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -140,6 +174,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (maxTeams !== undefined) updates.maxTeams = maxTeams;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
   if (maintenanceMode !== undefined) updates.maintenanceMode = maintenanceMode;
+  if (defaultEventDurationHours !== undefined) updates.defaultEventDurationHours = defaultEventDurationHours;
   if (defaultEventNames !== undefined) {
     updates.defaultEventNames = (defaultEventNames as string[]).map((n: string) => n.trim()).filter(Boolean);
   }
@@ -148,6 +183,15 @@ router.put("/", requireRole("admin"), async (req, res) => {
       id: String(loc.id).trim(),
       name: String(loc.name).trim(),
       address: String(loc.address ?? "").trim(),
+      memberFee: typeof loc.memberFee === "number" ? loc.memberFee : 0,
+      nonMemberFee: typeof loc.nonMemberFee === "number" ? loc.nonMemberFee : 0,
+      courtFeeEnabled: typeof loc.courtFeeEnabled === "boolean" ? loc.courtFeeEnabled : false,
+    }));
+  }
+  if (defaultRatingRequirements !== undefined) {
+    updates.defaultRatingRequirements = (defaultRatingRequirements as any[]).map((r: any) => ({
+      key: String(r.key).trim(),
+      label: String(r.label).trim(),
     }));
   }
 

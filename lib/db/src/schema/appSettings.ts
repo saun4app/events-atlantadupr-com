@@ -9,6 +9,14 @@ export interface DefaultLocation {
   id: string;
   name: string;
   address: string;
+  memberFee?: number;
+  nonMemberFee?: number;
+  courtFeeEnabled?: boolean;
+}
+
+export interface RatingRequirement {
+  key: string;
+  label: string;
 }
 
 export const appSettingsTable = pgTable("app_settings", {
@@ -24,6 +32,8 @@ export const appSettingsTable = pgTable("app_settings", {
   defaultLocations: jsonb("default_locations").$type<DefaultLocation[]>().notNull().default([]),
   maintenanceMode: boolean("maintenance_mode").notNull().default(false),
   defaultEventNames: jsonb("default_event_names").$type<string[]>().notNull().default([]),
+  defaultEventDurationHours: integer("default_event_duration_hours").notNull().default(2),
+  defaultRatingRequirements: jsonb("default_rating_requirements").$type<RatingRequirement[]>().notNull().default([]),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;
