@@ -113,12 +113,14 @@ export default function AdminSettings() {
   }, [settings]);
 
   const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const formRef = useRef(form);
+  formRef.current = form;
 
-  function performAutoSave(nextForm: typeof form) {
+  function scheduleAutoSave() {
     if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
     autoSaveTimeoutRef.current = setTimeout(() => {
       autoSaveTimeoutRef.current = null;
-      updateSettings.mutate({ data: nextForm as any }, {
+      updateSettings.mutate({ data: formRef.current as any }, {
         onSuccess: () => { toast({ title: "Saved" }); setDirty(false); },
         onError: () => toast({ title: "Failed to save", variant: "destructive" }),
       });
@@ -128,8 +130,9 @@ export default function AdminSettings() {
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K], autoSave = false) {
     const nextForm = { ...form, [key]: value };
     setForm(nextForm);
+    formRef.current = nextForm;
     setDirty(true);
-    if (autoSave) performAutoSave(nextForm);
+    if (autoSave) scheduleAutoSave();
   }
 
   function updateRrc(section: "dupr" | "selfNumeric" | "selfSkill", patch: Record<string, any>, autoSave = false) {
@@ -141,8 +144,9 @@ export default function AdminSettings() {
       },
     };
     setForm(nextForm);
+    formRef.current = nextForm;
     setDirty(true);
-    if (autoSave) performAutoSave(nextForm);
+    if (autoSave) scheduleAutoSave();
   }
 
   function handleSave(e: React.FormEvent) {
