@@ -125,12 +125,15 @@ export default function AdminEventNew() {
       defaultsApplied.current = true;
       const tz = settings.defaultTimezone || "America/New_York";
       const nowInTz = toDatetimeLocalInTz(new Date(), tz);
+      const ratingReqs = (settings.defaultRatingRequirements as RatingRequirement[] | undefined) ?? [];
+      const firstRatingKey = ratingReqs.length > 0 ? ratingReqs[0].key : "none";
       setForm(f => ({
         ...f,
         minParticipants: settings.minParticipants,
         maxParticipants: settings.maxParticipants,
         description: settings.rotatingPartnersDescription || "",
         signupStartDatetime: nowInTz,
+        ratingTypeRequired: firstRatingKey,
       }));
     }
   }, [settings, cloneFrom]);

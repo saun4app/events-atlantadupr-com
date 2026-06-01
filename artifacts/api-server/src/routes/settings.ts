@@ -124,10 +124,11 @@ function validateSettingsInput(body: unknown): string | null {
       if (typeof (r as any).label !== "string" || !(r as any).label.trim()) {
         return `defaultRatingRequirements[${i}].label is required`;
       }
-      if (keys.has((r as any).key)) {
-        return `defaultRatingRequirements: duplicate key "${(r as any).key}"`;
+      const trimmedKey = String((r as any).key).trim();
+      if (keys.has(trimmedKey)) {
+        return `defaultRatingRequirements: duplicate key "${trimmedKey}"`;
       }
-      keys.add((r as any).key);
+      keys.add(trimmedKey);
     }
   }
   return null;
