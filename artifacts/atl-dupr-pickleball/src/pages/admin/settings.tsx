@@ -112,20 +112,37 @@ export default function AdminSettings() {
     }
   }, [settings]);
 
-  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
-    setForm(f => ({ ...f, [key]: value }));
-    setDirty(true);
+  const autoSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function performAutoSave(nextForm: typeof form) {
+    if (autoSaveTimeoutRef.current) clearTimeout(autoSaveTimeoutRef.current);
+    autoSaveTimeoutRef.current = setTimeout(() => {
+      autoSaveTimeoutRef.current = null;
+      updateSettings.mutate({ data: nextForm as any }, {
+        onSuccess: () => { toast({ title: "Saved" }); setDirty(false); },
+        onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+      });
+    }, 300);
   }
 
-  function updateRrc(section: "dupr" | "selfNumeric" | "selfSkill", patch: Record<string, any>) {
-    setForm(f => ({
-      ...f,
-      ratingRequirementsConfig: {
-        ...f.ratingRequirementsConfig,
-        [section]: { ...f.ratingRequirementsConfig[section], ...patch },
-      },
-    }));
+  function update<K extends keyof typeof form>(key: K, value: (typeof form)[K], autoSave = false) {
+    const nextForm = { ...form, [key]: value };
+    setForm(nextForm);
     setDirty(true);
+    if (autoSave) performAutoSave(nextForm);
+  }
+
+  function updateRrc(section: "dupr" | "selfNumeric" | "selfSkill", patch: Record<string, any>, autoSave = false) {
+    const nextForm = {
+      ...form,
+      ratingRequirementsConfig: {
+        ...form.ratingRequirementsConfig,
+        [section]: { ...form.ratingRequirementsConfig[section], ...patch },
+      },
+    };
+    setForm(nextForm);
+    setDirty(true);
+    if (autoSave) performAutoSave(nextForm);
   }
 
   function handleSave(e: React.FormEvent) {
@@ -148,17 +165,17 @@ export default function AdminSettings() {
     e.preventDefault();
     if (!contactForm.name.trim() || !contactForm.email.trim()) return;
     if (contactDialog.open && contactDialog.mode === "add") {
-      update("contactPersons", [...form.contactPersons, { name: contactForm.name.trim(), email: contactForm.email.trim() }]);
+      update("contactPersons", [...form.contactPersons, { name: contactForm.name.trim(), email: contactForm.email.trim() }], true);
     } else if (contactDialog.open && contactDialog.mode === "edit") {
       update("contactPersons", form.contactPersons.map((c, idx) =>
         idx === contactDialog.index ? { name: contactForm.name.trim(), email: contactForm.email.trim() } : c
-      ));
+      ), true);
     }
     setContactDialog({ open: false });
   }
   function confirmDeleteContact() {
     if (deleteContactIdx === null) return;
-    update("contactPersons", form.contactPersons.filter((_, idx) => idx !== deleteContactIdx));
+    update("contactPersons", form.contactPersons.filter((_, idx) => idx !== deleteContactIdx), true);
     setDeleteContactIdx(null);
   }
 
@@ -183,15 +200,15 @@ export default function AdminSettings() {
       memberFee: locationForm.memberFee, nonMemberFee: locationForm.nonMemberFee, courtFeeEnabled: locationForm.courtFeeEnabled,
     };
     if (locationDialog.open && locationDialog.mode === "add") {
-      update("defaultLocations", [...form.defaultLocations, locData]);
+      update("defaultLocations", [...form.defaultLocations, locData], true);
     } else if (locationDialog.open && locationDialog.mode === "edit") {
-      update("defaultLocations", form.defaultLocations.map((loc, idx) => idx === locationDialog.index ? locData : loc));
+      update("defaultLocations", form.defaultLocations.map((loc, idx) => idx === locationDialog.index ? locData : loc), true);
     }
     setLocationDialog({ open: false });
   }
   function confirmDeleteLocation() {
     if (deleteLocationIdx === null) return;
-    update("defaultLocations", form.defaultLocations.filter((_, idx) => idx !== deleteLocationIdx));
+    update("defaultLocations", form.defaultLocations.filter((_, idx) => idx !== deleteLocationIdx), true);
     setDeleteLocationIdx(null);
   }
 
@@ -206,7 +223,7 @@ export default function AdminSettings() {
     if (!text) return;
     const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
     const newLevel = levels.length + 1;
-    updateRrc("selfSkill", { levels: [...levels, { text, level: newLevel }] });
+    updateRrc("selfSkill", { levels: [...levels, { text, level: newLevel }] }, true);
     setNewSkillText("");
   }
 
@@ -215,7 +232,7 @@ export default function AdminSettings() {
     const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
     const filtered = levels.filter((_, idx) => idx !== deleteSkillIdx);
     const renumbered = filtered.map((l, i) => ({ ...l, level: i + 1 }));
-    updateRrc("selfSkill", { levels: renumbered });
+    updateRrc("selfSkill", { levels: renumbered }, true);
     setDeleteSkillIdx(null);
     if (editingSkillIdx === deleteSkillIdx) setEditingSkillIdx(null);
   }
@@ -226,7 +243,7 @@ export default function AdminSettings() {
     if (!text) return;
     const levels = [...form.ratingRequirementsConfig.selfSkill.levels].sort((a, b) => a.level - b.level);
     const updated = levels.map((l, idx) => idx === editingSkillIdx ? { ...l, text } : l);
-    updateRrc("selfSkill", { levels: updated });
+    updateRrc("selfSkill", { levels: updated }, true);
     setEditingSkillIdx(null);
   }
 
@@ -236,7 +253,7 @@ export default function AdminSettings() {
     if (newIdx < 0 || newIdx >= levels.length) return;
     [levels[idx], levels[newIdx]] = [levels[newIdx], levels[idx]];
     const renumbered = levels.map((l, i) => ({ ...l, level: i + 1 }));
-    updateRrc("selfSkill", { levels: renumbered });
+    updateRrc("selfSkill", { levels: renumbered }, true);
   }
 
   const rrc = form.ratingRequirementsConfig;
@@ -395,8 +412,8 @@ export default function AdminSettings() {
                     <div key={i} className="flex items-center gap-3 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`event-name-row-${i}`}>
                       {editingEventNameIdx === i ? (
                         <>
-                          <Input data-testid={`input-edit-event-name-${i}`} value={editEventNameValue} onChange={e => setEditEventNameValue(e.target.value)} className="flex-1 h-7 text-sm" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const v = editEventNameValue.trim(); if (v && !form.defaultEventNames.some((n, idx) => n === v && idx !== i)) { update("defaultEventNames", form.defaultEventNames.map((n, idx) => idx === i ? v : n)); setEditingEventNameIdx(null); } } if (e.key === "Escape") setEditingEventNameIdx(null); }} autoFocus />
-                          <Button type="button" variant="ghost" size="sm" className="text-primary h-7 px-2 shrink-0 text-xs" data-testid={`button-save-event-name-${i}`} onClick={() => { const v = editEventNameValue.trim(); if (v && !form.defaultEventNames.some((n, idx) => n === v && idx !== i)) { update("defaultEventNames", form.defaultEventNames.map((n, idx) => idx === i ? v : n)); setEditingEventNameIdx(null); } }}>Save</Button>
+                          <Input data-testid={`input-edit-event-name-${i}`} value={editEventNameValue} onChange={e => setEditEventNameValue(e.target.value)} className="flex-1 h-7 text-sm" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const v = editEventNameValue.trim(); if (v && !form.defaultEventNames.some((n, idx) => n === v && idx !== i)) { update("defaultEventNames", form.defaultEventNames.map((n, idx) => idx === i ? v : n), true); setEditingEventNameIdx(null); } } if (e.key === "Escape") setEditingEventNameIdx(null); }} autoFocus />
+                          <Button type="button" variant="ghost" size="sm" className="text-primary h-7 px-2 shrink-0 text-xs" data-testid={`button-save-event-name-${i}`} onClick={() => { const v = editEventNameValue.trim(); if (v && !form.defaultEventNames.some((n, idx) => n === v && idx !== i)) { update("defaultEventNames", form.defaultEventNames.map((n, idx) => idx === i ? v : n), true); setEditingEventNameIdx(null); } }}>Save</Button>
                           <Button type="button" variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 shrink-0 text-xs" data-testid={`button-cancel-event-name-${i}`} onClick={() => setEditingEventNameIdx(null)}>Cancel</Button>
                         </>
                       ) : (
@@ -411,8 +428,8 @@ export default function AdminSettings() {
                 </div>
               )}
               <div className="flex gap-2">
-                <Input data-testid="input-new-event-name" value={newEventName} onChange={e => setNewEventName(e.target.value)} placeholder="Saturday Morning Round Robin" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const t = newEventName.trim(); if (t && !form.defaultEventNames.includes(t)) { update("defaultEventNames", [...form.defaultEventNames, t]); setNewEventName(""); } } }} />
-                <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" data-testid="button-add-event-name" onClick={() => { const t = newEventName.trim(); if (t && !form.defaultEventNames.includes(t)) { update("defaultEventNames", [...form.defaultEventNames, t]); setNewEventName(""); } }}>
+                <Input data-testid="input-new-event-name" value={newEventName} onChange={e => setNewEventName(e.target.value)} placeholder="Saturday Morning Round Robin" onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); const t = newEventName.trim(); if (t && !form.defaultEventNames.includes(t)) { update("defaultEventNames", [...form.defaultEventNames, t], true); setNewEventName(""); } } }} />
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" data-testid="button-add-event-name" onClick={() => { const t = newEventName.trim(); if (t && !form.defaultEventNames.includes(t)) { update("defaultEventNames", [...form.defaultEventNames, t], true); setNewEventName(""); } }}>
                   <Plus className="w-3.5 h-3.5" /> Add
                 </Button>
               </div>
@@ -761,7 +778,7 @@ export default function AdminSettings() {
   function confirmDeleteEventName() {
     if (deleteEventNameIdx === null) return;
     if (editingEventNameIdx === deleteEventNameIdx) setEditingEventNameIdx(null);
-    update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== deleteEventNameIdx));
+    update("defaultEventNames", form.defaultEventNames.filter((_, idx) => idx !== deleteEventNameIdx), true);
     setDeleteEventNameIdx(null);
   }
 }
