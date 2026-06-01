@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
-import { useGetSettings, useUpdateSettings } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,7 @@ export default function AdminSettings() {
 
   const { data: settings, isLoading: settingsLoading } = useGetSettings();
   const updateSettings = useUpdateSettings();
+  const queryClient = useQueryClient();
 
   const [form, setForm] = useState({
     defaultTimezone: "America/New_York",
@@ -80,15 +82,15 @@ export default function AdminSettings() {
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
   });
   const [dirty, setDirty] = useState(false);
-  const formInitialized = useRef(false);
+  const lastSyncedSettings = useRef<typeof settings | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [editingEventNameIdx, setEditingEventNameIdx] = useState<number | null>(null);
   const [editEventNameValue, setEditEventNameValue] = useState("");
   const [deleteEventNameIdx, setDeleteEventNameIdx] = useState<number | null>(null);
 
   useEffect(() => {
-    if (settings && !formInitialized.current) {
-      formInitialized.current = true;
+    if (settings && settings !== lastSyncedSettings.current) {
+      lastSyncedSettings.current = settings;
       const rrc = (settings as any).ratingRequirementsConfig ?? DEFAULT_RATING_CONFIG;
       setForm({
         defaultTimezone: settings.defaultTimezone,
@@ -121,7 +123,7 @@ export default function AdminSettings() {
     autoSaveTimeoutRef.current = setTimeout(() => {
       autoSaveTimeoutRef.current = null;
       updateSettings.mutate({ data: formRef.current as any }, {
-        onSuccess: () => { toast({ title: "Saved" }); setDirty(false); },
+        onSuccess: (data) => { queryClient.setQueryData(getGetSettingsQueryKey(), data); toast({ title: "Saved" }); setDirty(false); },
         onError: () => toast({ title: "Failed to save", variant: "destructive" }),
       });
     }, 300);
@@ -152,7 +154,10 @@ export default function AdminSettings() {
   function handleSave(e: React.FormEvent) {
     e.preventDefault();
     updateSettings.mutate({ data: formRef.current as any }, {
-      onSuccess: () => { toast({ title: "Settings saved" }); setDirty(false); },
+      onSuccess: (data) => {
+        queryClient.setQueryData(getGetSettingsQueryKey(), data);
+        toast({ title: "Settings saved" }); setDirty(false);
+      },
       onError: (err: any) => {
         const msg = err?.response?.error ?? err?.message ?? JSON.stringify(err);
         console.error("[settings save error]", err);
