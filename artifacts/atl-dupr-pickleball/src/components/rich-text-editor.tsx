@@ -3,7 +3,7 @@ import { StarterKit } from "@tiptap/starter-kit";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
 import { Link } from "@tiptap/extension-link";
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette, Link as LinkIcon, Unlink } from "lucide-react";
 
@@ -17,6 +17,7 @@ interface RichTextEditorProps {
 export function RichTextEditor({ value, onChange, placeholder, "data-testid": testId }: RichTextEditorProps) {
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
+  const savedSelection = useRef<{ from: number; to: number } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -53,6 +54,8 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
 
   function openLinkInput() {
     if (!editor) return;
+    const { from, to } = editor.state.selection;
+    savedSelection.current = { from, to };
     const existing = editor.getAttributes("link").href as string | undefined;
     setLinkUrl(existing ?? "");
     setShowLinkInput(true);
@@ -61,12 +64,16 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
   function applyLink() {
     if (!editor) return;
     const url = linkUrl.trim();
+    const sel = savedSelection.current;
     if (!url) {
-      editor.chain().focus().unsetLink().run();
+      if (sel) editor.chain().focus().setTextSelection(sel).unsetLink().run();
+      else editor.chain().focus().unsetLink().run();
     } else {
       const href = url.startsWith("http") ? url : `https://${url}`;
-      editor.chain().focus().setLink({ href }).run();
+      if (sel) editor.chain().focus().setTextSelection(sel).setLink({ href }).run();
+      else editor.chain().focus().setLink({ href }).run();
     }
+    savedSelection.current = null;
     setShowLinkInput(false);
     setLinkUrl("");
   }
