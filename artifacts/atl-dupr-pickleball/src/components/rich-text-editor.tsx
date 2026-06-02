@@ -23,11 +23,7 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
       StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] }, link: false }),
       TextStyle,
       Color,
-      Link.configure({
-        openOnClick: false,
-        autolink: true,
-        HTMLAttributes: { style: "color: inherit; text-decoration: underline;" },
-      }),
+      Link.configure({ openOnClick: false, autolink: true }),
     ],
     content: value,
     onUpdate: ({ editor }) => {
