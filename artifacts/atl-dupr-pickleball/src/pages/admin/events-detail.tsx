@@ -386,9 +386,9 @@ export default function AdminEventDetail() {
                     id="add-dupr"
                     data-testid="input-add-dupr-id"
                     value={addDuprId}
-                    onChange={e => setAddDuprId(e.target.value)}
+                    onChange={e => setAddDuprId(e.target.value.toUpperCase())}
                     placeholder={"DUPR-001\nDUPR-002, DUPR-003"}
-                    className="w-56 h-20 text-sm font-mono resize-none"
+                    className="w-56 h-20 text-sm font-mono resize-none uppercase"
                     required
                   />
                   <p className="text-xs text-muted-foreground">Separate multiple IDs with commas, spaces, or new lines.</p>
@@ -396,7 +396,7 @@ export default function AdminEventDetail() {
                 {event.formatType === "fixed_partner" && (
                   <div className="space-y-1.5">
                     <Label htmlFor="add-partner">Partner DUPR ID</Label>
-                    <Input id="add-partner" data-testid="input-add-partner-dupr-id" value={addPartnerDuprId} onChange={e => setAddPartnerDuprId(e.target.value)} placeholder="ATL002" className="w-32" />
+                    <Input id="add-partner" data-testid="input-add-partner-dupr-id" value={addPartnerDuprId} onChange={e => setAddPartnerDuprId(e.target.value.toUpperCase())} placeholder="ATL002" className="w-32 uppercase" />
                   </div>
                 )}
                 <Button type="submit" data-testid="button-add-participant" disabled={createReg.isPending} className="gap-1.5">

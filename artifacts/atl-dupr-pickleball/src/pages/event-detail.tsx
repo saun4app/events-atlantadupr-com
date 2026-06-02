@@ -281,8 +281,9 @@ export default function EventDetail() {
                   id="dupr-id"
                   data-testid="input-dupr-id"
                   value={duprId}
-                  onChange={(e) => setDuprId(e.target.value)}
+                  onChange={(e) => setDuprId(e.target.value.toUpperCase())}
                   placeholder="e.g. ATL001"
+                  className="uppercase"
                   required
                 />
               </div>
@@ -293,8 +294,9 @@ export default function EventDetail() {
                     id="partner-dupr-id"
                     data-testid="input-partner-dupr-id"
                     value={partnerDuprId}
-                    onChange={(e) => setPartnerDuprId(e.target.value)}
+                    onChange={(e) => setPartnerDuprId(e.target.value.toUpperCase())}
                     placeholder="e.g. ATL002"
+                    className="uppercase"
                   />
                 </div>
               )}

@@ -337,7 +337,7 @@ export default function AdminMembers() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="add-dupr-id">DUPR ID *</Label>
-                <Input id="add-dupr-id" data-testid="input-add-member-dupr-id" value={addForm.duprId} onChange={e => setAddForm(f => ({ ...f, duprId: e.target.value }))} required placeholder="ATL099" />
+                <Input id="add-dupr-id" data-testid="input-add-member-dupr-id" value={addForm.duprId} onChange={e => setAddForm(f => ({ ...f, duprId: e.target.value.toUpperCase() }))} required placeholder="ATL099" className="uppercase" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="add-player-name">Player Name *</Label>

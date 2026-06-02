@@ -2,9 +2,10 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import { StarterKit } from "@tiptap/starter-kit";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
-import { useEffect, useCallback } from "react";
+import { Link } from "@tiptap/extension-link";
+import { useEffect, useCallback, useState } from "react";
 import { cn } from "@/lib/utils";
-import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette } from "lucide-react";
+import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette, Link as LinkIcon, Unlink } from "lucide-react";
 
 interface RichTextEditorProps {
   value: string;
@@ -14,11 +15,15 @@ interface RichTextEditorProps {
 }
 
 export function RichTextEditor({ value, onChange, placeholder, "data-testid": testId }: RichTextEditorProps) {
+  const [linkUrl, setLinkUrl] = useState("");
+  const [showLinkInput, setShowLinkInput] = useState(false);
+
   const editor = useEditor({
     extensions: [
-      StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] }, link: false }),
       TextStyle,
       Color,
+      Link.configure({ openOnClick: false, autolink: true }),
     ],
     content: value,
     onUpdate: ({ editor }) => {
@@ -46,6 +51,32 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
     editor.chain().focus().setColor(color).run();
   }, [editor]);
 
+  function openLinkInput() {
+    if (!editor) return;
+    const existing = editor.getAttributes("link").href as string | undefined;
+    setLinkUrl(existing ?? "");
+    setShowLinkInput(true);
+  }
+
+  function applyLink() {
+    if (!editor) return;
+    const url = linkUrl.trim();
+    if (!url) {
+      editor.chain().focus().unsetLink().run();
+    } else {
+      const href = url.startsWith("http") ? url : `https://${url}`;
+      editor.chain().focus().setLink({ href }).run();
+    }
+    setShowLinkInput(false);
+    setLinkUrl("");
+  }
+
+  function removeLink() {
+    if (!editor) return;
+    editor.chain().focus().unsetLink().run();
+    setShowLinkInput(false);
+  }
+
   if (!editor) return null;
 
   let currentHeading = "0";
@@ -57,6 +88,7 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
   }
 
   const currentColor = (editor.getAttributes("textStyle").color as string | undefined) ?? "";
+  const isLink = editor.isActive("link");
 
   function handleHeadingChange(val: string) {
     if (!editor) return;
@@ -99,6 +131,17 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
 
         <div className="w-px h-4 bg-border mx-0.5" />
 
+        <ToolbarButton active={isLink} onClick={openLinkInput} title="Insert / edit link">
+          <LinkIcon className="w-3.5 h-3.5" />
+        </ToolbarButton>
+        {isLink && (
+          <ToolbarButton active={false} onClick={removeLink} title="Remove link">
+            <Unlink className="w-3.5 h-3.5" />
+          </ToolbarButton>
+        )}
+
+        <div className="w-px h-4 bg-border mx-0.5" />
+
         <div className="relative flex items-center">
           <button
             type="button"
@@ -124,6 +167,23 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
           />
         </div>
       </div>
+
+      {showLinkInput && (
+        <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/20">
+          <input
+            autoFocus
+            type="url"
+            value={linkUrl}
+            onChange={e => setLinkUrl(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); applyLink(); } if (e.key === "Escape") { setShowLinkInput(false); } }}
+            placeholder="https://example.com"
+            className="flex-1 text-sm bg-transparent focus:outline-none placeholder:text-muted-foreground"
+          />
+          <button type="button" onClick={applyLink} className="text-xs font-medium text-primary hover:underline shrink-0">Apply</button>
+          <button type="button" onClick={() => setShowLinkInput(false)} className="text-xs text-muted-foreground hover:text-foreground shrink-0">Cancel</button>
+        </div>
+      )}
+
       <div
         style={{ resize: "vertical", overflow: "auto", minHeight: "120px" }}
         className="relative"
