@@ -55,7 +55,12 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
   function openLinkInput() {
     if (!editor) return;
     const { from, to } = editor.state.selection;
-    savedSelection.current = { from, to };
+    // If no text selected, extend to cover the full link mark span
+    if (from === to) {
+      editor.chain().extendMarkRange("link").run();
+    }
+    const { from: extFrom, to: extTo } = editor.state.selection;
+    savedSelection.current = { from: extFrom, to: extTo };
     const existing = editor.getAttributes("link").href as string | undefined;
     setLinkUrl(existing ?? "");
     setShowLinkInput(true);
@@ -87,7 +92,14 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
 
   function removeLink() {
     if (!editor) return;
-    editor.chain().focus().unsetLink().run();
+    // Extend to the full link mark range first, then remove
+    editor.chain().extendMarkRange("link").run();
+    const { from, to } = editor.state.selection;
+    const { state, dispatch } = editor.view;
+    const linkMark = state.schema.marks.link;
+    if (!linkMark) return;
+    dispatch(state.tr.removeMark(from, to, linkMark));
+    editor.commands.focus();
     setShowLinkInput(false);
   }
 
