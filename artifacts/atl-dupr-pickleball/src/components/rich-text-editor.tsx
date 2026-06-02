@@ -5,7 +5,7 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import { Link } from "@tiptap/extension-link";
 import { useEffect, useCallback, useState, useRef } from "react";
 import { cn } from "@/lib/utils";
-import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette, Link as LinkIcon, Unlink } from "lucide-react";
+import { Bold as BoldIcon, Underline as UnderlineIcon, Italic as ItalicIcon, Palette, Link as LinkIcon, Unlink, List, ListOrdered } from "lucide-react";
 
 interface RichTextEditorProps {
   value: string;
@@ -153,6 +153,15 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
         </ToolbarButton>
         <ToolbarButton active={editor.isActive("underline")} onClick={() => editor.chain().focus().toggleUnderline().run()} title="Underline">
           <UnderlineIcon className="w-3.5 h-3.5" />
+        </ToolbarButton>
+
+        <div className="w-px h-4 bg-border mx-0.5" />
+
+        <ToolbarButton active={editor.isActive("bulletList")} onClick={() => editor.chain().focus().toggleBulletList().run()} title="Bullet list">
+          <List className="w-3.5 h-3.5" />
+        </ToolbarButton>
+        <ToolbarButton active={editor.isActive("orderedList")} onClick={() => editor.chain().focus().toggleOrderedList().run()} title="Numbered list">
+          <ListOrdered className="w-3.5 h-3.5" />
         </ToolbarButton>
 
         <div className="w-px h-4 bg-border mx-0.5" />
