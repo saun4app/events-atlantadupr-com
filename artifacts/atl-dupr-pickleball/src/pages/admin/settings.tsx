@@ -84,6 +84,7 @@ export default function AdminSettings() {
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
   });
   const [dirty, setDirty] = useState(false);
+  const [formReady, setFormReady] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [editingEventNameIdx, setEditingEventNameIdx] = useState<number | null>(null);
@@ -99,6 +100,7 @@ export default function AdminSettings() {
     if (settings && settings !== lastSyncedSettings.current) {
       lastSyncedSettings.current = settings;
       const rrc = (settings as any).ratingRequirementsConfig ?? DEFAULT_RATING_CONFIG;
+      setFormReady(false);
       setForm({
         defaultTimezone: settings.defaultTimezone,
         rotatingPartnersDescription: settings.rotatingPartnersDescription,
@@ -119,6 +121,7 @@ export default function AdminSettings() {
           selfSkill: { ...DEFAULT_RATING_CONFIG.selfSkill, ...(rrc.selfSkill ?? {}) },
         },
       });
+      setFormReady(true);
     }
   }, [settings]);
 
@@ -347,14 +350,14 @@ export default function AdminSettings() {
               <p className="text-xs text-muted-foreground -mt-2">These descriptions are shown to participants during event registration.</p>
               <div className="space-y-1.5">
                 <Label>Rotating Partners Format</Label>
-                {settingsLoading
+                {!formReady
                   ? <div className="h-32 rounded-md bg-muted animate-pulse" />
                   : <RichTextEditor key="rotating" data-testid="editor-rotating-description" value={form.rotatingPartnersDescription} onChange={v => update("rotatingPartnersDescription", v)} placeholder="Describe how rotating partners events work..." />
                 }
               </div>
               <div className="space-y-1.5">
                 <Label>Fixed Partner Format</Label>
-                {settingsLoading
+                {!formReady
                   ? <div className="h-32 rounded-md bg-muted animate-pulse" />
                   : <RichTextEditor key="fixed" data-testid="editor-fixed-description" value={form.fixedPartnerDescription} onChange={v => update("fixedPartnerDescription", v)} placeholder="Describe how fixed partner events work..." />
                 }
