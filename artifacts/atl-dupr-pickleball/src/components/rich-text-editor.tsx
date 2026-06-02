@@ -65,17 +65,24 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
     if (!editor) return;
     const url = linkUrl.trim();
     const sel = savedSelection.current;
-    if (!url) {
-      if (sel) editor.chain().focus().setTextSelection(sel).unsetLink().run();
-      else editor.chain().focus().unsetLink().run();
-    } else {
-      const href = url.startsWith("http") ? url : `https://${url}`;
-      if (sel) editor.chain().focus().setTextSelection(sel).setLink({ href }).run();
-      else editor.chain().focus().setLink({ href }).run();
-    }
+    const href = url ? (url.startsWith("http") ? url : `https://${url}`) : null;
+
     savedSelection.current = null;
     setShowLinkInput(false);
     setLinkUrl("");
+
+    if (!sel || sel.from === sel.to) return;
+
+    const { state, dispatch } = editor.view;
+    const linkMark = state.schema.marks.link;
+    if (!linkMark) return;
+
+    const tr = state.tr.removeMark(sel.from, sel.to, linkMark);
+    if (href) {
+      tr.addMark(sel.from, sel.to, linkMark.create({ href, target: "_blank", rel: "noopener noreferrer" }));
+    }
+    dispatch(tr);
+    editor.commands.focus();
   }
 
   function removeLink() {
