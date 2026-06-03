@@ -282,7 +282,7 @@ export default function EventDetail() {
           </div>
 
           {event.description && (
-            <div className="text-sm text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
+            <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
           )}
 
           <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center gap-3 text-sm">
