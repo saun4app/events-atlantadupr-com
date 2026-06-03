@@ -6,10 +6,10 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type EventUpdateFormatType = typeof EventUpdateFormatType[keyof typeof EventUpdateFormatType];
+export type EventUpdateTeamFormat = typeof EventUpdateTeamFormat[keyof typeof EventUpdateTeamFormat];
 
 
-export const EventUpdateFormatType = {
+export const EventUpdateTeamFormat = {
   fixed_partner: 'fixed_partner',
   rotating: 'rotating',
 } as const;

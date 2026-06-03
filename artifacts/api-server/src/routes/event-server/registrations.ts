@@ -72,6 +72,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "Registration is outside the signup window" });
   }
 
+  if (email && memberDuprId) {
+    return res.status(400).json({ error: "Provide only email or memberDuprId, not both" });
+  }
+  if (!email && !memberDuprId) {
+    return res.status(400).json({ error: "email or memberDuprId is required" });
+  }
+
   let member: typeof membersTable.$inferSelect | undefined;
   let resolvedMemberDuprId: string | undefined;
   if (email) {
@@ -81,15 +88,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       .where(sql`lower(${membersTable.email}) = lower(${email})`);
     if (!member) return res.status(404).json({ error: "No member found with that email address. Please use the email associated with your DUPR account." });
     resolvedMemberDuprId = member.duprId;
-  } else if (memberDuprId) {
+  } else {
     [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, memberDuprId));
     if (!member) return res.status(404).json({ error: "No member found with that DUPR ID" });
     resolvedMemberDuprId = member.duprId;
-  } else {
-    return res.status(400).json({ error: "email or memberDuprId is required" });
-  }
-  if (email && memberDuprId) {
-    return res.status(400).json({ error: "Provide only email or memberDuprId, not both" });
   }
 
   const finalMemberDuprId = resolvedMemberDuprId;

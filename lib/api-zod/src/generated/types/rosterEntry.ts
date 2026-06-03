@@ -14,9 +14,6 @@ export interface RosterEntry {
   /** @nullable */
   partnerDuprId?: string | null;
   status: RosterEntryStatus;
-  /** @nullable */
-  eventRole?: string | null;
-  isNew?: boolean;
   registeredAt: Date;
   /** @nullable */
   approvedAt?: string | null;
@@ -31,10 +28,4 @@ export interface RosterEntry {
   selfRating?: string | null;
   /** @nullable */
   partnerName?: string | null;
-  /** @nullable */
-  assignedRating?: number | null;
-  /** @nullable */
-  playerEmail?: string | null;
-  /** @nullable */
-  playerPhone?: string | null;
 }

@@ -5,7 +5,8 @@
  * Atlanta DUPR Pickleball Events API
  * OpenAPI spec version: 0.1.0
  */
-import type { EventInputFormatType } from './eventInputFormatType';
+import type { EventInputRequireApproval } from './eventInputRequireApproval';
+import type { EventInputTeamFormat } from './eventInputTeamFormat';
 import type { RecurrenceInput } from './recurrenceInput';
 
 export interface EventInput {
@@ -16,12 +17,12 @@ export interface EventInput {
   endDatetime: Date;
   locationName: string;
   locationAddress: string;
-  teamFormat: EventInputFormatType;
+  teamFormat: EventInputTeamFormat;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: 'none' | 'all' | 'nr_only';
+  requireApproval: EventInputRequireApproval;
   signupStartDatetime: Date;
   signupEndDatetime: Date;
   courtFeeEnabled?: boolean;

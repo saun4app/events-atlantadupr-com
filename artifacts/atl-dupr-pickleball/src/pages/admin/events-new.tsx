@@ -267,6 +267,7 @@ export default function AdminEventNew() {
       courtFeeEnabled: (ev as any).courtFeeEnabled ?? false,
       memberFee: (ev as any).memberFee ?? 0,
       nonMemberFee: (ev as any).nonMemberFee ?? 0,
+      contactEmail: (ev as any).contactEmail ?? "",
     });
     setRatingConfig((ev as any).ratingConfig ?? getDefaultRatingConfig(ev.ratingTypeRequired, getRrc(settings)));
   }

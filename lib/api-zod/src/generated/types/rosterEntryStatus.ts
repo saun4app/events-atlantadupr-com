@@ -14,4 +14,5 @@ export const RosterEntryStatus = {
   waitlisted: 'waitlisted',
   pending_approval: 'pending_approval',
   rejected: 'rejected',
+  cancelled: 'cancelled',
 } as const;

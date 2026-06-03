@@ -1045,7 +1045,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [confirmed, waitlisted, pending_approval, rejected]
+          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled]
         registeredAt:
           type: string
           format: date-time
@@ -1079,8 +1079,14 @@ components:
       properties:
         status:
           type: string
-          enum: [confirmed, waitlisted, pending_approval, rejected]
+          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled]
         partnerDuprId:
+          type: ["string", "null"]
+        assignedRating:
+          type: ["number", "null"]
+        isNew:
+          type: boolean
+        eventRole:
           type: ["string", "null"]
 
     ContactPerson:

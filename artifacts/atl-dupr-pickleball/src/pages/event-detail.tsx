@@ -205,7 +205,7 @@ export default function EventDetail() {
         },
         onError: (err: any) => {
           const msg: string = err?.data?.error || err?.message || "Registration failed. Please try again.";
-          if (msg.toLowerCase().includes("no member found") || msg.toLowerCase().includes("not found")) {
+          if (msg.toLowerCase().includes("no member found with that email") || msg.toLowerCase().includes("no member found with that dupr id")) {
             setNotMemberDialogOpen(true);
           } else {
             toast({ title: "Registration failed", description: msg, variant: "destructive" });

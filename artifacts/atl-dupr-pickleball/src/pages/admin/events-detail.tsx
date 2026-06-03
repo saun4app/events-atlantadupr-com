@@ -137,8 +137,9 @@ export default function AdminEventDetail() {
 
   const [deleteRegId, setDeleteRegId] = useState<number | null>(null);
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
-  const [addDuprId, setAddDuprId] = useState("");
+  const [addEmails, setAddEmails] = useState("");
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
+  const [notFoundEmails, setNotFoundEmails] = useState<string[]>([]);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(
     () => new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone", "signedUp"])
   );
@@ -304,19 +305,26 @@ export default function AdminEventDetail() {
   }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
-    const ids = addDuprId.split(/[\s,]+/).map(s => s.trim()).filter(Boolean);
-    if (ids.length === 0) return;
+    const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
+    if (emails.length === 0) return;
     let succeeded = 0;
     const failures: string[] = [];
-    for (const id of ids) {
+    const notFound: string[] = [];
+    for (const email of emails) {
       try {
-        await createReg.mutateAsync({ id: eventId, data: { memberDuprId: id, partnerDuprId: event?.teamFormat === "fixed_partner" ? addPartnerDuprId.trim() || null : null } });
+        await createReg.mutateAsync({ id: eventId, data: { email, partnerDuprId: event?.teamFormat === "fixed_partner" ? addPartnerDuprId.trim() || null : null } });
         succeeded++;
       } catch (err: any) {
-        failures.push(`${id}: ${err?.data?.error || "failed"}`);
+        const msg = err?.data?.error || "";
+        if (msg.toLowerCase().includes("no member found with that email") || msg.toLowerCase().includes("no member found with that dupr id")) {
+          notFound.push(email);
+        } else {
+          failures.push(`${email}: ${msg || "failed"}`);
+        }
       }
     }
-    if (succeeded > 0) { toast({ title: `${succeeded} participant${succeeded !== 1 ? "s" : ""} added` }); setAddDuprId(""); setAddPartnerDuprId(""); invalidate(); }
+    setNotFoundEmails(notFound);
+    if (succeeded > 0) { toast({ title: `${succeeded} participant${succeeded !== 1 ? "s" : ""} added` }); setAddEmails(""); setAddPartnerDuprId(""); invalidate(); }
     if (failures.length > 0) toast({ title: failures.join(" · "), variant: "destructive" });
   }
 
@@ -400,17 +408,17 @@ export default function AdminEventDetail() {
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>
               <form onSubmit={handleAdd} className="flex items-start gap-3 flex-wrap">
                 <div className="space-y-1.5">
-                  <Label htmlFor="add-dupr">DUPR ID</Label>
+                  <Label htmlFor="add-emails">Email Address(es)</Label>
                   <Textarea
-                    id="add-dupr"
-                    data-testid="input-add-dupr-id"
-                    value={addDuprId}
-                    onChange={e => setAddDuprId(e.target.value.toUpperCase())}
-                    placeholder={"DUPR-001\nDUPR-002, DUPR-003"}
-                    className="w-56 h-20 text-sm font-mono resize-none uppercase"
+                    id="add-emails"
+                    data-testid="input-add-emails"
+                    value={addEmails}
+                    onChange={e => setAddEmails(e.target.value.toLowerCase())}
+                    placeholder={"player@example.com\nplayer2@example.com, player3@example.com"}
+                    className="w-72 h-20 text-sm font-mono resize-none"
                     required
                   />
-                  <p className="text-xs text-muted-foreground">Separate multiple IDs with commas, spaces, or new lines.</p>
+                  <p className="text-xs text-muted-foreground">Separate multiple emails with commas, spaces, or new lines.</p>
                 </div>
                 {event.teamFormat === "fixed_partner" && (
                   <div className="space-y-1.5">
@@ -422,6 +430,14 @@ export default function AdminEventDetail() {
                   <UserPlus className="w-4 h-4" /> Add
                 </Button>
               </form>
+              {notFoundEmails.length > 0 && (
+                <div className="mt-3 rounded-md border border-yellow-200 bg-yellow-50 p-3 text-sm">
+                  <p className="font-medium text-yellow-800 mb-1">Not found in member list:</p>
+                  <ul className="list-disc list-inside text-yellow-700">
+                    {notFoundEmails.map(email => <li key={email}>{email}</li>)}
+                  </ul>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 px-1 py-2 bg-muted/30 rounded-md border border-border">

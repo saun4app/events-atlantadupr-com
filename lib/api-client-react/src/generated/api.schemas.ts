@@ -120,12 +120,21 @@ export interface CsvUploadResult {
   errors: string[];
 }
 
-export type EventFormatType = typeof EventFormatType[keyof typeof EventFormatType];
+export type EventTeamFormat = typeof EventTeamFormat[keyof typeof EventTeamFormat];
 
 
-export const EventFormatType = {
+export const EventTeamFormat = {
   fixed_partner: 'fixed_partner',
   rotating: 'rotating',
+} as const;
+
+export type EventRequireApproval = typeof EventRequireApproval[keyof typeof EventRequireApproval];
+
+
+export const EventRequireApproval = {
+  none: 'none',
+  all: 'all',
+  nr_only: 'nr_only',
 } as const;
 
 export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
@@ -148,12 +157,12 @@ export interface Event {
   endDatetime: string;
   locationName: string;
   locationAddress: string;
-  teamFormat: EventFormatType;
+  teamFormat: EventTeamFormat;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: 'none' | 'all' | 'nr_only';
+  requireApproval: EventRequireApproval;
   signupStartDatetime: string;
   signupEndDatetime: string;
   status: EventStatus;
@@ -188,12 +197,21 @@ export interface RecurrenceInput {
   dates?: string[];
 }
 
-export type EventInputFormatType = typeof EventInputFormatType[keyof typeof EventInputFormatType];
+export type EventInputTeamFormat = typeof EventInputTeamFormat[keyof typeof EventInputTeamFormat];
 
 
-export const EventInputFormatType = {
+export const EventInputTeamFormat = {
   fixed_partner: 'fixed_partner',
   rotating: 'rotating',
+} as const;
+
+export type EventInputRequireApproval = typeof EventInputRequireApproval[keyof typeof EventInputRequireApproval];
+
+
+export const EventInputRequireApproval = {
+  none: 'none',
+  all: 'all',
+  nr_only: 'nr_only',
 } as const;
 
 export interface EventInput {
@@ -204,12 +222,12 @@ export interface EventInput {
   endDatetime: string;
   locationName: string;
   locationAddress: string;
-  teamFormat: EventInputFormatType;
+  teamFormat: EventInputTeamFormat;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: 'none' | 'all' | 'nr_only';
+  requireApproval: EventInputRequireApproval;
   signupStartDatetime: string;
   signupEndDatetime: string;
   courtFeeEnabled?: boolean;
@@ -218,12 +236,21 @@ export interface EventInput {
   recurrence?: RecurrenceInput;
 }
 
-export type EventUpdateFormatType = typeof EventUpdateFormatType[keyof typeof EventUpdateFormatType];
+export type EventUpdateTeamFormat = typeof EventUpdateTeamFormat[keyof typeof EventUpdateTeamFormat];
 
 
-export const EventUpdateFormatType = {
+export const EventUpdateTeamFormat = {
   fixed_partner: 'fixed_partner',
   rotating: 'rotating',
+} as const;
+
+export type EventUpdateRequireApproval = typeof EventUpdateRequireApproval[keyof typeof EventUpdateRequireApproval];
+
+
+export const EventUpdateRequireApproval = {
+  none: 'none',
+  all: 'all',
+  nr_only: 'nr_only',
 } as const;
 
 export type EventUpdateStatus = typeof EventUpdateStatus[keyof typeof EventUpdateStatus];
@@ -243,12 +270,12 @@ export interface EventUpdate {
   endDatetime?: string;
   locationName?: string;
   locationAddress?: string;
-  teamFormat?: EventUpdateFormatType;
+  teamFormat?: EventUpdateTeamFormat;
   ratingTypeRequired?: string;
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;
-  requireApproval?: 'none' | 'all' | 'nr_only';
+  requireApproval?: EventUpdateRequireApproval;
   signupStartDatetime?: string;
   signupEndDatetime?: string;
   status?: EventUpdateStatus;
@@ -279,6 +306,7 @@ export const RosterEntryStatus = {
   waitlisted: 'waitlisted',
   pending_approval: 'pending_approval',
   rejected: 'rejected',
+  cancelled: 'cancelled',
 } as const;
 
 export interface RosterEntry {
@@ -319,12 +347,18 @@ export const RegistrationUpdateStatus = {
   waitlisted: 'waitlisted',
   pending_approval: 'pending_approval',
   rejected: 'rejected',
+  cancelled: 'cancelled',
 } as const;
 
 export interface RegistrationUpdate {
   status?: RegistrationUpdateStatus;
   /** @nullable */
   partnerDuprId?: string | null;
+  /** @nullable */
+  assignedRating?: number | null;
+  isNew?: boolean;
+  /** @nullable */
+  eventRole?: string | null;
 }
 
 export interface ContactPerson {

@@ -22,8 +22,6 @@ export interface AppSettings {
   maintenanceMode: boolean;
   /** Preset event names available for selection when creating events */
   defaultEventNames: string[];
-  /** Admin-defined list of event role labels used in the participant roster */
-  eventRoles: string[];
   /** Default event duration in hours (used to auto-calculate end time) */
   defaultEventDurationHours: number;
   /** Admin-defined list of rating requirement options */
