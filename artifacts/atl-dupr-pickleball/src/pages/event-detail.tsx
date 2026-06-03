@@ -181,9 +181,6 @@ export default function EventDetail() {
   const ratingInfo = formatRatingInfo(event, skillLevels);
 
   const confirmedRegs = registrations?.filter(r => r.status === "confirmed") ?? [];
-  const pendingRegs = registrations?.filter(r => r.status === "pending_approval") ?? [];
-  const waitlistRegs = registrations?.filter(r => r.status === "waitlisted") ?? [];
-  const hasAnyRegs = confirmedRegs.length > 0 || pendingRegs.length > 0 || waitlistRegs.length > 0;
 
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -408,49 +405,11 @@ export default function EventDetail() {
           ) : (
             <div className="p-8 text-center text-muted-foreground">
               <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">
-                {pendingRegs.length > 0
-                  ? "No confirmed participants yet. Approved players will appear here."
-                  : "No confirmed participants yet. Be the first to register!"}
-              </p>
+              <p className="text-sm">No confirmed participants yet. Be the first to register!</p>
             </div>
           )}
         </div>
 
-        {/* Pending Approval */}
-        {pendingRegs.length > 0 && (
-          <div className="bg-card border border-card-border rounded-lg overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">
-                Pending Approval{pendingRegs.length > 0 ? ` (${pendingRegs.length})` : ""}
-              </h2>
-            </div>
-            <ParticipantTable registrations={pendingRegs} event={event} />
-          </div>
-        )}
-
-        {/* Waitlist */}
-        {(waitlistRegs.length > 0 || event.waitlistEnabled) && (
-          <div className="bg-card border border-card-border rounded-lg overflow-hidden">
-            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-              <h2 className="font-semibold text-foreground">
-                Waitlist{waitlistRegs.length > 0 ? ` (${waitlistRegs.length})` : ""}
-              </h2>
-            </div>
-            {regLoading ? (
-              <div className="p-5 space-y-2">
-                {[1,2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
-              </div>
-            ) : waitlistRegs.length > 0 ? (
-              <ParticipantTable registrations={waitlistRegs} event={event} />
-            ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
-                <p className="text-sm">Waitlist is empty.</p>
-              </div>
-            )}
-          </div>
-        )}
       </main>
 
       {/* Join Instructions Dialog (triggered by "Not a member yet?" link) */}
