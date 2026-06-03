@@ -408,7 +408,11 @@ export default function EventDetail() {
           ) : (
             <div className="p-8 text-center text-muted-foreground">
               <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">No confirmed participants yet. Be the first to register!</p>
+              <p className="text-sm">
+                {pendingRegs.length > 0
+                  ? "No confirmed participants yet. Approved players will appear here."
+                  : "No confirmed participants yet. Be the first to register!"}
+              </p>
             </div>
           )}
         </div>
