@@ -303,17 +303,26 @@ export default function EventDetail() {
             </div>
           )}
 
-          {/* Contact Emails */}
-          {eventContactEmails.length > 0 && (
-            <div className="mt-4 pt-4 border-t border-border">
-              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Questions? Contact:</p>
-              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                {eventContactEmails.map((e, i) => (
-                  <a key={i} href={`mailto:${e}`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
-                    <Mail className="w-3.5 h-3.5" />{e}
-                  </a>
-                ))}
-              </div>
+          {/* Per-event contact email + Join club button */}
+          {((event as any).contactEmail || joinInstructions) && (
+            <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center gap-3">
+              {(event as any).contactEmail && (
+                <a
+                  href={`mailto:${(event as any).contactEmail}`}
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                >
+                  <Mail className="w-3.5 h-3.5" />{(event as any).contactEmail}
+                </a>
+              )}
+              {joinInstructions && (
+                <button
+                  type="button"
+                  onClick={() => setJoinDialogOpen(true)}
+                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />How to Join Atlanta DUPR Pickleball
+                </button>
+              )}
             </div>
           )}
         </div>

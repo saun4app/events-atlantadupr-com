@@ -42,6 +42,7 @@ export const eventsTable = pgTable("atl_dupr_events", {
   courtFeeEnabled: boolean("court_fee_enabled").notNull().default(false),
   memberFee: real("member_fee").notNull().default(0),
   nonMemberFee: real("non_member_fee").notNull().default(0),
+  contactEmail: text("contact_email"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

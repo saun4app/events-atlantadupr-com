@@ -128,6 +128,7 @@ export default function AdminEventNew() {
     courtFeeEnabled: false,
     memberFee: 0,
     nonMemberFee: 0,
+    contactEmail: "",
   });
 
   const [ratingConfig, setRatingConfig] = useState<any>(null);
@@ -143,6 +144,7 @@ export default function AdminEventNew() {
 
   const defaultEventNames = (settings?.defaultEventNames as string[] | undefined) ?? [];
   const defaultLocations: DefaultLocation[] = (settings?.defaultLocations as DefaultLocation[] | undefined) ?? [];
+  const eventContactEmails: string[] = (settings as any)?.eventContactEmails ?? [];
   const rrc = getRrc(settings);
   const enabledRatingTypes = [
     { key: "none", label: "No Rating Required" },
@@ -325,6 +327,7 @@ export default function AdminEventNew() {
       courtFeeEnabled: form.courtFeeEnabled,
       memberFee: form.memberFee,
       nonMemberFee: form.nonMemberFee,
+      contactEmail: form.contactEmail || null,
     };
 
     if (recurrenceEnabled && selectedDates.size > 0) {
@@ -461,6 +464,23 @@ export default function AdminEventNew() {
               <Label htmlFor="location-address">Location Address *</Label>
               <Input id="location-address" data-testid="input-event-location-address" value={form.locationAddress} onChange={e => setField("locationAddress", e.target.value)} required placeholder="4000 Damascus Dr NW, Atlanta, GA 30342" />
             </div>
+
+            {/* Contact Email */}
+            {eventContactEmails.length > 0 && (
+              <div className="space-y-1.5">
+                <Label>Contact Email</Label>
+                <Select value={form.contactEmail || "__none__"} onValueChange={v => setField("contactEmail", v === "__none__" ? "" : v)}>
+                  <SelectTrigger data-testid="select-contact-email"><SelectValue placeholder="Select a contact email..." /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__none__">None</SelectItem>
+                    {eventContactEmails.map(email => (
+                      <SelectItem key={email} value={email}>{email}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Shown on the event page for participant questions.</p>
+              </div>
+            )}
           </div>
 
           {/* Format & Settings */}

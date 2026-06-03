@@ -187,6 +187,17 @@ function validateSettingsInput(body: unknown): string | null {
     const err = validateRatingRequirementsConfig(b.ratingRequirementsConfig);
     if (err) return err;
   }
+  if (b.joinInstructions !== undefined && typeof b.joinInstructions !== "string") {
+    return "joinInstructions must be a string";
+  }
+  if (b.eventContactEmails !== undefined) {
+    if (!Array.isArray(b.eventContactEmails)) return "eventContactEmails must be an array";
+    for (let i = 0; i < b.eventContactEmails.length; i++) {
+      if (typeof b.eventContactEmails[i] !== "string" || !validateEmail(b.eventContactEmails[i])) {
+        return `eventContactEmails[${i}] must be a valid email address`;
+      }
+    }
+  }
   return null;
 }
 
@@ -229,6 +240,8 @@ router.put("/", requireRole("admin"), async (req, res) => {
     defaultEventDurationHours,
     defaultRatingRequirements,
     ratingRequirementsConfig,
+    joinInstructions,
+    eventContactEmails,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -266,6 +279,10 @@ router.put("/", requireRole("admin"), async (req, res) => {
   }
   if (ratingRequirementsConfig !== undefined) {
     updates.ratingRequirementsConfig = ratingRequirementsConfig;
+  }
+  if (joinInstructions !== undefined) updates.joinInstructions = joinInstructions;
+  if (eventContactEmails !== undefined) {
+    updates.eventContactEmails = (eventContactEmails as string[]).map((e: string) => e.trim().toLowerCase()).filter(Boolean);
   }
 
   const [updated] = await db

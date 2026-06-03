@@ -95,6 +95,8 @@ export const appSettingsTable = pgTable("app_settings", {
   defaultEventDurationHours: integer("default_event_duration_hours").notNull().default(2),
   defaultRatingRequirements: jsonb("default_rating_requirements").$type<RatingRequirement[]>().notNull().default([]),
   ratingRequirementsConfig: jsonb("rating_requirements_config").$type<RatingRequirementsConfig>(),
+  joinInstructions: text("join_instructions").notNull().default(""),
+  eventContactEmails: jsonb("event_contact_emails").$type<string[]>().notNull().default([]),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;
