@@ -250,6 +250,22 @@ export default function EventDetail() {
               {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
               {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
             </div>
+            {rosterSummary && (
+              <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+                <Users className="w-4 h-4 text-primary" />
+                <span className="text-muted-foreground">Players:</span>
+                <span data-testid="text-confirmed-count">
+                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed
+                </span>
+                {rosterSummary.waitlisted > 0 && (
+                  <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>
+                )}
+                {rosterSummary.pendingApproval > 0 && (
+                  <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>
+                )}
+                <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
+              </div>
+            )}
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
               <MapPin className="w-4 h-4 text-primary" />
               <span>{event.locationName}{event.locationAddress ? ` — ${event.locationAddress}` : ""}</span>
@@ -261,12 +277,6 @@ export default function EventDetail() {
                 : <span>Free</span>
               }
             </div>
-            {(event as any).contactEmail && (
-              <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-                <Mail className="w-4 h-4 text-primary" />
-                <span>Contact: <a href={`mailto:${(event as any).contactEmail}`} className="text-primary hover:underline">{(event as any).contactEmail}</a></span>
-              </div>
-            )}
             {joinInstructions && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <ExternalLink className="w-4 h-4 text-primary" />
@@ -287,19 +297,10 @@ export default function EventDetail() {
                 Approval Required
               </div>
             )}
-            {rosterSummary && (
+            {(event as any).contactEmail && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-                <Users className="w-4 h-4 text-primary" />
-                <span data-testid="text-confirmed-count">
-                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed
-                </span>
-                {rosterSummary.waitlisted > 0 && (
-                  <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>
-                )}
-                {rosterSummary.pendingApproval > 0 && (
-                  <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>
-                )}
-                <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
+                <Mail className="w-4 h-4 text-primary" />
+                <span>Contact: <a href={`mailto:${(event as any).contactEmail}`} className="text-primary hover:underline">{(event as any).contactEmail}</a></span>
               </div>
             )}
           </div>
