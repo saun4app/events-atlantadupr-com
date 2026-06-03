@@ -253,15 +253,8 @@ export default function EventDetail() {
                 <Users className="w-4 h-4 text-primary" />
                 <span className="text-muted-foreground">Players:</span>
                 <span data-testid="text-confirmed-count">
-                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed
+                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> / {rosterSummary.maxParticipants}
                 </span>
-                {rosterSummary.waitlisted > 0 && (
-                  <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>
-                )}
-                {rosterSummary.pendingApproval > 0 && (
-                  <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>
-                )}
-                <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
               </div>
             )}
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
