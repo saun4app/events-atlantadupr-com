@@ -279,9 +279,6 @@ export default function EventDetail() {
             {event.requireApproval && (
               <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>
             )}
-            {event.waitlistEnabled && (
-              <Badge variant="outline" className="text-xs">Waitlist Enabled</Badge>
-            )}
           </div>
 
           {event.description && (

@@ -64,8 +64,7 @@ function EventCard({ event }: { event: any }) {
             {formatType(event.formatType)}
           </div>
           <div className="text-xs">
-            Max {event.maxParticipants} players
-            {event.waitlistEnabled && " · Waitlist On"}
+            {event.confirmedCount ?? 0} / {event.maxParticipants} players
           </div>
           <div className="flex items-center gap-1.5 col-span-2">
             <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />

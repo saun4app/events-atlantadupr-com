@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { eventsTable, registrationsTable, eventAssignmentsTable, usersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, count } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { randomUUID } from "crypto";
 
@@ -73,7 +73,14 @@ router.get("/", async (req, res) => {
     );
   }
 
-  return res.json(rows);
+  const counts = await db
+    .select({ eventId: registrationsTable.eventId, confirmedCount: count() })
+    .from(registrationsTable)
+    .where(eq(registrationsTable.status, "confirmed"))
+    .groupBy(registrationsTable.eventId);
+  const countMap = Object.fromEntries(counts.map((c) => [c.eventId, c.confirmedCount]));
+
+  return res.json(rows.map((r) => ({ ...r, confirmedCount: countMap[r.id] ?? 0 })));
 });
 
 router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
