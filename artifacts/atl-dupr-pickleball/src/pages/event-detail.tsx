@@ -129,6 +129,7 @@ export default function EventDetail() {
   const [partnerDuprId, setPartnerDuprId] = useState("");
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [notMemberDialogOpen, setNotMemberDialogOpen] = useState(false);
+  const [showApprovalNotice, setShowApprovalNotice] = useState(false);
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
   const joinInstructions: string = (settings as any)?.joinInstructions ?? "";
@@ -197,6 +198,7 @@ export default function EventDetail() {
           toast({ title: "Registration submitted!", description: "You are on the roster." });
           setEmail("");
           setPartnerDuprId("");
+          if (event?.requireApproval !== "none") setShowApprovalNotice(true);
           queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
           queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
         },
@@ -370,8 +372,8 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* Approval notice */}
-        {event.requireApproval !== "none" && (
+        {/* Approval notice — shown only after registration submitted */}
+        {showApprovalNotice && event.requireApproval !== "none" && (
           <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
