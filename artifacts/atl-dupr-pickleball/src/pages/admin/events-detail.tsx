@@ -19,7 +19,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, Star } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, Star, Mail } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -378,6 +378,14 @@ export default function AdminEventDetail() {
                 {pending.length > 0 && <span><strong className="text-blue-600">{pending.length}</strong> pending</span>}
                 <span className="text-muted-foreground">/ {event.maxParticipants} max</span>
               </div>
+              {(event as any).contactEmail && (
+                <div className="mt-3 flex items-center gap-1.5 text-sm">
+                  <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                  <a href={`mailto:${(event as any).contactEmail}`} className="text-primary hover:underline">
+                    {(event as any).contactEmail}
+                  </a>
+                </div>
+              )}
             </div>
 
             <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
