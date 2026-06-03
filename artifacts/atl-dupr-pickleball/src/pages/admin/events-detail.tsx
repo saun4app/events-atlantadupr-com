@@ -617,21 +617,31 @@ export default function AdminEventDetail() {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48">
-                                          <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
-                                            <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
-                                            <ArrowUp className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
-                                            <ArrowDown className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem data-testid={`action-move-to-rejected-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "rejected" } as any }, { onSuccess: () => { toast({ title: "Moved to rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
-                                            <XCircle className="w-3.5 h-3.5 text-destructive" /> Move to Rejected
-                                          </DropdownMenuItem>
-                                          <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
-                                            <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
-                                          </DropdownMenuItem>
+                                          {reg.status !== "confirmed" && (
+                                            <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
+                                              <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
+                                            </DropdownMenuItem>
+                                          )}
+                                          {reg.status !== "pending_approval" && (
+                                            <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                              <ArrowUp className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
+                                            </DropdownMenuItem>
+                                          )}
+                                          {reg.status !== "waitlisted" && (
+                                            <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
+                                              <ArrowDown className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
+                                            </DropdownMenuItem>
+                                          )}
+                                          {reg.status !== "rejected" && (
+                                            <DropdownMenuItem data-testid={`action-move-to-rejected-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "rejected" } as any }, { onSuccess: () => { toast({ title: "Moved to rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                              <XCircle className="w-3.5 h-3.5 text-destructive" /> Move to Rejected
+                                            </DropdownMenuItem>
+                                          )}
+                                          {reg.status !== "cancelled" && (
+                                            <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
+                                              <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
+                                            </DropdownMenuItem>
+                                          )}
                                           {eventRolesList.length > 0 && (
                                             <>
                                               <DropdownMenuSeparator />
