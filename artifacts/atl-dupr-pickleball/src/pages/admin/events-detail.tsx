@@ -166,6 +166,8 @@ export default function AdminEventDetail() {
   const getPageSize = (key: string) => pageSizes[key] ?? 25;
   const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
   const [showRemoved, setShowRemoved] = useState(false);
+  const [clientDialog, setClientDialog] = useState<{ mode: "email" | "text" } | null>(null);
+  const [clientSelectedIds, setClientSelectedIds] = useState<Set<number>>(new Set());
 
   const enabledRatingTypes = [
     { key: "none", label: "No Rating Required" },
@@ -368,21 +370,65 @@ export default function AdminEventDetail() {
     toast({ title: "Text broadcast", description: `Bulk text to ${confirmedPhones.length} confirmed participant${confirmedPhones.length === 1 ? "" : "s"} will be enabled soon.` });
   };
 
-  const handleEmailClient = () => {
-    if (confirmedEmails.length === 0) {
-      toast({ title: "No email addresses", description: "No confirmed participants have an email on file.", variant: "destructive" });
+  const clientField = (mode: "email" | "text") => (mode === "email" ? "playerEmail" : "playerPhone");
+
+  const openClientDialog = (mode: "email" | "text") => {
+    const field = clientField(mode);
+    const eligible = confirmed.filter(r => !!(r as any)[field]);
+    if (eligible.length === 0) {
+      toast(mode === "email"
+        ? { title: "No email addresses", description: "No confirmed participants have an email on file.", variant: "destructive" }
+        : { title: "No phone numbers", description: "No confirmed participants have a phone number on file.", variant: "destructive" });
       return;
     }
-    window.location.href = `mailto:?bcc=${encodeURIComponent(confirmedEmails.join(","))}`;
+    setClientSelectedIds(new Set(eligible.map(r => r.id)));
+    setClientDialog({ mode });
   };
 
-  const handleTextClient = () => {
-    if (confirmedPhones.length === 0) {
-      toast({ title: "No phone numbers", description: "No confirmed participants have a phone number on file.", variant: "destructive" });
+  const clientRecipients = clientDialog
+    ? sortRegs(confirmed, "Confirmed").filter(r => !!(r as any)[clientField(clientDialog.mode)])
+    : [];
+  const allClientSelected = clientRecipients.length > 0 && clientRecipients.every(r => clientSelectedIds.has(r.id));
+  const someClientSelected = clientRecipients.some(r => clientSelectedIds.has(r.id)) && !allClientSelected;
+  const clientSelectedCount = clientRecipients.reduce((n, r) => n + (clientSelectedIds.has(r.id) ? 1 : 0), 0);
+
+  const toggleClientId = (id: number, checked: boolean) => {
+    setClientSelectedIds(prev => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleClientAll = (checked: boolean) => {
+    setClientSelectedIds(checked ? new Set(clientRecipients.map(r => r.id)) : new Set());
+  };
+
+  const confirmClientDialog = () => {
+    if (!clientDialog) return;
+    const mode = clientDialog.mode;
+    const field = clientField(mode);
+    const values = Array.from(new Set(
+      clientRecipients
+        .filter(r => clientSelectedIds.has(r.id))
+        .map(r => (r as any)[field] as string)
+        .filter(Boolean)
+    ));
+    if (values.length === 0) {
+      toast({ title: "No recipients selected", description: `Select at least one participant to ${mode === "email" ? "email" : "text"}.`, variant: "destructive" });
       return;
     }
-    window.location.href = `sms:${encodeURIComponent(confirmedPhones.join(","))}`;
+    if (mode === "email") {
+      window.location.href = `mailto:?bcc=${encodeURIComponent(values.join(","))}`;
+    } else {
+      window.location.href = `sms:${encodeURIComponent(values.join(","))}`;
+    }
+    setClientDialog(null);
   };
+
+  const handleEmailClient = () => openClientDialog("email");
+
+  const handleTextClient = () => openClientDialog("text");
 
   const exportColumns = () => {
     const cols: { label: string; get: (r: any) => string }[] = [];
@@ -967,6 +1013,51 @@ export default function AdminEventDetail() {
           <div className="text-center py-16 text-muted-foreground"><p>Event not found.</p></div>
         )}
       </main>
+
+      {/* ── Notify Client Recipient Picker ─────────────────── */}
+      <Dialog open={!!clientDialog} onOpenChange={open => { if (!open) setClientDialog(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{clientDialog?.mode === "text" ? "Text confirmed participants" : "Email confirmed participants"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-sm font-medium border-b border-border pb-2 cursor-pointer">
+              <input
+                type="checkbox"
+                data-testid="checkbox-client-select-all"
+                className="w-4 h-4 accent-primary cursor-pointer"
+                checked={allClientSelected}
+                ref={el => { if (el) el.indeterminate = someClientSelected; }}
+                onChange={e => toggleClientAll(e.target.checked)}
+              />
+              Select all ({clientRecipients.length})
+            </label>
+            <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+              {clientRecipients.map(r => {
+                const contact = clientDialog?.mode === "text" ? (r as any).playerPhone : (r as any).playerEmail;
+                return (
+                  <label key={r.id} data-testid={`row-client-${r.id}`} className="flex items-center gap-2 py-1.5 px-1 rounded hover:bg-muted/40 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      data-testid={`checkbox-client-${r.id}`}
+                      className="w-4 h-4 accent-primary cursor-pointer shrink-0"
+                      checked={clientSelectedIds.has(r.id)}
+                      onChange={e => toggleClientId(r.id, e.target.checked)}
+                    />
+                    <span className="text-sm font-medium truncate">{(r as any).playerName}</span>
+                    <span className="text-xs text-muted-foreground truncate ml-auto">{contact}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
+          <DialogFooter className="flex-row items-center gap-2">
+            <span className="text-xs text-muted-foreground mr-auto">{clientSelectedCount} selected</span>
+            <Button type="button" variant="outline" onClick={() => setClientDialog(null)} data-testid="button-client-cancel">Cancel</Button>
+            <Button type="button" onClick={confirmClientDialog} disabled={clientSelectedCount === 0} data-testid="button-client-ok">OK</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Edit Event Dialog ──────────────────────────────── */}
       <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
