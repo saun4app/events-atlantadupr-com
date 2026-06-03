@@ -402,9 +402,9 @@ export default function AdminEventDetail() {
   };
 
   const handleExport = (fmt: "csv" | "pdf") => {
-    const rows = sortRegs(confirmed, "Confirmed");
+    const rows = sortRegs(registrations ?? [], "Confirmed");
     if (rows.length === 0) {
-      toast({ title: "Nothing to export", description: "There are no confirmed participants.", variant: "destructive" });
+      toast({ title: "Nothing to export", description: "There are no registered participants.", variant: "destructive" });
       return;
     }
     const cols = exportColumns();
@@ -416,13 +416,13 @@ export default function AdminEventDetail() {
       const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `confirmed-${safeName}.csv`;
+      a.href = url; a.download = `registrations-${safeName}.csv`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } else {
       const doc = new jsPDF({ orientation: "landscape" });
       doc.setFontSize(14);
-      doc.text(`Confirmed Participants — ${event?.name ?? ""}`, 14, 15);
+      doc.text(`Registered Participants — ${event?.name ?? ""}`, 14, 15);
       autoTable(doc, {
         head: [cols.map(c => c.label)],
         body: rows.map(r => cols.map(c => c.get(r))),
