@@ -132,7 +132,6 @@ export default function EventDetail() {
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
   const joinInstructions: string = (settings as any)?.joinInstructions ?? "";
-  const eventContactEmails: string[] = (settings as any)?.eventContactEmails ?? [];
 
   if (settings?.maintenanceMode) {
     return (
@@ -468,19 +467,17 @@ export default function EventDetail() {
             {joinInstructions ? (
               <div className="prose prose-sm max-w-none text-foreground border-t border-border pt-3" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
             ) : (
-              eventContactEmails.length > 0 ? (
+              (event as any).contactEmail ? (
                 <p className="text-sm text-muted-foreground">
                   Please contact an organizer to get added to the member list:
                 </p>
               ) : null
             )}
-            {eventContactEmails.length > 0 && (
-              <div className="flex flex-wrap gap-3 pt-1">
-                {eventContactEmails.map((e, i) => (
-                  <a key={i} href={`mailto:${e}`} className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium">
-                    <Mail className="w-3.5 h-3.5" />{e}
-                  </a>
-                ))}
+            {(event as any).contactEmail && (
+              <div className="pt-1">
+                <a href={`mailto:${(event as any).contactEmail}`} className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium">
+                  <Mail className="w-3.5 h-3.5" />{(event as any).contactEmail}
+                </a>
               </div>
             )}
           </div>
