@@ -120,6 +120,7 @@ export default function AdminEventDetail() {
   });
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
+  const eventContactEmails: string[] = ((settings as any)?.eventContactEmails as string[] | undefined) ?? [];
   const isAdminOrOrganizer = user?.role === "admin" || user?.role === "event_organizer";
 
 
@@ -224,6 +225,7 @@ export default function AdminEventDetail() {
       signupStartDatetime: toLocalInput(event.signupStartDatetime),
       signupEndDatetime: toLocalInput(event.signupEndDatetime),
       status: event.status ?? "upcoming",
+      contactEmail: (event as any).contactEmail ?? "",
     });
     setEditRatingConfig((event as any).ratingConfig ?? null);
     setShowEditDialog(true);
@@ -274,6 +276,7 @@ export default function AdminEventDetail() {
         signupStartDatetime: editForm.signupStartDatetime ? new Date(editForm.signupStartDatetime).toISOString() : undefined,
         signupEndDatetime: editForm.signupEndDatetime ? new Date(editForm.signupEndDatetime).toISOString() : undefined,
         status: editForm.status || undefined,
+        contactEmail: editForm.contactEmail || null,
       } as any
     }, {
       onSuccess: () => { toast({ title: "Event updated" }); invalidateEvent(); setShowEditDialog(false); },
@@ -845,6 +848,21 @@ export default function AdminEventDetail() {
                   </SelectContent>
                 </Select>
               </div>
+              {eventContactEmails.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Contact Email</Label>
+                  <Select value={editForm.contactEmail || "__none__"} onValueChange={v => setEditForm((f: any) => ({ ...f, contactEmail: v === "__none__" ? "" : v }))}>
+                    <SelectTrigger data-testid="select-edit-contact-email"><SelectValue placeholder="Select a contact email..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {eventContactEmails.map(email => (
+                        <SelectItem key={email} value={email}>{email}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">Shown on the event page for participant questions.</p>
+                </div>
+              )}
               <div className="space-y-2 pt-1">
                 <label className="flex items-center gap-2 cursor-pointer">
                   <input type="checkbox" className="w-4 h-4 accent-primary" checked={!!editForm.waitlistEnabled} onChange={e => setEditForm((f: any) => ({ ...f, waitlistEnabled: e.target.checked }))} />
