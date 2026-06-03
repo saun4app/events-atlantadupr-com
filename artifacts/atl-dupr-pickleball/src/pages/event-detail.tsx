@@ -241,6 +241,16 @@ export default function EventDetail() {
               {format(new Date(event.startDatetime), "h:mm a")} – {format(new Date(event.endDatetime), "h:mm a")}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+              <Calendar className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Registration closes:</span>
+              <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
+                {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
+              </span>
+              {signupOpen && <Badge className="text-xs">Open</Badge>}
+              {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
+              {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground col-span-2">
               <MapPin className="w-4 h-4 text-primary" />
               <span>{event.locationName}{event.locationAddress ? ` — ${event.locationAddress}` : ""}</span>
             </div>
@@ -277,16 +287,6 @@ export default function EventDetail() {
                 Approval Required
               </div>
             )}
-            <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-              <Calendar className="w-4 h-4 text-primary" />
-              <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
-                {format(new Date(event.signupStartDatetime), "EEE, MMM d, h:mm a")} –{" "}
-                {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
-              </span>
-              {signupOpen && <Badge className="text-xs">Open</Badge>}
-              {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
-              {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
-            </div>
             {rosterSummary && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <Users className="w-4 h-4 text-primary" />
