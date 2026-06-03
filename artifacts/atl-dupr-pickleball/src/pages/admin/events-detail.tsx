@@ -636,7 +636,7 @@ export default function AdminEventDetail() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border">
-                              {key === "Confirmed" && notifyChannel && (
+                              {key === "Confirmed" && (
                                 <th className="px-3 py-2.5 w-8">
                                   <input
                                     type="checkbox"
@@ -685,7 +685,7 @@ export default function AdminEventDetail() {
                               };
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
-                                  {key === "Confirmed" && notifyChannel && (
+                                  {key === "Confirmed" && (
                                     <td className="px-3 py-3">
                                       <input
                                         type="checkbox"
@@ -832,7 +832,7 @@ export default function AdminEventDetail() {
                             })}
                             {paged.length === 0 && (
                               <tr>
-                                <td colSpan={visibleColCount + (key === "Confirmed" && notifyChannel ? 1 : 0)} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                                <td colSpan={visibleColCount + (key === "Confirmed" ? 1 : 0)} className="px-5 py-8 text-center text-sm text-muted-foreground">
                                   {section.empty}
                                 </td>
                               </tr>
