@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, Clock, List, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, ChevronUp, Star, Mail, Send, Download } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, Clock, List, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, ChevronDown, ChevronUp, Star, Mail, MessageSquare, Download } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -166,8 +166,6 @@ export default function AdminEventDetail() {
   const getPageSize = (key: string) => pageSizes[key] ?? 25;
   const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
   const [showRemoved, setShowRemoved] = useState(false);
-  const [notifyChannel, setNotifyChannel] = useState<"email" | "text" | null>(null);
-  const [selectedRegIds, setSelectedRegIds] = useState<Set<number>>(new Set());
 
   const enabledRatingTypes = [
     { key: "none", label: "No Rating Required" },
@@ -351,34 +349,39 @@ export default function AdminEventDetail() {
   const rejected = registrations?.filter(r => r.status === "rejected") ?? [];
   const cancelled = registrations?.filter(r => r.status === "cancelled") ?? [];
 
-  const confirmedIdsKey = confirmed.map(r => r.id).join(",");
-  useEffect(() => {
-    const ids = new Set(confirmedIdsKey ? confirmedIdsKey.split(",").map(Number) : []);
-    setSelectedRegIds(prev => {
-      let changed = false;
-      const next = new Set<number>();
-      prev.forEach(id => { if (ids.has(id)) next.add(id); else changed = true; });
-      return changed ? next : prev;
-    });
-  }, [confirmedIdsKey]);
+  const confirmedEmails = Array.from(new Set(confirmed.map(r => (r as any).playerEmail as string | undefined).filter((e): e is string => !!e)));
+  const confirmedPhones = Array.from(new Set(confirmed.map(r => (r as any).playerPhone as string | undefined).filter((p): p is string => !!p)));
 
-  const selectedConfirmedCount = confirmed.reduce((n, r) => n + (selectedRegIds.has(r.id) ? 1 : 0), 0);
-  const allConfirmedSelected = confirmed.length > 0 && selectedConfirmedCount === confirmed.length;
-  const someConfirmedSelected = selectedConfirmedCount > 0 && !allConfirmedSelected;
-  const toggleSelectAllConfirmed = (checked: boolean) =>
-    setSelectedRegIds(checked ? new Set(confirmed.map(r => r.id)) : new Set());
-  const toggleSelectReg = (id: number, checked: boolean) =>
-    setSelectedRegIds(prev => { const next = new Set(prev); if (checked) next.add(id); else next.delete(id); return next; });
-  const clearNotify = () => { setNotifyChannel(null); setSelectedRegIds(new Set()); };
-
-  const handleSendNotification = () => {
-    const count = selectedConfirmedCount;
-    if (count === 0) {
-      toast({ title: "No recipients selected", description: "Select at least one participant to notify.", variant: "destructive" });
+  const handleEmailBroadcast = () => {
+    if (confirmedEmails.length === 0) {
+      toast({ title: "No email addresses", description: "No confirmed participants have an email on file.", variant: "destructive" });
       return;
     }
-    const channelLabel = notifyChannel === "email" ? "Email" : "Text";
-    toast({ title: `${channelLabel} notification queued`, description: `${count} recipient${count === 1 ? "" : "s"} selected. Sending will be enabled soon.` });
+    toast({ title: "Email broadcast", description: `Bulk email to ${confirmedEmails.length} confirmed participant${confirmedEmails.length === 1 ? "" : "s"} will be enabled soon.` });
+  };
+
+  const handleTextBroadcast = () => {
+    if (confirmedPhones.length === 0) {
+      toast({ title: "No phone numbers", description: "No confirmed participants have a phone number on file.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Text broadcast", description: `Bulk text to ${confirmedPhones.length} confirmed participant${confirmedPhones.length === 1 ? "" : "s"} will be enabled soon.` });
+  };
+
+  const handleEmailClient = () => {
+    if (confirmedEmails.length === 0) {
+      toast({ title: "No email addresses", description: "No confirmed participants have an email on file.", variant: "destructive" });
+      return;
+    }
+    window.location.href = `mailto:?bcc=${encodeURIComponent(confirmedEmails.join(","))}`;
+  };
+
+  const handleTextClient = () => {
+    if (confirmedPhones.length === 0) {
+      toast({ title: "No phone numbers", description: "No confirmed participants have a phone number on file.", variant: "destructive" });
+      return;
+    }
+    window.location.href = `sms:${encodeURIComponent(confirmedPhones.join(","))}`;
   };
 
   const exportColumns = () => {
@@ -585,25 +588,28 @@ export default function AdminEventDetail() {
                         <div className="flex items-center gap-3 flex-wrap">
                           {key === "Confirmed" && (
                             <div className="flex items-center gap-2 pr-3 border-r border-border">
-                              <Select value={notifyChannel ?? ""} onValueChange={v => setNotifyChannel(v as "email" | "text")}>
-                                <SelectTrigger className="h-7 w-[120px] text-xs px-2" data-testid="select-notify-channel">
-                                  <SelectValue placeholder="Notification" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="email">Email</SelectItem>
-                                  <SelectItem value="text">Text</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              {notifyChannel && (
-                                <>
-                                  <Button size="sm" className="h-7 px-2 text-xs gap-1" data-testid="button-send-notification" onClick={handleSendNotification}>
-                                    <Send className="w-3 h-3" /> Send{selectedConfirmedCount > 0 ? ` (${selectedConfirmedCount})` : ""}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1" data-testid="button-notify">
+                                    <Mail className="w-3 h-3" /> Notify <ChevronDown className="w-3 h-3" />
                                   </Button>
-                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" data-testid="button-clear-notify" onClick={clearNotify} title="Cancel selection">
-                                    <X className="w-3.5 h-3.5" />
-                                  </Button>
-                                </>
-                              )}
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem data-testid="action-email-broadcast" onClick={handleEmailBroadcast}>
+                                    <Mail className="w-3.5 h-3.5 mr-2" /> Email broadcast
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem data-testid="action-email-client" onClick={handleEmailClient}>
+                                    <Mail className="w-3.5 h-3.5 mr-2" /> Email client
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem data-testid="action-text-broadcast" onClick={handleTextBroadcast}>
+                                    <MessageSquare className="w-3.5 h-3.5 mr-2" /> Text broadcast
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem data-testid="action-text-client" onClick={handleTextClient}>
+                                    <MessageSquare className="w-3.5 h-3.5 mr-2" /> Text client
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1" data-testid="button-export">
@@ -636,18 +642,6 @@ export default function AdminEventDetail() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border">
-                              {key === "Confirmed" && notifyChannel && (
-                                <th className="px-3 py-2.5 w-8">
-                                  <input
-                                    type="checkbox"
-                                    data-testid="checkbox-select-all"
-                                    className="w-4 h-4 accent-primary cursor-pointer"
-                                    checked={allConfirmedSelected}
-                                    ref={el => { if (el) el.indeterminate = someConfirmedSelected; }}
-                                    onChange={e => toggleSelectAllConfirmed(e.target.checked)}
-                                  />
-                                </th>
-                              )}
                               <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
                               {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
                               {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
@@ -685,17 +679,6 @@ export default function AdminEventDetail() {
                               };
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
-                                  {key === "Confirmed" && notifyChannel && (
-                                    <td className="px-3 py-3">
-                                      <input
-                                        type="checkbox"
-                                        data-testid={`checkbox-select-${reg.id}`}
-                                        className="w-4 h-4 accent-primary cursor-pointer"
-                                        checked={selectedRegIds.has(reg.id)}
-                                        onChange={e => toggleSelectReg(reg.id, e.target.checked)}
-                                      />
-                                    </td>
-                                  )}
                                   <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{curPage * sectionPageSize + idx + 1}</td>
                                   {col("name") && <td className="px-5 py-3 font-medium">{reg.playerName}</td>}
                                   {col("duprId") && <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
@@ -832,7 +815,7 @@ export default function AdminEventDetail() {
                             })}
                             {paged.length === 0 && (
                               <tr>
-                                <td colSpan={visibleColCount + (key === "Confirmed" && notifyChannel ? 1 : 0)} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                                <td colSpan={visibleColCount} className="px-5 py-8 text-center text-sm text-muted-foreground">
                                   {section.empty}
                                 </td>
                               </tr>
