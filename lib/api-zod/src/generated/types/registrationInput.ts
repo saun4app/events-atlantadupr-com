@@ -7,7 +7,8 @@
  */
 
 export interface RegistrationInput {
-  email: string;
+  email?: string;
+  memberDuprId?: string;
   /** @nullable */
   partnerDuprId?: string | null;
 }

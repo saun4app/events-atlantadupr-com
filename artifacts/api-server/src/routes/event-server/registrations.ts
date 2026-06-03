@@ -58,11 +58,7 @@ router.get("/", async (req: Request<EventParams>, res: Response) => {
 
 router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
-  const { email, partnerDuprId } = req.body;
-
-  if (!email) {
-    return res.status(400).json({ error: "email is required" });
-  }
+  const { email, memberDuprId, partnerDuprId } = req.body;
 
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!event) return res.status(404).json({ error: "Event not found" });
@@ -76,13 +72,27 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "Registration is outside the signup window" });
   }
 
-  const [member] = await db
-    .select()
-    .from(membersTable)
-    .where(sql`lower(${membersTable.email}) = lower(${email})`);
-  if (!member) return res.status(404).json({ error: "No member found with that email address. Please use the email associated with your DUPR account." });
+  let member: typeof membersTable.$inferSelect | undefined;
+  let resolvedMemberDuprId: string | undefined;
+  if (email) {
+    [member] = await db
+      .select()
+      .from(membersTable)
+      .where(sql`lower(${membersTable.email}) = lower(${email})`);
+    if (!member) return res.status(404).json({ error: "No member found with that email address. Please use the email associated with your DUPR account." });
+    resolvedMemberDuprId = member.duprId;
+  } else if (memberDuprId) {
+    [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, memberDuprId));
+    if (!member) return res.status(404).json({ error: "No member found with that DUPR ID" });
+    resolvedMemberDuprId = member.duprId;
+  } else {
+    return res.status(400).json({ error: "email or memberDuprId is required" });
+  }
+  if (email && memberDuprId) {
+    return res.status(400).json({ error: "Provide only email or memberDuprId, not both" });
+  }
 
-  const memberDuprId = member.duprId;
+  const finalMemberDuprId = resolvedMemberDuprId;
 
   if (event.teamFormat === "fixed_partner") {
     if (!partnerDuprId) {
@@ -95,14 +105,19 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const [existingReg] = await db
     .select()
     .from(registrationsTable)
-    .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.memberDuprId, memberDuprId)));
+    .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
   if (existingReg) return res.status(409).json({ error: "Member already registered for this event" });
 
   const allRegs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
   const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
 
+  function isNR(rating: string | null): boolean {
+    if (!rating || rating === "NR") return true;
+    return isNaN(parseFloat(rating));
+  }
+
   let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
-  if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && !member?.doubleRating)) {
+  if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubleRating))) {
     status = "pending_approval";
   } else if (confirmedCount >= event.maxParticipants) {
     if (!event.waitlistEnabled) {
@@ -115,7 +130,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   const [reg] = await db
     .insert(registrationsTable)
-    .values({ eventId, memberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
+    .values({ eventId, memberDuprId: finalMemberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
     .returning();
 
   const entry = await buildRosterEntry(reg, false);

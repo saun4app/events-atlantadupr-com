@@ -407,8 +407,12 @@ export const CreateRegistrationParams = zod.object({
 })
 
 export const CreateRegistrationBody = zod.object({
-  "email": zod.string(),
+  "email": zod.string().optional(),
+  "memberDuprId": zod.string().optional(),
   "partnerDuprId": zod.string().nullish()
+}).refine((data) => data.email || data.memberDuprId, {
+  message: "Either email or memberDuprId is required",
+  path: ["email"],
 })
 
 

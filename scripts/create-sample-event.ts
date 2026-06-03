@@ -42,7 +42,7 @@ async function main() {
         minParticipants: 8,
         maxParticipants: 20,
         waitlistEnabled: true,
-        requireApproval: false,
+        requireApproval: "none",
         signupStartDatetime: new Date("2026-06-02T00:00:00Z"),
         signupEndDatetime: new Date("2026-06-19T23:59:00Z"),
         status: "upcoming" as const,

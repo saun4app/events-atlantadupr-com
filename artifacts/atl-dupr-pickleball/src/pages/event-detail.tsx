@@ -180,9 +180,10 @@ export default function EventDetail() {
 
   const ratingInfo = formatRatingInfo(event, skillLevels);
 
-  const confirmedRegs = registrations?.filter(r => r.status === "confirmed" || r.status === "pending_approval") ?? [];
+  const confirmedRegs = registrations?.filter(r => r.status === "confirmed") ?? [];
+  const pendingRegs = registrations?.filter(r => r.status === "pending_approval") ?? [];
   const waitlistRegs = registrations?.filter(r => r.status === "waitlisted") ?? [];
-  const hasAnyRegs = confirmedRegs.length > 0 || waitlistRegs.length > 0;
+  const hasAnyRegs = confirmedRegs.length > 0 || pendingRegs.length > 0 || waitlistRegs.length > 0;
 
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
@@ -411,6 +412,18 @@ export default function EventDetail() {
             </div>
           )}
         </div>
+
+        {/* Pending Approval */}
+        {pendingRegs.length > 0 && (
+          <div className="bg-card border border-card-border rounded-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h2 className="font-semibold text-foreground">
+                Pending Approval{pendingRegs.length > 0 ? ` (${pendingRegs.length})` : ""}
+              </h2>
+            </div>
+            <ParticipantTable registrations={pendingRegs} event={event} />
+          </div>
+        )}
 
         {/* Waitlist */}
         {(waitlistRegs.length > 0 || event.waitlistEnabled) && (

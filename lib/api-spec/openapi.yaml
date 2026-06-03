@@ -1066,8 +1066,9 @@ components:
 
     RegistrationInput:
       type: object
-      required: [memberDuprId]
       properties:
+        email:
+          type: string
         memberDuprId:
           type: string
         partnerDuprId:

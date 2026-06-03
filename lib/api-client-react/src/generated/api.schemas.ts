@@ -305,7 +305,8 @@ export interface RosterEntry {
 }
 
 export interface RegistrationInput {
-  memberDuprId: string;
+  email?: string;
+  memberDuprId?: string;
   /** @nullable */
   partnerDuprId?: string | null;
 }
