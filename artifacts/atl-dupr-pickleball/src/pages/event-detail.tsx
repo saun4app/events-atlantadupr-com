@@ -285,7 +285,7 @@ export default function EventDetail() {
             )}
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="w-4 h-4 text-primary" />
-              Format: {event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
+              Team Format: {event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Star className="w-4 h-4 text-primary" />

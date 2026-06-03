@@ -373,9 +373,9 @@ export default function AdminEventNew() {
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
 
-            {/* Format Type */}
+            {/* Team Format */}
             <div className="space-y-1.5">
-              <Label>Format Type *</Label>
+              <Label>Team Format *</Label>
               <Select value={form.formatType} onValueChange={v => handleFormatChange(v as "rotating" | "fixed_partner")}>
                 <SelectTrigger data-testid="select-format-type"><SelectValue /></SelectTrigger>
                 <SelectContent>

@@ -6,7 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign } from "lucide-react";
 import { format, isPast, isFuture } from "date-fns";
 
-function formatType(t: string) {
+function teamFormat(t: string) {
   return t === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners";
 }
 
@@ -61,7 +61,7 @@ function EventCard({ event }: { event: any }) {
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-            {formatType(event.formatType)}
+            {teamFormat(event.formatType)}
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />

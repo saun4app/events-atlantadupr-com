@@ -735,7 +735,7 @@ export default function AdminEventDetail() {
                 <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
 
                 <div className="space-y-1.5">
-                  <Label>Format Type</Label>
+                  <Label>Team Format</Label>
                   <Select value={editForm.formatType ?? "rotating"} onValueChange={v => setEditForm((f: any) => ({ ...f, formatType: v }))}>
                     <SelectTrigger data-testid="select-edit-format"><SelectValue /></SelectTrigger>
                     <SelectContent>
