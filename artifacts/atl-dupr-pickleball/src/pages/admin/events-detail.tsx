@@ -17,6 +17,7 @@ import { RichTextEditor } from "@/components/rich-text-editor";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
@@ -227,6 +228,9 @@ export default function AdminEventDetail() {
       signupEndDatetime: toLocalInput(event.signupEndDatetime),
       status: event.status ?? "upcoming",
       contactEmail: (event as any).contactEmail ?? "",
+      courtFeeEnabled: (event as any).courtFeeEnabled ?? false,
+      memberFee: String((event as any).memberFee ?? ""),
+      nonMemberFee: String((event as any).nonMemberFee ?? ""),
     });
     setEditRatingConfig((event as any).ratingConfig ?? null);
     setShowEditDialog(true);
@@ -278,6 +282,9 @@ export default function AdminEventDetail() {
         signupEndDatetime: editForm.signupEndDatetime ? new Date(editForm.signupEndDatetime).toISOString() : undefined,
         status: editForm.status || undefined,
         contactEmail: editForm.contactEmail || null,
+        courtFeeEnabled: editForm.courtFeeEnabled,
+        memberFee: editForm.courtFeeEnabled ? (editForm.memberFee ? Number(editForm.memberFee) : 0) : undefined,
+        nonMemberFee: editForm.courtFeeEnabled ? (editForm.nonMemberFee ? Number(editForm.nonMemberFee) : 0) : undefined,
       } as any
     }, {
       onSuccess: () => { toast({ title: "Event updated" }); invalidateEvent(); setShowEditDialog(false); },
@@ -722,173 +729,220 @@ export default function AdminEventDetail() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Edit Event</DialogTitle></DialogHeader>
           <form onSubmit={handleEditSubmit}>
-            <div className="space-y-3 py-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-name">Event Name *</Label>
-                <Input id="edit-name" value={editForm.name ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Description</Label>
-                <RichTextEditor
-                  value={editForm.description ?? ""}
-                  onChange={v => setEditForm((f: any) => ({ ...f, description: v }))}
-                  placeholder="Tell participants what to expect..."
-                />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-start">Start</Label>
-                  <Input id="edit-start" type="datetime-local" value={editForm.startDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, startDatetime: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-end">End</Label>
-                  <Input id="edit-end" type="datetime-local" value={editForm.endDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, endDatetime: e.target.value }))} />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-loc-name">Location Name *</Label>
-                <Input id="edit-loc-name" value={editForm.locationName ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, locationName: e.target.value }))} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-loc-addr">Location Address</Label>
-                <Input id="edit-loc-addr" value={editForm.locationAddress ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, locationAddress: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Format</Label>
-                <Select value={editForm.formatType ?? "rotating"} onValueChange={v => setEditForm((f: any) => ({ ...f, formatType: v }))}>
-                  <SelectTrigger data-testid="select-edit-format"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="rotating">Rotating</SelectItem>
-                    <SelectItem value="fixed_partner">Fixed Partner</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-4 py-2">
+              {/* Event Details */}
+              <div className="space-y-3">
+                <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
 
-              {/* Rating Requirement */}
-              <div className="space-y-2">
-                <Label>Rating Required</Label>
-                <Select value={editForm.ratingTypeRequired ?? "none"} onValueChange={handleEditRatingTypeChange}>
-                  <SelectTrigger data-testid="select-edit-rating"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {enabledRatingTypes.map(opt => <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-
-                {/* DUPR config */}
-                {editForm.ratingTypeRequired === "dupr" && editRatingConfig && (
-                  <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Min Rating</Label>
-                        <Input type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={editRatingConfig.min ?? rrc.dupr.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Max Rating</Label>
-                        <Input type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={editRatingConfig.max ?? rrc.dupr.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" id="edit-nr-allowed" className="w-4 h-4 accent-primary" checked={!!editRatingConfig.nrAllowed} onChange={e => setEditRatingConfig((c: any) => ({ ...c, nrAllowed: e.target.checked }))} />
-                      <label htmlFor="edit-nr-allowed" className="text-sm cursor-pointer">Allow NR (Not Rated) players</label>
-                    </div>
-                  </div>
-                )}
-
-                {/* Self-Numeric config */}
-                {editForm.ratingTypeRequired === "self_numeric" && editRatingConfig && (
-                  <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <Label className="text-xs">Min Rating</Label>
-                        <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.min ?? rrc.selfNumeric.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Max Rating</Label>
-                        <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.max ?? rrc.selfNumeric.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Self-Skill config */}
-                {editForm.ratingTypeRequired === "self_skill" && editRatingConfig && rrc.selfSkill.levels.length > 0 && (
-                  <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
-                    <Label className="text-xs">Accepted Skill Level Range</Label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <Select value={String(editRatingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
-                            <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Select value={String(editRatingConfig.maxLevel ?? rrc.selfSkill.defaultMaxLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
-                        <SelectTrigger><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
-                            <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="edit-min">Min Participants</Label>
-                  <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="edit-max">Max Participants *</Label>
-                  <Input id="edit-max" type="number" min={1} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, maxParticipants: e.target.value }))} required />
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label>Signup Opens</Label>
-                <Input type="datetime-local" value={editForm.signupStartDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, signupStartDatetime: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Signup Closes</Label>
-                <Input type="datetime-local" value={editForm.signupEndDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, signupEndDatetime: e.target.value }))} />
-              </div>
-              <div className="space-y-1.5">
-                <Label>Status</Label>
-                <Select value={editForm.status ?? "upcoming"} onValueChange={v => setEditForm((f: any) => ({ ...f, status: v }))}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="closed">Closed</SelectItem>
-                    <SelectItem value="ended">Ended</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {eventContactEmails.length > 0 && (
-                <div className="space-y-1.5">
-                  <Label>Contact Email</Label>
-                  <Select value={editForm.contactEmail || "__none__"} onValueChange={v => setEditForm((f: any) => ({ ...f, contactEmail: v === "__none__" ? "" : v }))}>
-                    <SelectTrigger data-testid="select-edit-contact-email"><SelectValue placeholder="Select a contact email..." /></SelectTrigger>
+                  <Label>Format Type</Label>
+                  <Select value={editForm.formatType ?? "rotating"} onValueChange={v => setEditForm((f: any) => ({ ...f, formatType: v }))}>
+                    <SelectTrigger data-testid="select-edit-format"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="__none__">None</SelectItem>
-                      {eventContactEmails.map(email => (
-                        <SelectItem key={email} value={email}>{email}</SelectItem>
-                      ))}
+                      <SelectItem value="rotating">Rotating Partners</SelectItem>
+                      <SelectItem value="fixed_partner">Fixed-Partner</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">Shown on the event page for participant questions.</p>
                 </div>
-              )}
-              <div className="space-y-2 pt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 accent-primary" checked={!!editForm.waitlistEnabled} onChange={e => setEditForm((f: any) => ({ ...f, waitlistEnabled: e.target.checked }))} />
-                  <span className="text-sm">Enable Waitlist</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" className="w-4 h-4 accent-primary" checked={!!editForm.requireApproval} onChange={e => setEditForm((f: any) => ({ ...f, requireApproval: e.target.checked }))} />
-                  <span className="text-sm">Require Approval for Registrations</span>
-                </label>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-name">Event Name *</Label>
+                  <Input id="edit-name" value={editForm.name ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Description</Label>
+                  <RichTextEditor
+                    value={editForm.description ?? ""}
+                    onChange={v => setEditForm((f: any) => ({ ...f, description: v }))}
+                    placeholder="Tell participants what to expect..."
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-start">Start Date & Time</Label>
+                    <Input id="edit-start" type="datetime-local" value={editForm.startDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, startDatetime: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-end">End Date & Time</Label>
+                    <Input id="edit-end" type="datetime-local" value={editForm.endDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, endDatetime: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-loc-name">Location Name *</Label>
+                  <Input id="edit-loc-name" value={editForm.locationName ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, locationName: e.target.value }))} required />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-loc-addr">Location Address *</Label>
+                  <Input id="edit-loc-addr" value={editForm.locationAddress ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, locationAddress: e.target.value }))} required />
+                </div>
+                {eventContactEmails.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Contact Email</Label>
+                    <Select value={editForm.contactEmail || "__none__"} onValueChange={v => setEditForm((f: any) => ({ ...f, contactEmail: v === "__none__" ? "" : v }))}>
+                      <SelectTrigger data-testid="select-edit-contact-email"><SelectValue placeholder="Select a contact email..." /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {eventContactEmails.map(email => (
+                          <SelectItem key={email} value={email}>{email}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">Shown on the event page for participant questions.</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Format & Settings */}
+              <div className="space-y-3">
+                <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Format &amp; Settings</h2>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-min">Min Participants</Label>
+                    <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-max">Max Participants *</Label>
+                    <Input id="edit-max" type="number" min={1} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, maxParticipants: e.target.value }))} required />
+                  </div>
+                </div>
+
+                {/* Rating Requirement */}
+                <div className="space-y-2">
+                  <Label>Rating Requirement</Label>
+                  <Select value={editForm.ratingTypeRequired ?? "none"} onValueChange={handleEditRatingTypeChange}>
+                    <SelectTrigger data-testid="select-edit-rating"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {enabledRatingTypes.map(opt => <SelectItem key={opt.key} value={opt.key}>{opt.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+
+                  {/* DUPR config */}
+                  {editForm.ratingTypeRequired === "dupr" && editRatingConfig && (
+                    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">DUPR Rating Range</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Min Rating</Label>
+                          <Input type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={editRatingConfig.min ?? rrc.dupr.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                          <p className="text-xs text-muted-foreground">Range: {rrc.dupr.minAllowed}–{rrc.dupr.maxAllowed}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Max Rating</Label>
+                          <Input type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={editRatingConfig.max ?? rrc.dupr.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input type="checkbox" id="edit-nr-allowed" className="w-4 h-4 accent-primary" checked={!!editRatingConfig.nrAllowed} onChange={e => setEditRatingConfig((c: any) => ({ ...c, nrAllowed: e.target.checked }))} />
+                        <label htmlFor="edit-nr-allowed" className="text-sm cursor-pointer">Allow NR (Not Rated) players</label>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Self-Numeric config */}
+                  {editForm.ratingTypeRequired === "self_numeric" && editRatingConfig && (
+                    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                      <p className="text-xs font-medium text-muted-foreground">Self-Rating Numeric Range</p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <Label className="text-xs">Min Rating</Label>
+                          <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.min ?? rrc.selfNumeric.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                          <p className="text-xs text-muted-foreground">Range: {rrc.selfNumeric.minAllowed}–{rrc.selfNumeric.maxAllowed}</p>
+                        </div>
+                        <div className="space-y-1">
+                          <Label className="text-xs">Max Rating</Label>
+                          <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.max ?? rrc.selfNumeric.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Self-Skill config */}
+                  {editForm.ratingTypeRequired === "self_skill" && editRatingConfig && rrc.selfSkill.levels.length > 0 && (
+                    <div className="rounded-md border border-border bg-muted/30 p-3 space-y-2">
+                      <Label className="text-xs font-medium text-muted-foreground">Accepted Skill Level Range</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <Select value={String(editRatingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
+                              <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Select value={String(editRatingConfig.maxLevel ?? rrc.selfSkill.defaultMaxLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
+                              <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Players at these levels can register.</p>
+                    </div>
+                  )}
+                  {editForm.ratingTypeRequired === "self_skill" && rrc.selfSkill.levels.length === 0 && (
+                    <p className="text-xs text-amber-600">No skill levels defined in Settings yet.</p>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <Label>Enable Waitlist</Label>
+                  <Switch checked={!!editForm.waitlistEnabled} onCheckedChange={v => setEditForm((f: any) => ({ ...f, waitlistEnabled: v }))} />
+                </div>
+                <div className="flex items-center justify-between">
+                  <Label>Require Approval</Label>
+                  <Switch checked={!!editForm.requireApproval} onCheckedChange={v => setEditForm((f: any) => ({ ...f, requireApproval: v }))} />
+                </div>
+              </div>
+
+              {/* Court Fees */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Court Fees</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Optionally collect a court fee for this event.</p>
+                  </div>
+                  <Switch checked={!!editForm.courtFeeEnabled} onCheckedChange={v => setEditForm((f: any) => ({ ...f, courtFeeEnabled: v }))} />
+                </div>
+                {editForm.courtFeeEnabled && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1.5">
+                      <Label>Member Fee ($)</Label>
+                      <Input type="number" min={0} step={0.01} value={editForm.memberFee ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, memberFee: e.target.value }))} />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label>Non-Member Fee ($)</Label>
+                      <Input type="number" min={0} step={0.01} value={editForm.nonMemberFee ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, nonMemberFee: e.target.value }))} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Signup Window */}
+              <div className="space-y-3">
+                <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Signup Window</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label>Signup Opens</Label>
+                    <Input type="datetime-local" value={editForm.signupStartDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, signupStartDatetime: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Signup Closes</Label>
+                    <Input type="datetime-local" value={editForm.signupEndDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, signupEndDatetime: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Status</Label>
+                  <Select value={editForm.status ?? "upcoming"} onValueChange={v => setEditForm((f: any) => ({ ...f, status: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="upcoming">Upcoming</SelectItem>
+                      <SelectItem value="closed">Closed</SelectItem>
+                      <SelectItem value="ended">Ended</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             </div>
             <DialogFooter className="flex-row items-center gap-2">
