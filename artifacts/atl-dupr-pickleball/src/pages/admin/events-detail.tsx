@@ -402,9 +402,9 @@ export default function AdminEventDetail() {
   };
 
   const handleExport = (fmt: "csv" | "pdf") => {
-    const rows = confirmed.filter(r => selectedRegIds.has(r.id));
+    const rows = confirmed;
     if (rows.length === 0) {
-      toast({ title: "No participants selected", description: "Select at least one row to export.", variant: "destructive" });
+      toast({ title: "Nothing to export", description: "There are no confirmed participants.", variant: "destructive" });
       return;
     }
     const cols = exportColumns();
@@ -636,7 +636,7 @@ export default function AdminEventDetail() {
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border">
-                              {key === "Confirmed" && (
+                              {key === "Confirmed" && notifyChannel && (
                                 <th className="px-3 py-2.5 w-8">
                                   <input
                                     type="checkbox"
@@ -685,7 +685,7 @@ export default function AdminEventDetail() {
                               };
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
-                                  {key === "Confirmed" && (
+                                  {key === "Confirmed" && notifyChannel && (
                                     <td className="px-3 py-3">
                                       <input
                                         type="checkbox"
@@ -832,7 +832,7 @@ export default function AdminEventDetail() {
                             })}
                             {paged.length === 0 && (
                               <tr>
-                                <td colSpan={visibleColCount + (key === "Confirmed" ? 1 : 0)} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                                <td colSpan={visibleColCount + (key === "Confirmed" && notifyChannel ? 1 : 0)} className="px-5 py-8 text-center text-sm text-muted-foreground">
                                   {section.empty}
                                 </td>
                               </tr>
