@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
-import { Settings, Plus, Trash2, Pencil, MapPin, User, AlertTriangle, DollarSign } from "lucide-react";
+import { Settings, Plus, Trash2, Pencil, MapPin, User, AlertTriangle, DollarSign, ChevronUp, ChevronDown, Mail } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -81,6 +82,8 @@ export default function AdminSettings() {
     eventRoles: [] as string[],
     defaultEventDurationHours: 2,
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
+    joinInstructions: "",
+    eventContactEmails: [] as string[],
   });
   const [dirty, setDirty] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
@@ -88,6 +91,38 @@ export default function AdminSettings() {
   const [editingEventNameIdx, setEditingEventNameIdx] = useState<number | null>(null);
   const [editEventNameValue, setEditEventNameValue] = useState("");
   const [deleteEventNameIdx, setDeleteEventNameIdx] = useState<number | null>(null);
+
+  const [newContactEmail, setNewContactEmail] = useState("");
+  const [editingContactEmailIdx, setEditingContactEmailIdx] = useState<number | null>(null);
+  const [editContactEmailValue, setEditContactEmailValue] = useState("");
+  const [deleteContactEmailIdx, setDeleteContactEmailIdx] = useState<number | null>(null);
+
+  function addContactEmail() {
+    const v = newContactEmail.trim().toLowerCase();
+    if (!v || form.eventContactEmails.includes(v)) return;
+    update("eventContactEmails", [...form.eventContactEmails, v], true);
+    setNewContactEmail("");
+  }
+  function saveContactEmailEdit() {
+    if (editingContactEmailIdx === null) return;
+    const v = editContactEmailValue.trim().toLowerCase();
+    if (!v || form.eventContactEmails.some((e, idx) => e === v && idx !== editingContactEmailIdx)) return;
+    update("eventContactEmails", form.eventContactEmails.map((e, idx) => idx === editingContactEmailIdx ? v : e), true);
+    setEditingContactEmailIdx(null);
+  }
+  function moveContactEmail(idx: number, dir: -1 | 1) {
+    const arr = [...form.eventContactEmails];
+    const newIdx = idx + dir;
+    if (newIdx < 0 || newIdx >= arr.length) return;
+    [arr[idx], arr[newIdx]] = [arr[newIdx], arr[idx]];
+    update("eventContactEmails", arr, true);
+  }
+  function confirmDeleteContactEmail() {
+    if (deleteContactEmailIdx === null) return;
+    if (editingContactEmailIdx === deleteContactEmailIdx) setEditingContactEmailIdx(null);
+    update("eventContactEmails", form.eventContactEmails.filter((_, idx) => idx !== deleteContactEmailIdx), true);
+    setDeleteContactEmailIdx(null);
+  }
 
   const [newEventRole, setNewEventRole] = useState("");
   const [editingEventRoleIdx, setEditingEventRoleIdx] = useState<number | null>(null);
@@ -117,6 +152,8 @@ export default function AdminSettings() {
           selfNumeric: { ...DEFAULT_RATING_CONFIG.selfNumeric, ...(rrc.selfNumeric ?? {}) },
           selfSkill: { ...DEFAULT_RATING_CONFIG.selfSkill, ...(rrc.selfSkill ?? {}) },
         },
+        joinInstructions: (settings as any).joinInstructions ?? "",
+        eventContactEmails: ((settings as any).eventContactEmails as string[]) ?? [],
       });
     }
   }, [settings]);
@@ -369,6 +406,64 @@ export default function AdminSettings() {
                   ))}
                 </div>
               )}
+            </section>
+
+            {/* ── Event Contact Emails ──────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Event Contact Emails</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Email addresses shown on event pages for participants to reach out.</p>
+              </div>
+              {form.eventContactEmails.length > 0 && (
+                <div className="divide-y divide-border rounded-md border border-border overflow-hidden">
+                  {form.eventContactEmails.map((email, i) => (
+                    <div key={i} className="flex items-center gap-2 px-4 py-2.5 bg-background hover:bg-muted/30 transition-colors" data-testid={`contact-email-row-${i}`}>
+                      {editingContactEmailIdx === i ? (
+                        <>
+                          <Input
+                            data-testid={`input-edit-contact-email-${i}`}
+                            type="email"
+                            value={editContactEmailValue}
+                            onChange={e => setEditContactEmailValue(e.target.value)}
+                            className="flex-1 h-7 text-sm"
+                            autoFocus
+                            onKeyDown={e => {
+                              if (e.key === "Enter") { e.preventDefault(); saveContactEmailEdit(); }
+                              if (e.key === "Escape") setEditingContactEmailIdx(null);
+                            }}
+                          />
+                          <Button type="button" variant="ghost" size="sm" className="text-primary h-7 px-2 shrink-0 text-xs" onClick={saveContactEmailEdit}>Save</Button>
+                          <Button type="button" variant="ghost" size="sm" className="text-muted-foreground h-7 px-2 shrink-0 text-xs" onClick={() => setEditingContactEmailIdx(null)}>Cancel</Button>
+                        </>
+                      ) : (
+                        <>
+                          <Mail className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
+                          <span className="flex-1 text-sm text-foreground truncate">{email}</span>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" disabled={i === 0} onClick={() => moveContactEmail(i, -1)}><ChevronUp className="w-3.5 h-3.5" /></Button>
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" disabled={i === form.eventContactEmails.length - 1} onClick={() => moveContactEmail(i, 1)}><ChevronDown className="w-3.5 h-3.5" /></Button>
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground" data-testid={`button-edit-contact-email-${i}`} onClick={() => { setEditingContactEmailIdx(i); setEditContactEmailValue(email); }}><Pencil className="w-3 h-3" /></Button>
+                            <Button type="button" variant="ghost" size="sm" className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive" data-testid={`button-delete-contact-email-${i}`} onClick={() => setDeleteContactEmailIdx(i)}><Trash2 className="w-3 h-3" /></Button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <Input
+                  data-testid="input-new-contact-email"
+                  type="email"
+                  value={newContactEmail}
+                  onChange={e => setNewContactEmail(e.target.value)}
+                  placeholder="organizer@example.com"
+                  onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addContactEmail(); } }}
+                />
+                <Button type="button" variant="outline" size="sm" className="gap-1.5 shrink-0" data-testid="button-add-contact-email" onClick={addContactEmail}>
+                  <Plus className="w-3.5 h-3.5" /> Add
+                </Button>
+              </div>
             </section>
 
             {/* ── Default Locations ─────────────────────────── */}
@@ -707,6 +802,20 @@ export default function AdminSettings() {
               </div>
             </section>
 
+            {/* ── Club Join Instructions ────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Club Join Instructions</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Instructions shown to participants on how to join the Atlanta DUPR Pickleball club.</p>
+              </div>
+              <RichTextEditor
+                value={form.joinInstructions}
+                onChange={v => update("joinInstructions", v)}
+                placeholder="Explain how to join the club — steps to create a DUPR account, how to request membership, etc."
+                data-testid="editor-join-instructions"
+              />
+            </section>
+
             {/* ── Site Maintenance ──────────────────────────── */}
             <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Site Maintenance</h2>
@@ -868,6 +977,20 @@ export default function AdminSettings() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={confirmDeleteLocation} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete-location">Remove</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ── Contact Email delete confirm ─────────────────────── */}
+      <AlertDialog open={deleteContactEmailIdx !== null} onOpenChange={open => !open && setDeleteContactEmailIdx(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this email?</AlertDialogTitle>
+            <AlertDialogDescription>{deleteContactEmailIdx !== null && form.eventContactEmails[deleteContactEmailIdx] ? `"${form.eventContactEmails[deleteContactEmailIdx]}" will be removed from the contact email list.` : "This email will be removed."}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteContactEmail} className="bg-destructive text-destructive-foreground hover:bg-destructive/90" data-testid="button-confirm-delete-contact-email">Remove</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

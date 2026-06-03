@@ -13,7 +13,10 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 
 interface SkillLevel { text: string; level: number; }
 
@@ -61,6 +64,49 @@ function formatRatingInfo(event: any, skillLevels: SkillLevel[]): { label: strin
   return { label: "Rating Required" };
 }
 
+function ParticipantTable({ registrations, event }: { registrations: any[]; event: any }) {
+  if (registrations.length === 0) return null;
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="border-b border-border bg-muted/50">
+            <th className="text-left px-5 py-3 font-medium text-muted-foreground">#</th>
+            <th className="text-left px-5 py-3 font-medium text-muted-foreground">Name</th>
+            {event.formatType === "fixed_partner" && (
+              <th className="text-left px-5 py-3 font-medium text-muted-foreground">Partner</th>
+            )}
+            <th className="text-left px-5 py-3 font-medium text-muted-foreground">DUPR Rating</th>
+            <th className="text-left px-5 py-3 font-medium text-muted-foreground">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {registrations.map((reg, idx) => (
+            <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+              <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
+              <td className="px-5 py-3 font-medium">{reg.playerName}</td>
+              {event.formatType === "fixed_partner" && (
+                <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
+              )}
+              <td className="px-5 py-3">
+                <span data-testid={`text-rating-${reg.id}`} className="font-mono">
+                  {reg.doubleRating || "NR"}
+                </span>
+                {isNonNumeric(reg.doubleRating) && reg.selfRating && (
+                  <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>
+                )}
+              </td>
+              <td className="px-5 py-3">
+                <StatusBadge status={reg.status} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function EventDetail() {
   const { id } = useParams<{ id: string }>();
   const eventId = Number(id);
@@ -81,8 +127,12 @@ export default function EventDetail() {
 
   const [email, setEmail] = useState("");
   const [partnerDuprId, setPartnerDuprId] = useState("");
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false);
+  const [notMemberDialogOpen, setNotMemberDialogOpen] = useState(false);
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
+  const joinInstructions: string = (settings as any)?.joinInstructions ?? "";
+  const eventContactEmails: string[] = (settings as any)?.eventContactEmails ?? [];
 
   if (settings?.maintenanceMode) {
     return (
@@ -131,6 +181,10 @@ export default function EventDetail() {
 
   const ratingInfo = formatRatingInfo(event, skillLevels);
 
+  const confirmedRegs = registrations?.filter(r => r.status === "confirmed" || r.status === "pending_approval") ?? [];
+  const waitlistRegs = registrations?.filter(r => r.status === "waitlisted") ?? [];
+  const hasAnyRegs = confirmedRegs.length > 0 || waitlistRegs.length > 0;
+
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     createReg.mutate(
@@ -150,8 +204,12 @@ export default function EventDetail() {
           queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
         },
         onError: (err: any) => {
-          const msg = err?.data?.error || "Registration failed. Please check your email and try again.";
-          toast({ title: "Registration failed", description: msg, variant: "destructive" });
+          const msg: string = err?.data?.error || err?.message || "Registration failed. Please try again.";
+          if (msg.toLowerCase().includes("no member found") || msg.toLowerCase().includes("not found")) {
+            setNotMemberDialogOpen(true);
+          } else {
+            toast({ title: "Registration failed", description: msg, variant: "destructive" });
+          }
         },
       }
     );
@@ -244,6 +302,20 @@ export default function EventDetail() {
               <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
             </div>
           )}
+
+          {/* Contact Emails */}
+          {eventContactEmails.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1.5 font-medium">Questions? Contact:</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                {eventContactEmails.map((e, i) => (
+                  <a key={i} href={`mailto:${e}`} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+                    <Mail className="w-3.5 h-3.5" />{e}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Approval notice */}
@@ -287,7 +359,16 @@ export default function EventDetail() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  <strong>Use the email address linked to your DUPR account.</strong> This is how we verify your membership.
+                  <strong>Use the email address linked to your DUPR account.</strong> This is how we verify your membership.{" "}
+                  {joinInstructions && (
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-0.5 text-primary hover:underline font-medium"
+                      onClick={() => setJoinDialogOpen(true)}
+                    >
+                      Not a member yet? <ExternalLink className="w-3 h-3" />
+                    </button>
+                  )}
                 </p>
               </div>
               {event.formatType === "fixed_partner" && (
@@ -316,63 +397,96 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* Participant list */}
+        {/* Confirmed Participants */}
         <div className="bg-card border border-card-border rounded-lg overflow-hidden">
-          <div className="px-5 py-4 border-b border-border">
-            <h2 className="font-semibold text-foreground">Participants</h2>
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+            <h2 className="font-semibold text-foreground">
+              Confirmed{confirmedRegs.length > 0 ? ` (${confirmedRegs.length})` : ""}
+            </h2>
           </div>
           {regLoading ? (
             <div className="p-5 space-y-2">
               {[1,2,3].map(i => <Skeleton key={i} className="h-10 w-full" />)}
             </div>
-          ) : registrations && registrations.filter(r => r.status !== "rejected" && r.status !== "cancelled").length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-muted/50">
-                    <th className="text-left px-5 py-3 font-medium text-muted-foreground">#</th>
-                    <th className="text-left px-5 py-3 font-medium text-muted-foreground">Name</th>
-                    {event.formatType === "fixed_partner" && (
-                      <th className="text-left px-5 py-3 font-medium text-muted-foreground">Partner</th>
-                    )}
-                    <th className="text-left px-5 py-3 font-medium text-muted-foreground">DUPR Rating</th>
-                    <th className="text-left px-5 py-3 font-medium text-muted-foreground">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrations
-                    .filter(r => r.status !== "rejected")
-                    .map((reg, idx) => (
-                      <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
-                        <td className="px-5 py-3 font-medium">{reg.playerName}</td>
-                        {event.formatType === "fixed_partner" && (
-                          <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
-                        )}
-                        <td className="px-5 py-3">
-                          <span data-testid={`text-rating-${reg.id}`} className="font-mono">
-                            {reg.doubleRating || "NR"}
-                          </span>
-                          {isNonNumeric(reg.doubleRating) && reg.selfRating && (
-                            <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-3">
-                          <StatusBadge status={reg.status} />
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-            </div>
+          ) : confirmedRegs.length > 0 ? (
+            <ParticipantTable registrations={confirmedRegs} event={event} />
           ) : (
             <div className="p-8 text-center text-muted-foreground">
               <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
-              <p className="text-sm">No participants yet. Be the first to register!</p>
+              <p className="text-sm">No confirmed participants yet. Be the first to register!</p>
             </div>
           )}
         </div>
+
+        {/* Waitlist */}
+        {(waitlistRegs.length > 0 || event.waitlistEnabled) && (
+          <div className="bg-card border border-card-border rounded-lg overflow-hidden">
+            <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+              <h2 className="font-semibold text-foreground">
+                Waitlist{waitlistRegs.length > 0 ? ` (${waitlistRegs.length})` : ""}
+              </h2>
+            </div>
+            {regLoading ? (
+              <div className="p-5 space-y-2">
+                {[1,2].map(i => <Skeleton key={i} className="h-10 w-full" />)}
+              </div>
+            ) : waitlistRegs.length > 0 ? (
+              <ParticipantTable registrations={waitlistRegs} event={event} />
+            ) : (
+              <div className="p-8 text-center text-muted-foreground">
+                <Users className="w-8 h-8 mx-auto mb-2 opacity-20" />
+                <p className="text-sm">Waitlist is empty.</p>
+              </div>
+            )}
+          </div>
+        )}
       </main>
+
+      {/* Join Instructions Dialog (triggered by "Not a member yet?" link) */}
+      <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>How to Join Atlanta DUPR Pickleball</DialogTitle>
+          </DialogHeader>
+          {joinInstructions ? (
+            <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
+          ) : (
+            <p className="text-sm text-muted-foreground">No join instructions have been configured yet.</p>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Not a Member Dialog (triggered by failed registration) */}
+      <Dialog open={notMemberDialogOpen} onOpenChange={setNotMemberDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Email Not Found — How to Join</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Your email wasn't found in our member list. To register for events, you'll need to be a member of the Atlanta DUPR Pickleball club.
+            </p>
+            {joinInstructions ? (
+              <div className="prose prose-sm max-w-none text-foreground border-t border-border pt-3" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
+            ) : (
+              eventContactEmails.length > 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Please contact an organizer to get added to the member list:
+                </p>
+              ) : null
+            )}
+            {eventContactEmails.length > 0 && (
+              <div className="flex flex-wrap gap-3 pt-1">
+                {eventContactEmails.map((e, i) => (
+                  <a key={i} href={`mailto:${e}`} className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium">
+                    <Mail className="w-3.5 h-3.5" />{e}
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
