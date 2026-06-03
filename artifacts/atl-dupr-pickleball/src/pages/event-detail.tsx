@@ -244,6 +244,21 @@ export default function EventDetail() {
               <MapPin className="w-4 h-4 text-primary" />
               <span>{event.locationName}{event.locationAddress ? ` — ${event.locationAddress}` : ""}</span>
             </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Badge variant="outline" className="text-xs shrink-0">
+                {event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-muted-foreground">
+              {ratingInfo ? (
+                <Badge variant="outline" className="text-xs">{ratingInfo.label}{ratingInfo.detail ? `: ${ratingInfo.detail}` : ""}</Badge>
+              ) : (
+                <Badge variant="outline" className="text-xs">All Levels</Badge>
+              )}
+              {event.requireApproval && (
+                <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>
+              )}
+            </div>
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
               <DollarSign className="w-4 h-4 text-primary" />
               {event.courtFeeEnabled
@@ -251,6 +266,30 @@ export default function EventDetail() {
                 : <span>Free</span>
               }
             </div>
+            <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+              <span className="text-muted-foreground">Signup Window:</span>
+              <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
+                {format(new Date(event.signupStartDatetime), "EEE, MMM d, h:mm a")} –{" "}
+                {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
+              </span>
+              {signupOpen && <Badge className="text-xs">Open</Badge>}
+              {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
+              {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
+            </div>
+            {rosterSummary && (
+              <div className="flex items-center gap-3 text-muted-foreground col-span-2">
+                <span data-testid="text-confirmed-count">
+                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed
+                </span>
+                {rosterSummary.waitlisted > 0 && (
+                  <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>
+                )}
+                {rosterSummary.pendingApproval > 0 && (
+                  <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>
+                )}
+                <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
+              </div>
+            )}
             {(event as any).contactEmail && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <Mail className="w-4 h-4 text-primary" />
@@ -265,50 +304,8 @@ export default function EventDetail() {
             )}
           </div>
 
-          <div className="flex flex-wrap gap-2 mb-4">
-            <Badge variant="outline" className="text-xs">
-              {event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
-            </Badge>
-            {ratingInfo ? (
-              <Badge variant="outline" className="text-xs">
-                {ratingInfo.label}{ratingInfo.detail ? `: ${ratingInfo.detail}` : ""}
-              </Badge>
-            ) : (
-              <Badge variant="outline" className="text-xs">All Levels</Badge>
-            )}
-            {event.requireApproval && (
-              <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>
-            )}
-          </div>
-
           {event.description && (
             <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
-          )}
-
-          <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-muted-foreground">Signup Window:</span>
-            <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
-              {format(new Date(event.signupStartDatetime), "EEE, MMM d, h:mm a")} –{" "}
-              {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
-            </span>
-            {signupOpen && <Badge className="text-xs">Open</Badge>}
-            {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
-            {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
-          </div>
-
-          {rosterSummary && (
-            <div className="mt-3 flex flex-wrap gap-4 text-sm">
-              <span data-testid="text-confirmed-count">
-                <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> confirmed
-              </span>
-              {rosterSummary.waitlisted > 0 && (
-                <span><span className="font-semibold text-yellow-600">{rosterSummary.waitlisted}</span> waitlisted</span>
-              )}
-              {rosterSummary.pendingApproval > 0 && (
-                <span><span className="font-semibold text-blue-600">{rosterSummary.pendingApproval}</span> pending</span>
-              )}
-              <span className="text-muted-foreground">/ {rosterSummary.maxParticipants} max</span>
-            </div>
           )}
 
         </div>
