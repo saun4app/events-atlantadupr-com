@@ -252,6 +252,18 @@ export default function EventDetail() {
                 : <span>Free</span>
               }
             </div>
+            {(event as any).contactEmail && (
+              <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+                <Mail className="w-4 h-4 text-primary" />
+                <span>Contact: <a href={`mailto:${(event as any).contactEmail}`} className="text-primary hover:underline">{(event as any).contactEmail}</a></span>
+              </div>
+            )}
+            {joinInstructions && (
+              <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+                <ExternalLink className="w-4 h-4 text-primary" />
+                <span>Requirement: <button type="button" onClick={() => setJoinDialogOpen(true)} className="text-primary hover:underline">Join Atlanta DUPR Pickleball</button></span>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-2 mb-4">
@@ -303,28 +315,6 @@ export default function EventDetail() {
             </div>
           )}
 
-          {/* Per-event contact email + Join club button */}
-          {((event as any).contactEmail || joinInstructions) && (
-            <div className="mt-4 pt-4 border-t border-border flex flex-wrap items-center gap-3">
-              {(event as any).contactEmail && (
-                <a
-                  href={`mailto:${(event as any).contactEmail}`}
-                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
-                >
-                  <Mail className="w-3.5 h-3.5" />{(event as any).contactEmail}
-                </a>
-              )}
-              {joinInstructions && (
-                <button
-                  type="button"
-                  onClick={() => setJoinDialogOpen(true)}
-                  className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline font-medium"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />How to Join Atlanta DUPR Pickleball
-                </button>
-              )}
-            </div>
-          )}
         </div>
 
         {/* Approval notice */}
