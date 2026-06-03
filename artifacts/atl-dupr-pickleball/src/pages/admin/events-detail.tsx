@@ -2,8 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import {
   useGetEvent, useListRegistrations, useUpdateEvent, useDeleteEvent, useUpdateRegistration,
-  useApproveRegistration, useRejectRegistration, usePromoteFromWaitlist,
-  useDeleteRegistration, useCreateRegistration, useGetSettings,
+  useCreateRegistration, useGetSettings,
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
   getListEventsQueryKey, getGetEventsSummaryQueryKey
 } from "@workspace/api-client-react";
@@ -129,13 +128,7 @@ export default function AdminEventDetail() {
   const updateEvent = useUpdateEvent();
   const deleteEvent = useDeleteEvent();
   const updateReg = useUpdateRegistration();
-  const approveReg = useApproveRegistration();
-  const rejectReg = useRejectRegistration();
-  const promoteReg = usePromoteFromWaitlist();
-  const deleteReg = useDeleteRegistration();
   const createReg = useCreateRegistration();
-
-  const [deleteRegId, setDeleteRegId] = useState<number | null>(null);
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [addEmails, setAddEmails] = useState("");
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
@@ -178,7 +171,7 @@ export default function AdminEventDetail() {
   function sortRegs(regs: any[], key: string) {
     const s = sortState[key];
     if (!s) return regs;
-    const statusOrder: Record<string, number> = { confirmed: 0, pending_approval: 1, waitlisted: 2, rejected: 3 };
+    const statusOrder: Record<string, number> = { confirmed: 0, pending_approval: 1, waitlisted: 2, rejected: 3, cancelled: 4 };
     return [...regs].sort((a, b) => {
       let av: any, bv: any;
       if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
@@ -293,16 +286,9 @@ export default function AdminEventDetail() {
     });
   }
 
-  function handleApprove(regId: number) { approveReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Approved" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleReject(regId: number) { rejectReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handlePromote(regId: number) { promoteReg.mutate({ id: eventId, regId }, { onSuccess: () => { toast({ title: "Promoted from waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleMoveToWaitlist(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleCancelReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleConfirmReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleDeleteReg() {
-    if (deleteRegId === null) return;
-    deleteReg.mutate({ id: eventId, regId: deleteRegId }, { onSuccess: () => { toast({ title: "Removed" }); invalidate(); setDeleteRegId(null); }, onError: () => toast({ title: "Failed", variant: "destructive" }) });
-  }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -390,8 +376,10 @@ export default function AdminEventDetail() {
               </div>
               <div className="mt-4 pt-4 border-t border-border flex gap-4 text-sm">
                 <span><strong className="text-primary">{confirmed.length}</strong> confirmed</span>
-                {waitlisted.length > 0 && <span><strong className="text-yellow-600">{waitlisted.length}</strong> waitlisted</span>}
                 {pending.length > 0 && <span><strong className="text-blue-600">{pending.length}</strong> pending</span>}
+                {waitlisted.length > 0 && <span><strong className="text-yellow-600">{waitlisted.length}</strong> waitlisted</span>}
+                {rejected.length > 0 && <span><strong className="text-destructive">{rejected.length}</strong> rejected</span>}
+                {cancelled.length > 0 && <span><strong className="text-muted-foreground">{cancelled.length}</strong> cancelled</span>}
                 <span className="text-muted-foreground">/ {event.maxParticipants} max</span>
               </div>
               {(event as any).contactEmail && (
@@ -629,35 +617,24 @@ export default function AdminEventDetail() {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48">
-                                          {reg.status === "pending_approval" && (
+                                          <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
+                                            <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                            <ArrowUp className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
+                                            <ArrowDown className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-rejected-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "rejected" } as any }, { onSuccess: () => { toast({ title: "Moved to rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                            <XCircle className="w-3.5 h-3.5 text-destructive" /> Move to Rejected
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
+                                            <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
+                                          </DropdownMenuItem>
+                                          {eventRolesList.length > 0 && (
                                             <>
-                                              <DropdownMenuItem data-testid={`action-approve-${reg.id}`} className="text-primary gap-2" onClick={() => handleApprove(reg.id)}>
-                                                <CheckCircle className="w-3.5 h-3.5" /> Approve
-                                              </DropdownMenuItem>
-                                              <DropdownMenuItem data-testid={`action-reject-${reg.id}`} className="text-destructive gap-2" onClick={() => handleReject(reg.id)}>
-                                                <XCircle className="w-3.5 h-3.5" /> Reject
-                                              </DropdownMenuItem>
                                               <DropdownMenuSeparator />
-                                            </>
-                                          )}
-                                          {reg.status === "waitlisted" && (
-                                            <>
-                                              <DropdownMenuItem data-testid={`action-promote-${reg.id}`} className="text-primary gap-2" onClick={() => handlePromote(reg.id)}>
-                                                <ArrowUp className="w-3.5 h-3.5" /> Promote
-                                              </DropdownMenuItem>
-                                              <DropdownMenuSeparator />
-                                            </>
-                                          )}
-                                          {reg.status === "confirmed" && (
-                                            <>
-                                              <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
-                                                <ArrowDown className="w-3.5 h-3.5" /> Move to Waitlist
-                                              </DropdownMenuItem>
-                                              <DropdownMenuSeparator />
-                                            </>
-                                          )}
-                                          {eventRolesList.length > 0 && reg.status !== "cancelled" && (
-                                            <>
                                               {eventRolesList.map(role => (
                                                 <DropdownMenuItem
                                                   key={role}
@@ -672,33 +649,7 @@ export default function AdminEventDetail() {
                                                   {reg.eventRole === role ? `Remove ${role}` : `Set ${role}`}
                                                 </DropdownMenuItem>
                                               ))}
-                                              <DropdownMenuSeparator />
                                             </>
-                                          )}
-                                          {reg.status === "cancelled" ? (
-                                            <DropdownMenuItem
-                                              data-testid={`action-confirm-${reg.id}`}
-                                              className="text-primary gap-2"
-                                              onClick={() => handleConfirmReg(reg.id)}
-                                            >
-                                              <CheckCircle className="w-3.5 h-3.5" /> Confirm
-                                            </DropdownMenuItem>
-                                          ) : (reg.status === "confirmed" || reg.status === "waitlisted") ? (
-                                            <DropdownMenuItem
-                                              data-testid={`action-cancel-${reg.id}`}
-                                              className="text-destructive gap-2"
-                                              onClick={() => handleCancelReg(reg.id)}
-                                            >
-                                              <XCircle className="w-3.5 h-3.5" /> Cancel
-                                            </DropdownMenuItem>
-                                          ) : (
-                                            <DropdownMenuItem
-                                              data-testid={`action-delete-${reg.id}`}
-                                              className="text-destructive gap-2"
-                                              onClick={() => setDeleteRegId(reg.id)}
-                                            >
-                                              <Trash2 className="w-3.5 h-3.5" /> Remove
-                                            </DropdownMenuItem>
                                           )}
                                         </DropdownMenuContent>
                                       </DropdownMenu>
@@ -1005,20 +956,6 @@ export default function AdminEventDetail() {
             >
               Delete Event
             </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
-      {/* ── Delete Registration confirm ────────────────────── */}
-      <AlertDialog open={deleteRegId !== null} onOpenChange={open => !open && setDeleteRegId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove this participant?</AlertDialogTitle>
-            <AlertDialogDescription>This will remove the participant from the event.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteReg} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Remove</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
