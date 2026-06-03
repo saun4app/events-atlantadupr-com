@@ -502,6 +502,8 @@ export default function AdminEventDetail() {
                               <SelectItem value="10">10</SelectItem>
                               <SelectItem value="25">25</SelectItem>
                               <SelectItem value="50">50</SelectItem>
+                              <SelectItem value="75">75</SelectItem>
+                              <SelectItem value="100">100</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
