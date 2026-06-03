@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, Star, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, Clock, List, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, Star, Mail } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -624,12 +624,12 @@ export default function AdminEventDetail() {
                                           )}
                                           {reg.status !== "pending_approval" && (
                                             <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
-                                              <ArrowUp className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
+                                              <Clock className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
                                             </DropdownMenuItem>
                                           )}
                                           {reg.status !== "waitlisted" && (
                                             <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
-                                              <ArrowDown className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
+                                              <List className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
                                             </DropdownMenuItem>
                                           )}
                                           {reg.status !== "rejected" && (
