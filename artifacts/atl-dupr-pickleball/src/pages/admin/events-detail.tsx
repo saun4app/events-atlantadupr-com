@@ -402,7 +402,7 @@ export default function AdminEventDetail() {
   };
 
   const handleExport = (fmt: "csv" | "pdf") => {
-    const rows = confirmed;
+    const rows = sortRegs(confirmed, "Confirmed");
     if (rows.length === 0) {
       toast({ title: "Nothing to export", description: "There are no confirmed participants.", variant: "destructive" });
       return;
