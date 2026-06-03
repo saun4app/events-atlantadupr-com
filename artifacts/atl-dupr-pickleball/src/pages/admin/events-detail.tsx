@@ -134,9 +134,20 @@ export default function AdminEventDetail() {
   const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
   const [notFoundEmails, setNotFoundEmails] = useState<string[]>([]);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(
-    () => new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone", "signedUp"])
+    () => {
+      try {
+        const stored = localStorage.getItem("admin_event_detail_columns");
+        if (stored) return new Set(JSON.parse(stored));
+      } catch {}
+      return new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone", "signedUp"]);
+    }
   );
-  const toggleCol = (k: string) => setVisibleCols(prev => { const next = new Set(prev); if (next.has(k)) next.delete(k); else next.add(k); return next; });
+  const toggleCol = (k: string) => setVisibleCols(prev => {
+    const next = new Set(prev);
+    if (next.has(k)) next.delete(k); else next.add(k);
+    localStorage.setItem("admin_event_detail_columns", JSON.stringify(Array.from(next)));
+    return next;
+  });
   const col = (k: string) => visibleCols.has(k);
   const visibleColCount = 2 + Array.from(visibleCols).filter(k => k !== "partner" || event?.teamFormat === "fixed_partner").length;
 
