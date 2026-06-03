@@ -20,7 +20,7 @@ import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, Clock, List, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, ChevronUp, Star, Mail } from "lucide-react";
+import { ChevronLeft, ChevronRight, UserPlus, Trash2, CheckCircle, XCircle, Clock, List, ArrowUp, ArrowDown, ChevronsUpDown, MapPin, Calendar, Pencil, X, ChevronDown, ChevronUp, Star, Mail, Send, Download } from "lucide-react";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -31,6 +31,8 @@ import {
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
@@ -164,6 +166,8 @@ export default function AdminEventDetail() {
   const getPageSize = (key: string) => pageSizes[key] ?? 25;
   const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
   const [showRemoved, setShowRemoved] = useState(false);
+  const [notifyChannel, setNotifyChannel] = useState<"email" | "text" | null>(null);
+  const [selectedRegIds, setSelectedRegIds] = useState<Set<number>>(new Set());
 
   const enabledRatingTypes = [
     { key: "none", label: "No Rating Required" },
@@ -346,6 +350,90 @@ export default function AdminEventDetail() {
   const pending = registrations?.filter(r => r.status === "pending_approval") ?? [];
   const rejected = registrations?.filter(r => r.status === "rejected") ?? [];
   const cancelled = registrations?.filter(r => r.status === "cancelled") ?? [];
+
+  const confirmedIdsKey = confirmed.map(r => r.id).join(",");
+  useEffect(() => {
+    const ids = new Set(confirmedIdsKey ? confirmedIdsKey.split(",").map(Number) : []);
+    setSelectedRegIds(prev => {
+      let changed = false;
+      const next = new Set<number>();
+      prev.forEach(id => { if (ids.has(id)) next.add(id); else changed = true; });
+      return changed ? next : prev;
+    });
+  }, [confirmedIdsKey]);
+
+  const selectedConfirmedCount = confirmed.reduce((n, r) => n + (selectedRegIds.has(r.id) ? 1 : 0), 0);
+  const allConfirmedSelected = confirmed.length > 0 && selectedConfirmedCount === confirmed.length;
+  const someConfirmedSelected = selectedConfirmedCount > 0 && !allConfirmedSelected;
+  const toggleSelectAllConfirmed = (checked: boolean) =>
+    setSelectedRegIds(checked ? new Set(confirmed.map(r => r.id)) : new Set());
+  const toggleSelectReg = (id: number, checked: boolean) =>
+    setSelectedRegIds(prev => { const next = new Set(prev); if (checked) next.add(id); else next.delete(id); return next; });
+  const clearNotify = () => { setNotifyChannel(null); setSelectedRegIds(new Set()); };
+
+  const handleSendNotification = () => {
+    const count = selectedConfirmedCount;
+    if (count === 0) {
+      toast({ title: "No recipients selected", description: "Select at least one participant to notify.", variant: "destructive" });
+      return;
+    }
+    const channelLabel = notifyChannel === "email" ? "Email" : "Text";
+    toast({ title: `${channelLabel} notification queued`, description: `${count} recipient${count === 1 ? "" : "s"} selected. Sending will be enabled soon.` });
+  };
+
+  const exportColumns = () => {
+    const cols: { label: string; get: (r: any) => string }[] = [];
+    if (col("name")) cols.push({ label: "Name", get: r => r.playerName ?? "" });
+    if (col("duprId")) cols.push({ label: "DUPR ID", get: r => r.memberDuprId ?? "" });
+    if (event?.teamFormat === "fixed_partner" && col("partner")) cols.push({ label: "Partner", get: r => r.partnerName ?? "" });
+    if (col("dupr")) cols.push({ label: "DUPR Double", get: r => r.doubleRating || "NR" });
+    if (col("assigned")) cols.push({ label: "Assigned", get: r => {
+      const p = parseFloat(r.doubleRating);
+      const sr = r.assignedRating != null ? r.assignedRating : (r.doubleRating && isFinite(p) ? p : null);
+      return sr != null ? String(sr) : "";
+    } });
+    if (col("status")) cols.push({ label: "Status", get: r => r.status ?? "" });
+    if (col("new")) cols.push({ label: "New", get: r => r.isNew ? "Yes" : "No" });
+    if (col("role")) cols.push({ label: "Role", get: r => r.eventRole ?? "" });
+    if (col("email")) cols.push({ label: "Email", get: r => r.playerEmail ?? "" });
+    if (col("phone")) cols.push({ label: "Phone", get: r => r.playerPhone ?? "" });
+    if (col("signedUp")) cols.push({ label: "Signed Up", get: r => r.registeredAt ? format(new Date(r.registeredAt), "MMM d, yyyy h:mm a") : "" });
+    return cols;
+  };
+
+  const handleExport = (fmt: "csv" | "pdf") => {
+    const rows = confirmed.filter(r => selectedRegIds.has(r.id));
+    if (rows.length === 0) {
+      toast({ title: "No participants selected", description: "Select at least one row to export.", variant: "destructive" });
+      return;
+    }
+    const cols = exportColumns();
+    const safeName = (event?.name ?? "event").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "event";
+    if (fmt === "csv") {
+      const esc = (v: string) => `"${String(v).replace(/"/g, '""')}"`;
+      const lines = [cols.map(c => esc(c.label)).join(",")];
+      for (const r of rows) lines.push(cols.map(c => esc(c.get(r))).join(","));
+      const blob = new Blob(["\uFEFF" + lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `confirmed-${safeName}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } else {
+      const doc = new jsPDF({ orientation: "landscape" });
+      doc.setFontSize(14);
+      doc.text(`Confirmed Participants — ${event?.name ?? ""}`, 14, 15);
+      autoTable(doc, {
+        head: [cols.map(c => c.label)],
+        body: rows.map(r => cols.map(c => c.get(r))),
+        startY: 22,
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [22, 163, 74] },
+      });
+      doc.save(`confirmed-${safeName}.pdf`);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
@@ -494,24 +582,72 @@ export default function AdminEventDetail() {
                           <span className={`text-sm font-semibold ${section.color}`}>{section.label}</span>
                           <span className="ml-2 text-xs text-muted-foreground">({section.regs.length})</span>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-muted-foreground">Per page:</span>
-                          <Select value={String(sectionPageSize)} onValueChange={v => { setPageSizes(prev => ({ ...prev, [key]: Number(v) })); setPageNums(prev => { const next = { ...prev }; delete next[key]; return next; }); }}>
-                            <SelectTrigger className="h-6 w-16 text-xs px-2"><SelectValue /></SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="10">10</SelectItem>
-                              <SelectItem value="25">25</SelectItem>
-                              <SelectItem value="50">50</SelectItem>
-                              <SelectItem value="75">75</SelectItem>
-                              <SelectItem value="100">100</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <div className="flex items-center gap-3 flex-wrap">
+                          {key === "Confirmed" && (
+                            <div className="flex items-center gap-2 pr-3 border-r border-border">
+                              <Select value={notifyChannel ?? ""} onValueChange={v => setNotifyChannel(v as "email" | "text")}>
+                                <SelectTrigger className="h-7 w-[120px] text-xs px-2" data-testid="select-notify-channel">
+                                  <SelectValue placeholder="Notification" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="email">Email</SelectItem>
+                                  <SelectItem value="text">Text</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              {notifyChannel && (
+                                <>
+                                  <Button size="sm" className="h-7 px-2 text-xs gap-1" data-testid="button-send-notification" onClick={handleSendNotification}>
+                                    <Send className="w-3 h-3" /> Send{selectedConfirmedCount > 0 ? ` (${selectedConfirmedCount})` : ""}
+                                  </Button>
+                                  <Button size="sm" variant="ghost" className="h-7 w-7 p-0" data-testid="button-clear-notify" onClick={clearNotify} title="Cancel selection">
+                                    <X className="w-3.5 h-3.5" />
+                                  </Button>
+                                </>
+                              )}
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1" data-testid="button-export">
+                                    <Download className="w-3 h-3" /> Export <ChevronDown className="w-3 h-3" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem data-testid="action-export-csv" onClick={() => handleExport("csv")}>Export CSV</DropdownMenuItem>
+                                  <DropdownMenuItem data-testid="action-export-pdf" onClick={() => handleExport("pdf")}>Export PDF</DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-muted-foreground">Per page:</span>
+                            <Select value={String(sectionPageSize)} onValueChange={v => { setPageSizes(prev => ({ ...prev, [key]: Number(v) })); setPageNums(prev => { const next = { ...prev }; delete next[key]; return next; }); }}>
+                              <SelectTrigger className="h-6 w-16 text-xs px-2"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="10">10</SelectItem>
+                                <SelectItem value="25">25</SelectItem>
+                                <SelectItem value="50">50</SelectItem>
+                                <SelectItem value="75">75</SelectItem>
+                                <SelectItem value="100">100</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
                       </div>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b border-border">
+                              {key === "Confirmed" && notifyChannel && (
+                                <th className="px-3 py-2.5 w-8">
+                                  <input
+                                    type="checkbox"
+                                    data-testid="checkbox-select-all"
+                                    className="w-4 h-4 accent-primary cursor-pointer"
+                                    checked={allConfirmedSelected}
+                                    ref={el => { if (el) el.indeterminate = someConfirmedSelected; }}
+                                    onChange={e => toggleSelectAllConfirmed(e.target.checked)}
+                                  />
+                                </th>
+                              )}
                               <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
                               {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
                               {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
@@ -549,6 +685,17 @@ export default function AdminEventDetail() {
                               };
                               return (
                                 <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
+                                  {key === "Confirmed" && notifyChannel && (
+                                    <td className="px-3 py-3">
+                                      <input
+                                        type="checkbox"
+                                        data-testid={`checkbox-select-${reg.id}`}
+                                        className="w-4 h-4 accent-primary cursor-pointer"
+                                        checked={selectedRegIds.has(reg.id)}
+                                        onChange={e => toggleSelectReg(reg.id, e.target.checked)}
+                                      />
+                                    </td>
+                                  )}
                                   <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{curPage * sectionPageSize + idx + 1}</td>
                                   {col("name") && <td className="px-5 py-3 font-medium">{reg.playerName}</td>}
                                   {col("duprId") && <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
@@ -685,7 +832,7 @@ export default function AdminEventDetail() {
                             })}
                             {paged.length === 0 && (
                               <tr>
-                                <td colSpan={visibleColCount} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                                <td colSpan={visibleColCount + (key === "Confirmed" && notifyChannel ? 1 : 0)} className="px-5 py-8 text-center text-sm text-muted-foreground">
                                   {section.empty}
                                 </td>
                               </tr>
