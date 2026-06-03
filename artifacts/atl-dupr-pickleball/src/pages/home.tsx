@@ -63,7 +63,8 @@ function EventCard({ event }: { event: any }) {
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />
             {formatType(event.formatType)}
           </div>
-          <div className="text-xs">
+          <div className="flex items-center gap-1.5">
+            <Users className="w-3.5 h-3.5 text-primary shrink-0" />
             {event.confirmedCount ?? 0} / {event.maxParticipants} players
           </div>
           <div className="flex items-center gap-1.5 col-span-2">
