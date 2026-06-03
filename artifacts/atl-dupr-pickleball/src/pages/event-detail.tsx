@@ -302,18 +302,6 @@ export default function EventDetail() {
 
         </div>
 
-        {/* Approval notice */}
-        {event.requireApproval !== "none" && (
-          <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>
-              {event.requireApproval === "all"
-                ? "This event requires organizer approval. Your registration will be Pending Approval until confirmed."
-                : "This event requires organizer approval for NR (non-rated) players. Your registration will be Pending Approval until confirmed."}
-            </span>
-          </div>
-        )}
-
         {/* Rating notice */}
         {ratingInfo && (
           <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
@@ -379,6 +367,18 @@ export default function EventDetail() {
         {!signupOpen && event.status !== "upcoming" && (
           <div className="bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
             Registration is closed for this event.
+          </div>
+        )}
+
+        {/* Approval notice */}
+        {event.requireApproval !== "none" && (
+          <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <span>
+              {event.requireApproval === "all"
+                ? "This event requires organizer approval. Your registration will be Pending Approval until confirmed."
+                : "This event requires organizer approval for NR (non-rated) players. Your registration will be Pending Approval until confirmed."}
+            </span>
           </div>
         )}
 
