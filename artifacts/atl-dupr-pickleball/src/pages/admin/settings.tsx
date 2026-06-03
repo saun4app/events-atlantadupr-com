@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
-import { RichTextEditor } from "@/components/rich-text-editor";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/numeric-input";
@@ -84,7 +83,6 @@ export default function AdminSettings() {
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
   });
   const [dirty, setDirty] = useState(false);
-  const [formReady, setFormReady] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
   const [newEventName, setNewEventName] = useState("");
   const [editingEventNameIdx, setEditingEventNameIdx] = useState<number | null>(null);
@@ -100,7 +98,6 @@ export default function AdminSettings() {
     if (settings && settings !== lastSyncedSettings.current) {
       lastSyncedSettings.current = settings;
       const rrc = (settings as any).ratingRequirementsConfig ?? DEFAULT_RATING_CONFIG;
-      setFormReady(false);
       setForm({
         defaultTimezone: settings.defaultTimezone,
         rotatingPartnersDescription: settings.rotatingPartnersDescription,
@@ -121,7 +118,6 @@ export default function AdminSettings() {
           selfSkill: { ...DEFAULT_RATING_CONFIG.selfSkill, ...(rrc.selfSkill ?? {}) },
         },
       });
-      setFormReady(true);
     }
   }, [settings]);
 
@@ -341,26 +337,6 @@ export default function AdminSettings() {
                 <Label htmlFor="event-duration">Default Event Duration (hours)</Label>
                 <NumericInput id="event-duration" data-testid="input-event-duration-hours" min={1} max={24} value={form.defaultEventDurationHours} onChange={v => update("defaultEventDurationHours", Math.max(1, v))} />
                 <p className="text-xs text-muted-foreground">Used to auto-calculate the end time when creating new events.</p>
-              </div>
-            </section>
-
-            {/* ── Event Format Descriptions ─────────────────── */}
-            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
-              <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Event Format Descriptions</h2>
-              <p className="text-xs text-muted-foreground -mt-2">These descriptions are shown to participants during event registration.</p>
-              <div className="space-y-1.5">
-                <Label>Rotating Partners Format</Label>
-                {!formReady
-                  ? <div className="h-32 rounded-md bg-muted animate-pulse" />
-                  : <RichTextEditor key="rotating" data-testid="editor-rotating-description" value={form.rotatingPartnersDescription} onChange={v => update("rotatingPartnersDescription", v)} placeholder="Describe how rotating partners events work..." />
-                }
-              </div>
-              <div className="space-y-1.5">
-                <Label>Fixed Partner Format</Label>
-                {!formReady
-                  ? <div className="h-32 rounded-md bg-muted animate-pulse" />
-                  : <RichTextEditor key="fixed" data-testid="editor-fixed-description" value={form.fixedPartnerDescription} onChange={v => update("fixedPartnerDescription", v)} placeholder="Describe how fixed partner events work..." />
-                }
               </div>
             </section>
 

@@ -407,7 +407,7 @@ export const CreateRegistrationParams = zod.object({
 })
 
 export const CreateRegistrationBody = zod.object({
-  "memberDuprId": zod.string(),
+  "email": zod.string(),
   "partnerDuprId": zod.string().nullish()
 })
 

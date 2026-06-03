@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { registrationsTable, eventsTable, membersTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { canAccessEvent } from "./events.js";
 
@@ -58,10 +58,10 @@ router.get("/", async (req: Request<EventParams>, res: Response) => {
 
 router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
-  const { memberDuprId, partnerDuprId } = req.body;
+  const { email, partnerDuprId } = req.body;
 
-  if (!memberDuprId) {
-    return res.status(400).json({ error: "memberDuprId is required" });
+  if (!email) {
+    return res.status(400).json({ error: "email is required" });
   }
 
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
@@ -76,8 +76,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "Registration is outside the signup window" });
   }
 
-  const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, memberDuprId));
-  if (!member) return res.status(404).json({ error: "Member not found" });
+  const [member] = await db
+    .select()
+    .from(membersTable)
+    .where(sql`lower(${membersTable.email}) = lower(${email})`);
+  if (!member) return res.status(404).json({ error: "No member found with that email address. Please use the email associated with your DUPR account." });
+
+  const memberDuprId = member.duprId;
 
   if (event.formatType === "fixed_partner") {
     if (!partnerDuprId) {

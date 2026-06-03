@@ -79,7 +79,7 @@ export default function EventDetail() {
   const { data: settings } = useGetSettings();
   const createReg = useCreateRegistration();
 
-  const [duprId, setDuprId] = useState("");
+  const [email, setEmail] = useState("");
   const [partnerDuprId, setPartnerDuprId] = useState("");
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
@@ -137,20 +137,20 @@ export default function EventDetail() {
       {
         id: eventId,
         data: {
-          memberDuprId: duprId.trim(),
+          email: email.trim(),
           partnerDuprId: event?.formatType === "fixed_partner" ? partnerDuprId.trim() || null : null,
         },
       },
       {
         onSuccess: () => {
           toast({ title: "Registration submitted!", description: "You are on the roster." });
-          setDuprId("");
+          setEmail("");
           setPartnerDuprId("");
           queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
           queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
         },
         onError: (err: any) => {
-          const msg = err?.data?.error || "Registration failed. Check your DUPR ID and try again.";
+          const msg = err?.data?.error || "Registration failed. Please check your email and try again.";
           toast({ title: "Registration failed", description: msg, variant: "destructive" });
         },
       }
@@ -276,16 +276,19 @@ export default function EventDetail() {
             <h2 className="font-semibold text-foreground mb-4">Register for This Event</h2>
             <form onSubmit={handleSignup} className="space-y-3">
               <div className="space-y-1.5">
-                <Label htmlFor="dupr-id">Your DUPR ID</Label>
+                <Label htmlFor="reg-email">Email Address</Label>
                 <Input
-                  id="dupr-id"
-                  data-testid="input-dupr-id"
-                  value={duprId}
-                  onChange={(e) => setDuprId(e.target.value.toUpperCase())}
-                  placeholder="e.g. ATL001"
-                  className="uppercase"
+                  id="reg-email"
+                  type="email"
+                  data-testid="input-reg-email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  <strong>Use the email address linked to your DUPR account.</strong> This is how we verify your membership.
+                </p>
               </div>
               {event.formatType === "fixed_partner" && (
                 <div className="space-y-1.5">
