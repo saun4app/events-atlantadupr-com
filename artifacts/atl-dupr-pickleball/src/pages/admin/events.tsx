@@ -91,7 +91,7 @@ export default function AdminEvents() {
                     <div className="flex items-center gap-2 mb-1">
                       {statusBadge(ev.status)}
                       <span className="text-xs text-muted-foreground">
-                        {ev.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating"}
+                        {ev.teamFormat === "fixed_partner" ? "Fixed-Partner" : "Rotating"}
                       </span>
                     </div>
                     <h3 className="font-semibold text-foreground truncate">{ev.name}</h3>

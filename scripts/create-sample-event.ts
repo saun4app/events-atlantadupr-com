@@ -37,7 +37,7 @@ async function main() {
         endDatetime: new Date("2026-06-20T16:00:00Z"),
         locationName: "Chastain Park Tennis Center",
         locationAddress: "315 West Wieuca Rd NW, Atlanta, GA 30342",
-        formatType: "rotating" as const,
+        teamFormat: "rotating" as const,
         ratingTypeRequired: "dupr" as const,
         minParticipants: 8,
         maxParticipants: 20,

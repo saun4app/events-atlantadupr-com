@@ -148,7 +148,7 @@ export interface Event {
   endDatetime: string;
   locationName: string;
   locationAddress: string;
-  formatType: EventFormatType;
+  teamFormat: EventFormatType;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
@@ -204,7 +204,7 @@ export interface EventInput {
   endDatetime: string;
   locationName: string;
   locationAddress: string;
-  formatType: EventInputFormatType;
+  teamFormat: EventInputFormatType;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
@@ -243,7 +243,7 @@ export interface EventUpdate {
   endDatetime?: string;
   locationName?: string;
   locationAddress?: string;
-  formatType?: EventUpdateFormatType;
+  teamFormat?: EventUpdateFormatType;
   ratingTypeRequired?: string;
   minParticipants?: number;
   maxParticipants?: number;

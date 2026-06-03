@@ -218,7 +218,7 @@ export default function AdminEventDetail() {
       endDatetime: toLocalInput(event.endDatetime),
       locationName: event.locationName ?? "",
       locationAddress: event.locationAddress ?? "",
-      formatType: event.formatType ?? "rotating",
+      teamFormat: event.teamFormat ?? "rotating",
       ratingTypeRequired: event.ratingTypeRequired ?? "none",
       minParticipants: String(event.minParticipants ?? ""),
       maxParticipants: String(event.maxParticipants ?? ""),
@@ -271,7 +271,7 @@ export default function AdminEventDetail() {
         endDatetime: editForm.endDatetime ? new Date(editForm.endDatetime).toISOString() : undefined,
         locationName: editForm.locationName || undefined,
         locationAddress: editForm.locationAddress || undefined,
-        formatType: editForm.formatType || undefined,
+        teamFormat: editForm.teamFormat || undefined,
         ratingTypeRequired: editForm.ratingTypeRequired || undefined,
         ratingConfig: editForm.ratingTypeRequired !== "none" ? editRatingConfig : null,
         minParticipants: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
@@ -310,7 +310,7 @@ export default function AdminEventDetail() {
     const failures: string[] = [];
     for (const id of ids) {
       try {
-        await createReg.mutateAsync({ id: eventId, data: { memberDuprId: id, partnerDuprId: event?.formatType === "fixed_partner" ? addPartnerDuprId.trim() || null : null } });
+        await createReg.mutateAsync({ id: eventId, data: { memberDuprId: id, partnerDuprId: event?.teamFormat === "fixed_partner" ? addPartnerDuprId.trim() || null : null } });
         succeeded++;
       } catch (err: any) {
         failures.push(`${id}: ${err?.data?.error || "failed"}`);
@@ -359,7 +359,7 @@ export default function AdminEventDetail() {
                     <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{event.locationName}</span>
                   </div>
                   <div className="flex gap-2 mt-3 flex-wrap">
-                    <Badge variant="outline" className="text-xs">{event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating"}</Badge>
+                    <Badge variant="outline" className="text-xs">{event.teamFormat === "fixed_partner" ? "Fixed-Partner" : "Rotating"}</Badge>
                     {event.ratingTypeRequired !== "none" && (
                       <Badge variant="outline" className="text-xs">{formatRatingBadge(event)}</Badge>
                     )}
@@ -412,7 +412,7 @@ export default function AdminEventDetail() {
                   />
                   <p className="text-xs text-muted-foreground">Separate multiple IDs with commas, spaces, or new lines.</p>
                 </div>
-                {event.formatType === "fixed_partner" && (
+                {event.teamFormat === "fixed_partner" && (
                   <div className="space-y-1.5">
                     <Label htmlFor="add-partner">Partner DUPR ID</Label>
                     <Input id="add-partner" data-testid="input-add-partner-dupr-id" value={addPartnerDuprId} onChange={e => setAddPartnerDuprId(e.target.value.toUpperCase())} placeholder="ATL002" className="w-32 uppercase" />
@@ -429,7 +429,7 @@ export default function AdminEventDetail() {
               {[
                 { key: "name", label: "Name" },
                 { key: "duprId", label: "DUPR ID" },
-                ...(event.formatType === "fixed_partner" ? [{ key: "partner", label: "Partner" }] : []),
+                ...(event.teamFormat === "fixed_partner" ? [{ key: "partner", label: "Partner" }] : []),
                 { key: "dupr", label: "DUPR Double" },
                 { key: "assigned", label: "Assigned" },
                 { key: "status", label: "Status" },
@@ -496,7 +496,7 @@ export default function AdminEventDetail() {
                               <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
                               {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
                               {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
-                              {event.formatType === "fixed_partner" && col("partner") && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
+                              {event.teamFormat === "fixed_partner" && col("partner") && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
                               {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
                               {col("assigned") && <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />}
                               {col("status") && <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />}
@@ -533,7 +533,7 @@ export default function AdminEventDetail() {
                                   <td className="px-5 py-3 text-muted-foreground font-mono text-xs">{curPage * pageSize + idx + 1}</td>
                                   {col("name") && <td className="px-5 py-3 font-medium">{reg.playerName}</td>}
                                   {col("duprId") && <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
-                                  {event.formatType === "fixed_partner" && col("partner") && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
+                                  {event.teamFormat === "fixed_partner" && col("partner") && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
                                   {col("dupr") && (
                                     <td className="px-5 py-3 font-mono">
                                       {reg.doubleRating || "NR"}
@@ -736,7 +736,7 @@ export default function AdminEventDetail() {
 
                 <div className="space-y-1.5">
                   <Label>Team Format</Label>
-                  <Select value={editForm.formatType ?? "rotating"} onValueChange={v => setEditForm((f: any) => ({ ...f, formatType: v }))}>
+                  <Select value={editForm.teamFormat ?? "rotating"} onValueChange={v => setEditForm((f: any) => ({ ...f, teamFormat: v }))}>
                     <SelectTrigger data-testid="select-edit-format"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="rotating">Rotating Partners</SelectItem>

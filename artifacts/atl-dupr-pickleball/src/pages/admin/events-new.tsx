@@ -111,7 +111,7 @@ export default function AdminEventNew() {
   const endEdited = useRef(false);
 
   const [form, setForm] = useState({
-    formatType: "rotating" as "rotating" | "fixed_partner",
+    teamFormat: "rotating" as "rotating" | "fixed_partner",
     name: "",
     description: "",
     startDatetime: "",
@@ -212,9 +212,9 @@ export default function AdminEventNew() {
   }
 
   function handleFormatChange(newFormat: "rotating" | "fixed_partner") {
-    const oldFormat = form.formatType;
+    const oldFormat = form.teamFormat;
     setForm(f => {
-      const next = { ...f, formatType: newFormat };
+      const next = { ...f, teamFormat: newFormat };
       if (settings) {
         const oldMin = oldFormat === "rotating" ? settings.minParticipants : settings.minTeams;
         const oldMax = oldFormat === "rotating" ? settings.maxParticipants : settings.maxTeams;
@@ -250,7 +250,7 @@ export default function AdminEventNew() {
     signupEndEdited.current = false;
     endEdited.current = false;
     setForm({
-      formatType: ev.formatType as "rotating" | "fixed_partner",
+      teamFormat: ev.teamFormat as "rotating" | "fixed_partner",
       name: ev.name + " (Copy)",
       description: ev.description ?? "",
       startDatetime: "",
@@ -298,7 +298,7 @@ export default function AdminEventNew() {
     } catch { return null; }
   }
 
-  const isFixed = form.formatType === "fixed_partner";
+  const isFixed = form.teamFormat === "fixed_partner";
   const minLabel = isFixed ? "Min Teams" : "Min Participants";
   const maxLabel = isFixed ? "Max Teams" : "Max Participants";
 
@@ -315,7 +315,7 @@ export default function AdminEventNew() {
       endDatetime: new Date(form.endDatetime).toISOString(),
       locationName: form.locationName,
       locationAddress: form.locationAddress || null,
-      formatType: form.formatType,
+      teamFormat: form.teamFormat,
       ratingTypeRequired: form.ratingTypeRequired,
       ratingConfig: form.ratingTypeRequired !== "none" ? ratingConfig : null,
       minParticipants: Number(form.minParticipants),
@@ -376,7 +376,7 @@ export default function AdminEventNew() {
             {/* Team Format */}
             <div className="space-y-1.5">
               <Label>Team Format *</Label>
-              <Select value={form.formatType} onValueChange={v => handleFormatChange(v as "rotating" | "fixed_partner")}>
+              <Select value={form.teamFormat} onValueChange={v => handleFormatChange(v as "rotating" | "fixed_partner")}>
                 <SelectTrigger data-testid="select-format-type"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="rotating">Rotating Partners</SelectItem>
@@ -423,7 +423,7 @@ export default function AdminEventNew() {
             <div className="space-y-1.5">
               <Label>Description *</Label>
               <RichTextEditor
-                key={`${form.formatType}-${descriptionGeneration}`}
+                key={`${form.teamFormat}-${descriptionGeneration}`}
                 data-testid="input-event-description" value={form.description}
                 onChange={v => { descriptionEdited.current = true; setField("description", v); }}
                 placeholder="Tell participants what to expect..."

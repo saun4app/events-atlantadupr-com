@@ -73,7 +73,7 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
           <tr className="border-b border-border bg-muted/50">
             <th className="text-left px-5 py-3 font-medium text-muted-foreground">#</th>
             <th className="text-left px-5 py-3 font-medium text-muted-foreground">Name</th>
-            {event.formatType === "fixed_partner" && (
+            {event.teamFormat === "fixed_partner" && (
               <th className="text-left px-5 py-3 font-medium text-muted-foreground">Partner</th>
             )}
             <th className="text-left px-5 py-3 font-medium text-muted-foreground">DUPR Rating</th>
@@ -85,7 +85,7 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
             <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
               <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
               <td className="px-5 py-3 font-medium">{reg.playerName}</td>
-              {event.formatType === "fixed_partner" && (
+              {event.teamFormat === "fixed_partner" && (
                 <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
               )}
               <td className="px-5 py-3">
@@ -191,7 +191,7 @@ export default function EventDetail() {
         id: eventId,
         data: {
           email: email.trim(),
-          partnerDuprId: event?.formatType === "fixed_partner" ? partnerDuprId.trim() || null : null,
+          partnerDuprId: event?.teamFormat === "fixed_partner" ? partnerDuprId.trim() || null : null,
         },
       },
       {
@@ -285,7 +285,7 @@ export default function EventDetail() {
             )}
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="w-4 h-4 text-primary" />
-              Team Format: {event.formatType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
+              Team Format: {event.teamFormat === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Star className="w-4 h-4 text-primary" />
@@ -364,7 +364,7 @@ export default function EventDetail() {
                   )}
                 </p>
               </div>
-              {event.formatType === "fixed_partner" && (
+              {event.teamFormat === "fixed_partner" && (
                 <div className="space-y-1.5">
                   <Label htmlFor="partner-dupr-id">Partner's DUPR ID</Label>
                   <Input

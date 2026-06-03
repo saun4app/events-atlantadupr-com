@@ -19,7 +19,7 @@ export interface Event {
   endDatetime: Date;
   locationName: string;
   locationAddress: string;
-  formatType: EventFormatType;
+  teamFormat: EventFormatType;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;

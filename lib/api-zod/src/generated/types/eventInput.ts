@@ -16,7 +16,7 @@ export interface EventInput {
   endDatetime: Date;
   locationName: string;
   locationAddress: string;
-  formatType: EventInputFormatType;
+  teamFormat: EventInputFormatType;
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;

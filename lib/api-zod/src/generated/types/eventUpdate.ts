@@ -16,7 +16,7 @@ export interface EventUpdate {
   endDatetime?: Date;
   locationName?: string;
   locationAddress?: string;
-  formatType?: EventUpdateFormatType;
+  teamFormat?: EventUpdateFormatType;
   ratingTypeRequired?: string;
   minParticipants?: number;
   maxParticipants?: number;

@@ -86,14 +86,14 @@ router.get("/", async (req, res) => {
 router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
   const {
     name, description, startDatetime, endDatetime, locationName, locationAddress,
-    formatType, ratingTypeRequired, ratingConfig, minParticipants, maxParticipants, waitlistEnabled,
+    teamFormat, ratingTypeRequired, ratingConfig, minParticipants, maxParticipants, waitlistEnabled,
     requireApproval, signupStartDatetime, signupEndDatetime, recurrence,
     courtFeeEnabled, memberFee, nonMemberFee, contactEmail,
   } = req.body;
 
   const baseEvent = {
     name, description: description ?? null, locationName, locationAddress,
-    formatType, ratingTypeRequired, ratingConfig: ratingConfig ?? null,
+    teamFormat, ratingTypeRequired, ratingConfig: ratingConfig ?? null,
     minParticipants, maxParticipants,
     waitlistEnabled, requireApproval, status: "upcoming" as const,
     courtFeeEnabled: courtFeeEnabled ?? false,
@@ -172,7 +172,7 @@ router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event
 
   const updates: any = {};
   const fields = [
-    "name", "description", "locationName", "locationAddress", "formatType",
+    "name", "description", "locationName", "locationAddress", "teamFormat",
     "ratingTypeRequired", "ratingConfig", "minParticipants", "maxParticipants", "waitlistEnabled",
     "requireApproval", "status", "courtFeeEnabled", "memberFee", "nonMemberFee", "contactEmail",
   ];

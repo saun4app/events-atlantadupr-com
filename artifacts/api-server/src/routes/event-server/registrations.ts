@@ -84,7 +84,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   const memberDuprId = member.duprId;
 
-  if (event.formatType === "fixed_partner") {
+  if (event.teamFormat === "fixed_partner") {
     if (!partnerDuprId) {
       return res.status(400).json({ error: "partnerDuprId is required for fixed-partner events" });
     }

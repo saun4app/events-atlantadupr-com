@@ -834,7 +834,7 @@ components:
 
     Event:
       type: object
-      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, status, courtFeeEnabled, memberFee, nonMemberFee, createdAt]
+      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, teamFormat, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, status, courtFeeEnabled, memberFee, nonMemberFee, createdAt]
       properties:
         id:
           type: integer
@@ -854,7 +854,7 @@ components:
           type: string
         locationAddress:
           type: string
-        formatType:
+        teamFormat:
           type: string
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
@@ -912,7 +912,7 @@ components:
 
     EventInput:
       type: object
-      required: [name, startDatetime, endDatetime, locationName, locationAddress, formatType, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime]
+      required: [name, startDatetime, endDatetime, locationName, locationAddress, teamFormat, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime]
       properties:
         name:
           type: string
@@ -928,7 +928,7 @@ components:
           type: string
         locationAddress:
           type: string
-        formatType:
+        teamFormat:
           type: string
           enum: [fixed_partner, rotating]
         ratingTypeRequired:
@@ -973,7 +973,7 @@ components:
           type: string
         locationAddress:
           type: string
-        formatType:
+        teamFormat:
           type: string
           enum: [fixed_partner, rotating]
         ratingTypeRequired:

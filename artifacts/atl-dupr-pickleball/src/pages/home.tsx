@@ -61,7 +61,7 @@ function EventCard({ event }: { event: any }) {
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-            {teamFormat(event.formatType)}
+            {teamFormat(event.teamFormat)}
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />

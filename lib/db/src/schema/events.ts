@@ -29,7 +29,7 @@ export const eventsTable = pgTable("atl_dupr_events", {
   endDatetime: timestamp("end_datetime").notNull(),
   locationName: text("location_name").notNull(),
   locationAddress: text("location_address").notNull().default(""),
-  formatType: text("format_type", { enum: ["fixed_partner", "rotating"] }).notNull(),
+  teamFormat: text("team_format", { enum: ["fixed_partner", "rotating"] }).notNull(),
   ratingTypeRequired: text("rating_type_required").notNull().default("none"),
   ratingConfig: jsonb("rating_config").$type<EventRatingConfig>(),
   minParticipants: integer("min_participants").notNull().default(4),
