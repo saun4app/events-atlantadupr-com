@@ -21,7 +21,7 @@ export interface EventInput {
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: boolean;
+  requireApproval: 'none' | 'all' | 'nr_only';
   signupStartDatetime: Date;
   signupEndDatetime: Date;
   courtFeeEnabled?: boolean;

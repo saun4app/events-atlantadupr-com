@@ -291,10 +291,10 @@ export default function EventDetail() {
               <Star className="w-4 h-4 text-primary" />
               {ratingInfo ? `${ratingInfo.label}${ratingInfo.detail ? ` — ${ratingInfo.detail}` : ""}` : "All Levels"}
             </div>
-            {event.requireApproval && (
+            {event.requireApproval !== "none" && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <AlertCircle className="w-4 h-4 text-primary" />
-                Approval Required
+                {event.requireApproval === "all" ? "Approval Required" : "NR Players: Approval Required"}
               </div>
             )}
             {(event as any).contactEmail && (
@@ -312,12 +312,13 @@ export default function EventDetail() {
         </div>
 
         {/* Approval notice */}
-        {event.requireApproval && (
+        {event.requireApproval !== "none" && (
           <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
-              This event requires organizer approval. Your registration will be{" "}
-              <strong>Pending Approval</strong> until confirmed.
+              {event.requireApproval === "all"
+                ? "This event requires organizer approval. Your registration will be Pending Approval until confirmed."
+                : "This event requires organizer approval for NR (non-rated) players. Your registration will be Pending Approval until confirmed."}
             </span>
           </div>
         )}

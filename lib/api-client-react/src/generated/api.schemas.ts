@@ -153,7 +153,7 @@ export interface Event {
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: boolean;
+  requireApproval: 'none' | 'all' | 'nr_only';
   signupStartDatetime: string;
   signupEndDatetime: string;
   status: EventStatus;
@@ -209,7 +209,7 @@ export interface EventInput {
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: boolean;
+  requireApproval: 'none' | 'all' | 'nr_only';
   signupStartDatetime: string;
   signupEndDatetime: string;
   courtFeeEnabled?: boolean;
@@ -248,7 +248,7 @@ export interface EventUpdate {
   minParticipants?: number;
   maxParticipants?: number;
   waitlistEnabled?: boolean;
-  requireApproval?: boolean;
+  requireApproval?: 'none' | 'all' | 'nr_only';
   signupStartDatetime?: string;
   signupEndDatetime?: string;
   status?: EventUpdateStatus;

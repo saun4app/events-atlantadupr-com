@@ -35,7 +35,7 @@ export const eventsTable = pgTable("atl_dupr_events", {
   minParticipants: integer("min_participants").notNull().default(4),
   maxParticipants: integer("max_participants").notNull().default(16),
   waitlistEnabled: boolean("waitlist_enabled").notNull().default(true),
-  requireApproval: boolean("require_approval").notNull().default(false),
+  requireApproval: text("require_approval", { enum: ["none", "all", "nr_only"] }).notNull().default("none"),
   signupStartDatetime: timestamp("signup_start_datetime").notNull(),
   signupEndDatetime: timestamp("signup_end_datetime").notNull(),
   status: text("status", { enum: ["upcoming", "closed", "ended"] }).notNull().default("upcoming"),

@@ -95,7 +95,7 @@ router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (re
     name, description: description ?? null, locationName, locationAddress,
     teamFormat, ratingTypeRequired, ratingConfig: ratingConfig ?? null,
     minParticipants, maxParticipants,
-    waitlistEnabled, requireApproval, status: "upcoming" as const,
+    waitlistEnabled, requireApproval: requireApproval ?? "none", status: "upcoming" as const,
     courtFeeEnabled: courtFeeEnabled ?? false,
     memberFee: typeof memberFee === "number" ? memberFee : 0,
     nonMemberFee: typeof nonMemberFee === "number" ? nonMemberFee : 0,

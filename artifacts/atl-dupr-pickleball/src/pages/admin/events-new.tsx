@@ -122,7 +122,7 @@ export default function AdminEventNew() {
     minParticipants: 8,
     maxParticipants: 24,
     waitlistEnabled: true,
-    requireApproval: false,
+    requireApproval: "none" as "none" | "all" | "nr_only",
     signupStartDatetime: "",
     signupEndDatetime: "",
     courtFeeEnabled: false,
@@ -261,7 +261,7 @@ export default function AdminEventNew() {
       minParticipants: ev.minParticipants,
       maxParticipants: ev.maxParticipants,
       waitlistEnabled: ev.waitlistEnabled,
-      requireApproval: ev.requireApproval,
+      requireApproval: (ev.requireApproval as any) || "none",
       signupStartDatetime: "",
       signupEndDatetime: "",
       courtFeeEnabled: (ev as any).courtFeeEnabled ?? false,
@@ -583,9 +583,16 @@ export default function AdminEventNew() {
                 <Label>Enable Waitlist</Label>
                 <Switch data-testid="switch-waitlist" checked={form.waitlistEnabled} onCheckedChange={v => setField("waitlistEnabled", v)} />
               </div>
-              <div className="flex items-center justify-between">
+              <div className="space-y-1.5">
                 <Label>Require Approval</Label>
-                <Switch data-testid="switch-approval" checked={form.requireApproval} onCheckedChange={v => setField("requireApproval", v)} />
+                <Select data-testid="select-approval" value={form.requireApproval} onValueChange={v => setField("requireApproval", v as any)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No Approval</SelectItem>
+                    <SelectItem value="all">All Players</SelectItem>
+                    <SelectItem value="nr_only">NR Players Only</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </div>

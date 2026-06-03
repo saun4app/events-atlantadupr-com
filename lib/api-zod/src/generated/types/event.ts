@@ -24,7 +24,7 @@ export interface Event {
   minParticipants: number;
   maxParticipants: number;
   waitlistEnabled: boolean;
-  requireApproval: boolean;
+  requireApproval: 'none' | 'all' | 'nr_only';
   signupStartDatetime: Date;
   signupEndDatetime: Date;
   status: EventStatus;

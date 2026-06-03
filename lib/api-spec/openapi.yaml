@@ -866,7 +866,8 @@ components:
         waitlistEnabled:
           type: boolean
         requireApproval:
-          type: boolean
+          type: string
+          enum: [none, all, nr_only]
         signupStartDatetime:
           type: string
           format: date-time
@@ -940,7 +941,8 @@ components:
         waitlistEnabled:
           type: boolean
         requireApproval:
-          type: boolean
+          type: string
+          enum: [none, all, nr_only]
         signupStartDatetime:
           type: string
           format: date-time
@@ -985,7 +987,8 @@ components:
         waitlistEnabled:
           type: boolean
         requireApproval:
-          type: boolean
+          type: string
+          enum: [none, all, nr_only]
         signupStartDatetime:
           type: string
           format: date-time

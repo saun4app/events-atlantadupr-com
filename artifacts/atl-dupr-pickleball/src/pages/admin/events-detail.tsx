@@ -223,7 +223,7 @@ export default function AdminEventDetail() {
       minParticipants: String(event.minParticipants ?? ""),
       maxParticipants: String(event.maxParticipants ?? ""),
       waitlistEnabled: event.waitlistEnabled ?? false,
-      requireApproval: event.requireApproval ?? false,
+      requireApproval: (event.requireApproval as any) || "none",
       signupStartDatetime: toLocalInput(event.signupStartDatetime),
       signupEndDatetime: toLocalInput(event.signupEndDatetime),
       status: event.status ?? "upcoming",
@@ -363,7 +363,7 @@ export default function AdminEventDetail() {
                     {event.ratingTypeRequired !== "none" && (
                       <Badge variant="outline" className="text-xs">{formatRatingBadge(event)}</Badge>
                     )}
-                    {event.requireApproval && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">Approval Required</Badge>}
+                    {event.requireApproval !== "none" && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">{event.requireApproval === "all" ? "Approval Required" : "NR Approval Required"}</Badge>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -890,9 +890,16 @@ export default function AdminEventDetail() {
                   <Label>Enable Waitlist</Label>
                   <Switch checked={!!editForm.waitlistEnabled} onCheckedChange={v => setEditForm((f: any) => ({ ...f, waitlistEnabled: v }))} />
                 </div>
-                <div className="flex items-center justify-between">
+                <div className="space-y-1.5">
                   <Label>Require Approval</Label>
-                  <Switch checked={!!editForm.requireApproval} onCheckedChange={v => setEditForm((f: any) => ({ ...f, requireApproval: v }))} />
+                  <Select value={editForm.requireApproval || "none"} onValueChange={v => setEditForm((f: any) => ({ ...f, requireApproval: v }))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No Approval</SelectItem>
+                      <SelectItem value="all">All Players</SelectItem>
+                      <SelectItem value="nr_only">NR Players Only</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 

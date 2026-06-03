@@ -102,7 +102,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
 
   let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
-  if (event.requireApproval) {
+  if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && !member?.doubleRating)) {
     status = "pending_approval";
   } else if (confirmedCount >= event.maxParticipants) {
     if (!event.waitlistEnabled) {
