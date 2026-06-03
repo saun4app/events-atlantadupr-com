@@ -260,7 +260,7 @@ export default function EventDetail() {
             {joinInstructions && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <ExternalLink className="w-4 h-4 text-primary" />
-                <span>Requirement: <button type="button" onClick={() => setJoinDialogOpen(true)} className="text-primary hover:underline">Join Atlanta DUPR Pickleball</button></span>
+                <span>Requirement: <button type="button" onClick={() => setJoinDialogOpen(true)} className="text-primary hover:underline">Join Atlanta DUPR Pickleball</button> for free</span>
               </div>
             )}
           </div>
