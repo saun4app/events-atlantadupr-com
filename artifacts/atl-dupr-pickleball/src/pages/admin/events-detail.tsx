@@ -963,7 +963,12 @@ export default function AdminEventDetail() {
                                   <td className="px-5 py-2 text-muted-foreground font-mono text-xs">{curPage * pageSize + idx + 1}</td>
                                   {col("name") && <td className="px-5 py-2 font-medium">{reg.playerName}</td>}
                                   {col("duprId") && <td className="px-5 py-2 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
-                                  {col("dupr") && <td className="px-5 py-2 font-mono">{reg.doubleRating || "NR"}</td>}
+                                  {col("dupr") && (
+                                    <td className="px-5 py-2 font-mono">
+                                      {reg.doubleRating || "NR"}
+                                      {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
+                                    </td>
+                                  )}
                                   {col("email") && <td className="px-5 py-2 text-xs">{(reg as any).playerEmail ? <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a> : <span className="text-muted-foreground">—</span>}</td>}
                                   {col("signedUp") && <td className="px-5 py-2 text-xs text-muted-foreground whitespace-nowrap">{reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d, yyyy h:mm a") : "—"}</td>}
                                   <td className="px-5 py-2">
