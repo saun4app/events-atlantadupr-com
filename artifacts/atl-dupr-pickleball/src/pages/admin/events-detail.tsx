@@ -360,7 +360,7 @@ export default function AdminEventDetail() {
   const defaultNotifyMessage = () => {
     if (!event) return "";
     const dateStr = event.startDatetime ? format(new Date(event.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a") : "";
-    const loc = [event.locationName, event.locationAddress].filter(Boolean).join(", ");
+    const loc = event.locationName ?? "";
     const lines = [
       event.name ? `Event: ${event.name}` : "",
       dateStr ? `When: ${dateStr}` : "",
