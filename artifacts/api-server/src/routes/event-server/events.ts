@@ -171,17 +171,27 @@ router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event
   if (!existing) return res.status(404).json({ error: "Event not found" });
 
   const updates: any = {};
-  const fields = [
-    "name", "description", "eventDescription", "locationName", "locationAddress", "teamFormat",
-    "ratingTypeRequired", "ratingConfig", "minParticipants", "maxParticipants", "waitlistEnabled",
-    "requireApproval", "status", "courtFeeEnabled", "memberFee", "nonMemberFee", "contactEmail",
-  ];
-  fields.forEach((f) => {
-    if (req.body[f] !== undefined) updates[f] = req.body[f];
-  });
-  ["startDatetime", "endDatetime", "signupStartDatetime", "signupEndDatetime"].forEach((f) => {
-    if (req.body[f] !== undefined) updates[f] = new Date(req.body[f]);
-  });
+  if (req.body.name !== undefined) updates.name = req.body.name;
+  if (req.body.description !== undefined) updates.description = req.body.description;
+  if (req.body.eventDescription !== undefined) updates.eventDescription = req.body.eventDescription;
+  if (req.body.locationName !== undefined) updates.locationName = req.body.locationName;
+  if (req.body.locationAddress !== undefined) updates.locationAddress = req.body.locationAddress;
+  if (req.body.teamFormat !== undefined) updates.teamFormat = req.body.teamFormat;
+  if (req.body.ratingTypeRequired !== undefined) updates.ratingTypeRequired = req.body.ratingTypeRequired;
+  if (req.body.ratingConfig !== undefined) updates.ratingConfig = req.body.ratingConfig;
+  if (req.body.minParticipants !== undefined) updates.minParticipants = req.body.minParticipants;
+  if (req.body.maxParticipants !== undefined) updates.maxParticipants = req.body.maxParticipants;
+  if (req.body.waitlistEnabled !== undefined) updates.waitlistEnabled = req.body.waitlistEnabled;
+  if (req.body.requireApproval !== undefined) updates.requireApproval = req.body.requireApproval;
+  if (req.body.status !== undefined) updates.status = req.body.status;
+  if (req.body.courtFeeEnabled !== undefined) updates.courtFeeEnabled = req.body.courtFeeEnabled;
+  if (req.body.memberFee !== undefined) updates.memberFee = req.body.memberFee;
+  if (req.body.nonMemberFee !== undefined) updates.nonMemberFee = req.body.nonMemberFee;
+  if (req.body.contactEmail !== undefined) updates.contactEmail = req.body.contactEmail;
+  if (req.body.startDatetime !== undefined) updates.startDatetime = new Date(req.body.startDatetime);
+  if (req.body.endDatetime !== undefined) updates.endDatetime = new Date(req.body.endDatetime);
+  if (req.body.signupStartDatetime !== undefined) updates.signupStartDatetime = new Date(req.body.signupStartDatetime);
+  if (req.body.signupEndDatetime !== undefined) updates.signupEndDatetime = new Date(req.body.signupEndDatetime);
 
   const [updated] = await db.update(eventsTable).set(updates).where(eq(eventsTable.id, eventId)).returning();
   return res.json(updated);
