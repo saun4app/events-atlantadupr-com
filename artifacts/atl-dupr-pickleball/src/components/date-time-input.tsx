@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { format, parse, isValid } from "date-fns";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Clock } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -19,9 +19,9 @@ interface DateTimeInputProps {
 /**
  * Cross-browser date+time picker.
  *
- * Uses a Popover+Calendar for the date (works on all browsers including Safari)
- * and a native <time> input. Accepts and emits "YYYY-MM-DDTHH:mm" format —
- * the same as datetime-local.
+ * Stacked layout: full-width calendar-popup button on top, time input below.
+ * Works on all browsers including Safari.
+ * Accepts and emits "YYYY-MM-DDTHH:mm" — same format as datetime-local.
  */
 export function DateTimeInput({
   value,
@@ -53,7 +53,7 @@ export function DateTimeInput({
   }
 
   return (
-    <div className={cn("flex gap-2", className)}>
+    <div className={cn("space-y-2", className)}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button
@@ -62,12 +62,12 @@ export function DateTimeInput({
             type="button"
             variant="outline"
             className={cn(
-              "flex-1 min-w-0 justify-start text-left font-normal",
+              "w-full justify-start text-left font-normal",
               !validDate && "text-muted-foreground"
             )}
           >
             <CalendarIcon className="mr-2 h-4 w-4 shrink-0" />
-            {validDate ? format(validDate, "MMM d, yyyy") : <span>Pick a date</span>}
+            {validDate ? format(validDate, "EEE, MMM d, yyyy") : <span>Pick a date</span>}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="start">
@@ -80,13 +80,16 @@ export function DateTimeInput({
         </PopoverContent>
       </Popover>
 
-      <Input
-        type="time"
-        value={timePart ?? ""}
-        onChange={handleTime}
-        required={required}
-        className="w-28 shrink-0"
-      />
+      <div className="flex items-center gap-2">
+        <Clock className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <Input
+          type="time"
+          value={timePart ?? ""}
+          onChange={handleTime}
+          required={required}
+          className="w-32"
+        />
+      </div>
     </div>
   );
 }
