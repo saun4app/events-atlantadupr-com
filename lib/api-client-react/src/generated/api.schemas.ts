@@ -424,6 +424,8 @@ export interface AppSettings {
   defaultEventDurationHours: number;
   /** Admin-defined list of rating requirement options */
   defaultRatingRequirements: RatingRequirement[];
+  /** Default guidelines and rules content for new events */
+  guidelinesAndRules?: string;
 }
 
 export interface AppSettingsInput {
@@ -440,6 +442,8 @@ export interface AppSettingsInput {
   defaultEventNames?: string[];
   defaultEventDurationHours?: number;
   defaultRatingRequirements?: RatingRequirement[];
+  /** Default guidelines and rules content for new events */
+  guidelinesAndRules?: string;
 }
 
 export type ListMembersParams = {

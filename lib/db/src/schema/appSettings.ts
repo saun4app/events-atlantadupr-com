@@ -97,6 +97,7 @@ export const appSettingsTable = pgTable("app_settings", {
   ratingRequirementsConfig: jsonb("rating_requirements_config").$type<RatingRequirementsConfig>(),
   joinInstructions: text("join_instructions").notNull().default(""),
   eventContactEmails: jsonb("event_contact_emails").$type<string[]>().notNull().default([]),
+  guidelinesAndRules: text("guidelines_and_rules").notNull().default(""),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;

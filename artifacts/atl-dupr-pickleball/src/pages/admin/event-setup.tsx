@@ -73,6 +73,7 @@ export default function AdminEventSetup() {
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
     rotatingPartnersDescription: "",
     fixedPartnerDescription: "",
+    guidelinesAndRules: "",
   });
   const [dirty, setDirty] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
@@ -127,6 +128,7 @@ export default function AdminEventSetup() {
         },
         rotatingPartnersDescription: (settings as any).rotatingPartnersDescription ?? "",
         fixedPartnerDescription: (settings as any).fixedPartnerDescription ?? "",
+        guidelinesAndRules: (settings as any).guidelinesAndRules ?? "",
       });
     }
   }, [settings]);
@@ -369,6 +371,22 @@ export default function AdminEventSetup() {
                   onChange={v => update("fixedPartnerDescription", v)}
                   placeholder="Describe the fixed partners format — teams stay together throughout the event, etc."
                   data-testid="editor-fixed-partner-description"
+                />
+              </div>
+            </section>
+
+            {/* ── Guidelines and Rules ─────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Guidelines and Rules</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Default content for new events. Shown to participants on the event details page.</p>
+              </div>
+              <div className="space-y-2">
+                <RichTextEditor
+                  value={form.guidelinesAndRules}
+                  onChange={v => update("guidelinesAndRules", v)}
+                  placeholder="Add rules, requirements, waivers, and other guidelines that participants should know..."
+                  data-testid="editor-guidelines-and-rules"
                 />
               </div>
             </section>

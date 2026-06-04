@@ -167,7 +167,7 @@ export default function AdminEventNew() {
         ...f,
         minParticipants: settings.minParticipants,
         maxParticipants: settings.maxParticipants,
-        description: settings.rotatingPartnersDescription || "",
+        description: settings.guidelinesAndRules || "",
         signupStartDatetime: nowInTz,
         ratingTypeRequired: defaultType,
       }));
@@ -224,10 +224,8 @@ export default function AdminEventNew() {
         const newMax = newFormat === "rotating" ? settings.maxParticipants : settings.maxTeams;
         if (f.minParticipants === oldMin) next.minParticipants = newMin;
         if (f.maxParticipants === oldMax) next.maxParticipants = newMax;
-        if (!descriptionEdited.current) {
-          const oldDesc = (oldFormat === "rotating" ? settings.rotatingPartnersDescription : settings.fixedPartnerDescription) || "";
-          const newDesc = (newFormat === "rotating" ? settings.rotatingPartnersDescription : settings.fixedPartnerDescription) || "";
-          if (f.description === oldDesc || f.description === "") next.description = newDesc;
+        if (!descriptionEdited.current && f.description === "" && settings.guidelinesAndRules) {
+          next.description = settings.guidelinesAndRules;
         }
       }
       return next;

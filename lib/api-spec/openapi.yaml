@@ -1258,6 +1258,9 @@ components:
           items:
             $ref: "#/components/schemas/RatingRequirement"
           description: Admin-defined list of rating requirement options
+        guidelinesAndRules:
+          type: string
+          description: Default guidelines and rules content for new events
 
     AppSettingsInput:
       type: object
@@ -1296,3 +1299,6 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RatingRequirement"
+        guidelinesAndRules:
+          type: string
+          description: Default guidelines and rules content for new events

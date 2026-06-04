@@ -645,7 +645,8 @@ export const GetSettingsResponse = zod.object({
   "defaultRatingRequirements": zod.array(zod.object({
   "key": zod.string(),
   "label": zod.string()
-})).describe('Admin-defined list of rating requirement options')
+})).describe('Admin-defined list of rating requirement options'),
+  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events')
 })
 
 
@@ -678,7 +679,8 @@ export const UpdateSettingsBody = zod.object({
   "defaultRatingRequirements": zod.array(zod.object({
   "key": zod.string(),
   "label": zod.string()
-})).optional()
+})).optional(),
+  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events')
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -707,7 +709,8 @@ export const UpdateSettingsResponse = zod.object({
   "defaultRatingRequirements": zod.array(zod.object({
   "key": zod.string(),
   "label": zod.string()
-})).describe('Admin-defined list of rating requirement options')
+})).describe('Admin-defined list of rating requirement options'),
+  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events')
 })
 
 

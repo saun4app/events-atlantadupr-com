@@ -72,6 +72,9 @@ function validateSettingsInput(body: unknown): string | null {
   if (b.fixedPartnerDescription !== undefined && typeof b.fixedPartnerDescription !== "string") {
     return "fixedPartnerDescription must be a string";
   }
+  if (b.guidelinesAndRules !== undefined && typeof b.guidelinesAndRules !== "string") {
+    return "guidelinesAndRules must be a string";
+  }
   if (b.minParticipants !== undefined) {
     if (typeof b.minParticipants !== "number" || !Number.isInteger(b.minParticipants) || b.minParticipants < 2) {
       return "minParticipants must be an integer >= 2";
@@ -242,6 +245,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
     ratingRequirementsConfig,
     joinInstructions,
     eventContactEmails,
+    guidelinesAndRules,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -284,6 +288,7 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (eventContactEmails !== undefined) {
     updates.eventContactEmails = (eventContactEmails as string[]).map((e: string) => e.trim().toLowerCase()).filter(Boolean);
   }
+  if (guidelinesAndRules !== undefined) updates.guidelinesAndRules = guidelinesAndRules;
 
   const [updated] = await db
     .insert(appSettingsTable)

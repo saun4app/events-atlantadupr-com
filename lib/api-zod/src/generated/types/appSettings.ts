@@ -26,4 +26,6 @@ export interface AppSettings {
   defaultEventDurationHours: number;
   /** Admin-defined list of rating requirement options */
   defaultRatingRequirements: RatingRequirement[];
+  /** Default guidelines and rules content for new events */
+  guidelinesAndRules?: string;
 }

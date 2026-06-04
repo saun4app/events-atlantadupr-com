@@ -23,4 +23,6 @@ export interface AppSettingsInput {
   defaultEventNames?: string[];
   defaultEventDurationHours?: number;
   defaultRatingRequirements?: RatingRequirement[];
+  /** Default guidelines and rules content for new events */
+  guidelinesAndRules?: string;
 }
