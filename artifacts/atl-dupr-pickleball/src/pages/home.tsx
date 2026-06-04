@@ -30,7 +30,11 @@ function EventCard({ event }: { event: any }) {
           </div>
           <div className="flex items-center gap-1.5 col-span-2">
             <MapPin className="w-3.5 h-3.5 text-primary shrink-0" />
-            <span className={event.locationName?.toLowerCase().includes("dill dinkers") ? "text-orange-500 font-medium" : ""}>{event.locationName}</span>
+            <span className={
+              event.locationName?.toLowerCase().includes("dill dinkers") ? "text-orange-500 font-medium" :
+              event.locationName?.toLowerCase().includes("pickleball kingdom") ? "text-blue-500 font-medium" :
+              ""
+            }>{event.locationName}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />
