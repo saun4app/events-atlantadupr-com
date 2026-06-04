@@ -392,10 +392,6 @@ export default function AdminEventDetail() {
     setClientDialog({ mode, kind });
   };
 
-  const handleEmailBroadcast = () => openNotifyDialog("email", "broadcast");
-
-  const handleTextBroadcast = () => openNotifyDialog("text", "broadcast");
-
   const clientRecipients = clientDialog
     ? sortRegs(confirmed, "Confirmed").filter(r => !!(r as any)[clientField(clientDialog.mode)])
     : [];
@@ -670,14 +666,14 @@ export default function AdminEventDetail() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem data-testid="action-email-broadcast" onClick={handleEmailBroadcast}>
+                                  <DropdownMenuItem data-testid="action-email-broadcast" disabled>
                                     <Mail className="w-3.5 h-3.5 mr-2" /> Email broadcast
                                   </DropdownMenuItem>
                                   <DropdownMenuItem data-testid="action-email-client" onClick={handleEmailClient}>
                                     <Mail className="w-3.5 h-3.5 mr-2" /> Email client
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
-                                  <DropdownMenuItem data-testid="action-text-broadcast" onClick={handleTextBroadcast}>
+                                  <DropdownMenuItem data-testid="action-text-broadcast" disabled>
                                     <MessageSquare className="w-3.5 h-3.5 mr-2" /> Text broadcast
                                   </DropdownMenuItem>
                                   <DropdownMenuItem data-testid="action-text-client" onClick={handleTextClient}>
