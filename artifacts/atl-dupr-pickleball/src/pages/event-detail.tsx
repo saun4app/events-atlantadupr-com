@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink, Star, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -485,10 +485,6 @@ export default function EventDetail() {
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="w-4 h-4 text-primary" />
               Team Format: {event.teamFormat === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners"}
-            </div>
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Star className="w-4 h-4 text-primary" />
-              All Levels
             </div>
             {event.requireApproval !== "none" && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
