@@ -146,7 +146,13 @@ export default function AdminMembers() {
     reader.onload = (ev) => {
       const csvText = ev.target?.result as string;
       uploadCsv.mutate({ data: csvText }, {
-        onSuccess: () => { toast({ title: "CSV uploaded successfully" }); invalidate(); },
+        onSuccess: (data) => {
+          const msgs = [`CSV: ${data.imported} upserted, ${data.skipped} skipped`];
+          if ((data as any).removed > 0) msgs.push(`${(data as any).removed} old members removed`);
+          if ((data as any).regSkipped?.length > 0) msgs.push(`${(data as any).regSkipped.length} kept due to registrations`);
+          toast({ title: msgs.join(" • ") });
+          invalidate();
+        },
         onError: (err: any) => toast({ title: err?.data?.error || "CSV upload failed", variant: "destructive" }),
       });
     };

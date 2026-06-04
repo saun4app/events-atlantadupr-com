@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { membersTable, registrationsTable } from "@workspace/db";
-import { eq, count } from "drizzle-orm";
+import { eq, count, notInArray } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
 
 const router = Router();
@@ -80,6 +80,7 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
 
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
   const errors: string[] = [];
+  const csvDuprIds: string[] = [];
   let imported = 0;
   let skipped = 0;
 
@@ -98,6 +99,8 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
       skipped++;
       continue;
     }
+
+    csvDuprIds.push(duprId);
 
     try {
       await db
@@ -133,7 +136,29 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
     }
   }
 
-  return res.json({ imported, skipped, errors });
+  // Remove existing members that are not in the CSV, but skip those with registrations
+  let removed = 0;
+  const regSkipped: string[] = [];
+  if (csvDuprIds.length > 0) {
+    const allMembers = await db.select().from(membersTable);
+    const csvIdSet = new Set(csvDuprIds);
+    for (const m of allMembers) {
+      if (!csvIdSet.has(m.duprId)) {
+        const [regCount] = await db
+          .select({ count: count() })
+          .from(registrationsTable)
+          .where(eq(registrationsTable.memberDuprId, m.duprId));
+        if (regCount.count > 0) {
+          regSkipped.push(m.duprId);
+        } else {
+          await db.delete(membersTable).where(eq(membersTable.duprId, m.duprId));
+          removed++;
+        }
+      }
+    }
+  }
+
+  return res.json({ imported, skipped, removed, regSkipped, errors });
 });
 
 router.get("/:duprId", async (req, res) => {
