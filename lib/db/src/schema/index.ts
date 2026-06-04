@@ -6,3 +6,4 @@ export * from "./eventAssignments";
 export * from "./appSettings";
 export * from "./sessions";
 export * from "./emailVerificationCodes";
+export * from "./emailSendFailures";

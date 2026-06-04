@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { registrationsTable, eventsTable, membersTable, appSettingsTable } from "@workspace/db";
+import { registrationsTable, eventsTable, membersTable, appSettingsTable, emailSendFailuresTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { canAccessEvent } from "./events.js";
@@ -104,6 +104,12 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   } catch (err) {
     const errorMessage = err instanceof Error ? err.message : String(err);
     logger.error({ err, recipient: email, event: event.name }, "Failed to send verification email");
+
+    db.insert(emailSendFailuresTable)
+      .values({ recipientAddress: email, eventName: event.name, errorMessage })
+      .catch((dbErr) => {
+        logger.error({ dbErr }, "Failed to persist email send failure record");
+      });
 
     const alertRecipients = settings?.eventContactEmails ?? [];
     if (alertRecipients.length > 0) {

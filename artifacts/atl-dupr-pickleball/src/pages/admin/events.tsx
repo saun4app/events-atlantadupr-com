@@ -3,22 +3,104 @@ import { Link } from "wouter";
 import {
   useListEvents,
   getListEventsQueryKey,
+  useEmailFailures,
 } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { format } from "date-fns";
-import { Plus, Search, Calendar, MapPin } from "lucide-react";
+import { Plus, Search, Calendar, MapPin, TriangleAlert } from "lucide-react";
 
 function statusBadge(status: string) {
   if (status === "upcoming") return <Badge className="text-xs bg-primary/10 text-primary border-primary/20 border">Upcoming</Badge>;
   if (status === "closed") return <Badge variant="secondary" className="text-xs">Closed</Badge>;
   return <Badge variant="outline" className="text-xs text-muted-foreground">Ended</Badge>;
+}
+
+function EmailFailureBadge() {
+  const { data, isLoading } = useEmailFailures();
+  const [open, setOpen] = useState(false);
+
+  if (isLoading || !data || data.count === 0) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <button
+          data-testid="email-failure-badge"
+          className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-destructive/10 border border-destructive/20 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors"
+        >
+          <TriangleAlert className="w-3.5 h-3.5" />
+          {data.count} email failure{data.count !== 1 ? "s" : ""} (24 h)
+        </button>
+      </DialogTrigger>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <TriangleAlert className="w-4 h-4" />
+            Email Delivery Failures — Last 24 Hours
+          </DialogTitle>
+        </DialogHeader>
+        <div className="mt-2">
+          <p className="text-sm text-muted-foreground mb-4">
+            {data.count} verification email{data.count !== 1 ? "s" : ""} failed to send. Players affected may need to be assisted manually.
+          </p>
+          <div className="rounded-lg border border-border overflow-hidden">
+            <div className="grid grid-cols-[1fr_1fr_auto] gap-0 text-xs font-semibold text-muted-foreground bg-muted/50 px-4 py-2 border-b border-border">
+              <span>Recipient</span>
+              <span>Event</span>
+              <span className="text-right">Time (UTC)</span>
+            </div>
+            <div className="divide-y divide-border max-h-80 overflow-y-auto">
+              {data.failures.map((f) => (
+                <div
+                  key={f.id}
+                  className="grid grid-cols-[1fr_1fr_auto] gap-2 px-4 py-3 text-sm items-start hover:bg-muted/30 transition-colors"
+                >
+                  <span className="font-medium truncate text-foreground" title={f.recipientAddress}>
+                    {f.recipientAddress}
+                  </span>
+                  <span className="text-muted-foreground truncate" title={f.eventName ?? "—"}>
+                    {f.eventName ?? <span className="italic">—</span>}
+                  </span>
+                  <span className="text-muted-foreground text-xs text-right whitespace-nowrap">
+                    {format(new Date(f.occurredAt), "MMM d, h:mm a")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          {data.failures.some((f) => f.errorMessage) && (
+            <details className="mt-3">
+              <summary className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground">
+                Show error details
+              </summary>
+              <div className="mt-2 space-y-2">
+                {data.failures.map((f) => (
+                  <div key={f.id} className="rounded bg-muted/50 px-3 py-2">
+                    <p className="text-xs font-medium text-foreground mb-0.5">{f.recipientAddress}</p>
+                    <p className="text-xs text-muted-foreground font-mono break-all">{f.errorMessage}</p>
+                  </div>
+                ))}
+              </div>
+            </details>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 }
 
 export default function AdminEvents() {
@@ -51,12 +133,15 @@ export default function AdminEvents() {
             <h1 className="text-xl font-bold text-foreground">Manage Events</h1>
             <p className="text-muted-foreground text-sm mt-0.5">{events?.length ?? 0} total events</p>
           </div>
-          <Link href="/admin/events/new">
-            <Button data-testid="button-create-event" className="gap-2">
-              <Plus className="w-4 h-4" />
-              New Event
-            </Button>
-          </Link>
+          <div className="flex items-center gap-3">
+            <EmailFailureBadge />
+            <Link href="/admin/events/new">
+              <Button data-testid="button-create-event" className="gap-2">
+                <Plus className="w-4 h-4" />
+                New Event
+              </Button>
+            </Link>
+          </div>
         </div>
 
         <div className="mb-4 relative">
