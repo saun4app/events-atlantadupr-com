@@ -7,11 +7,29 @@ import { canAccessEvent } from "./events.js";
 import { issueCode, peekCode, consumeCode, VERIFICATION_COOLDOWN_SECONDS } from "../../lib/verification.js";
 import { sendVerificationEmail, sendFailureAlertEmail } from "../../lib/email.js";
 import { logger } from "../../lib/logger.js";
+import {
+  getClientIp,
+  recordAttempt,
+  recordSuccess,
+  rateLimitErrorResponse,
+} from "../../lib/rate-limit.js";
 
 const router = Router({ mergeParams: true });
 
 type EventParams = { id: string };
 type RegParams = { id: string; regId: string };
+
+const REQUEST_CODE_CONFIG = {
+  maxAttempts: 3,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  blockMs: 60 * 60 * 1000,  // 1 hour
+};
+
+const REGISTRATION_SUBMIT_CONFIG = {
+  maxAttempts: 5,
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  blockMs: 15 * 60 * 1000,  // 15 minutes
+};
 
 const STAFF_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
 
@@ -74,6 +92,17 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "A valid email address is required" });
+  }
+
+  // Rate-limit by IP and by email (prevents email-bombing and abuse)
+  const clientIp = getClientIp(req);
+  const ipResult = recordAttempt(clientIp, "reg:code:ip", REQUEST_CODE_CONFIG);
+  if (ipResult.blocked) {
+    return rateLimitErrorResponse(res, ipResult.remainingBlockMs);
+  }
+  const emailResult = recordAttempt(email.toLowerCase(), "reg:code:email", REQUEST_CODE_CONFIG);
+  if (emailResult.blocked) {
+    return rateLimitErrorResponse(res, emailResult.remainingBlockMs);
   }
 
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
@@ -173,6 +202,18 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     if (!email) {
       return res.status(400).json({ error: "email is required" });
     }
+
+    // Rate-limit registration submission by IP and by email
+    const clientIp = getClientIp(req);
+    const ipResult = recordAttempt(clientIp, "reg:submit:ip", REGISTRATION_SUBMIT_CONFIG);
+    if (ipResult.blocked) {
+      return rateLimitErrorResponse(res, ipResult.remainingBlockMs);
+    }
+    const emailResult = recordAttempt(email.toLowerCase(), "reg:submit:email", REGISTRATION_SUBMIT_CONFIG);
+    if (emailResult.blocked) {
+      return rateLimitErrorResponse(res, emailResult.remainingBlockMs);
+    }
+
     const verified = await peekCode(email, typeof code === "string" ? code.trim() : "");
     if (!verified) {
       return res.status(400).json({ error: "Invalid or expired verification code. Please request a new code." });
@@ -253,6 +294,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   if (!staff && email) {
     await consumeCode(email);
+  }
+
+  // Clear rate-limit counters on successful registration
+  if (!staff && email) {
+    const clientIp = getClientIp(req);
+    recordSuccess(clientIp, "reg:submit:ip");
+    recordSuccess(email.toLowerCase(), "reg:submit:email");
   }
 
   const entry = await buildRosterEntry(reg, false);

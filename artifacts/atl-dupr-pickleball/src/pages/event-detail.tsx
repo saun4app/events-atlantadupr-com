@@ -259,8 +259,14 @@ export default function EventDetail() {
           toast({ title: "Verification code sent", description: `We emailed a 6-digit code to ${email.trim()}. It expires in 10 minutes.` });
         },
         onError: (err: any) => {
+          const status = err?.status;
           const msg: string = err?.data?.error || err?.message || "Could not send verification code. Please try again.";
-          toast({ title: "Couldn't send code", description: msg, variant: "destructive" });
+          if (status === 429) {
+            const minutes = err?.data?.retryAfterMs ? Math.ceil(err.data.retryAfterMs / 60000) : 60;
+            toast({ title: "Too many attempts", description: `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, variant: "destructive" });
+          } else {
+            toast({ title: "Couldn't send code", description: msg, variant: "destructive" });
+          }
         },
       }
     );
@@ -280,8 +286,14 @@ export default function EventDetail() {
           toast({ title: "Code resent", description: `A new code was emailed to ${email.trim()}.` });
         },
         onError: (err: any) => {
+          const status = err?.status;
           const msg: string = err?.data?.error || err?.message || "Could not resend code. Please try again.";
-          toast({ title: "Couldn't resend code", description: msg, variant: "destructive" });
+          if (status === 429) {
+            const minutes = err?.data?.retryAfterMs ? Math.ceil(err.data.retryAfterMs / 60000) : 60;
+            toast({ title: "Too many attempts", description: `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, variant: "destructive" });
+          } else {
+            toast({ title: "Couldn't resend code", description: msg, variant: "destructive" });
+          }
         },
       }
     );
@@ -336,8 +348,12 @@ export default function EventDetail() {
           queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
         },
         onError: (err: any) => {
+          const status = err?.status;
           const msg: string = err?.data?.error || err?.message || "Registration failed. Please try again.";
-          if (msg.toLowerCase().includes("no member found with that email") || msg.toLowerCase().includes("no member found with that dupr id")) {
+          if (status === 429) {
+            const minutes = err?.data?.retryAfterMs ? Math.ceil(err.data.retryAfterMs / 60000) : 15;
+            toast({ title: "Too many attempts", description: `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, variant: "destructive" });
+          } else if (msg.toLowerCase().includes("no member found with that email") || msg.toLowerCase().includes("no member found with that dupr id")) {
             setNotMemberDialogOpen(true);
           } else {
             toast({ title: "Registration failed", description: msg, variant: "destructive" });
@@ -363,8 +379,14 @@ export default function EventDetail() {
           toast({ title: "Verification code sent", description: `We emailed a 6-digit code to ${cancelEmail.trim()}. It expires in 10 minutes.` });
         },
         onError: (err: any) => {
+          const status = err?.status;
           const msg: string = err?.data?.error || err?.message || "Could not send verification code. Please try again.";
-          toast({ title: "Couldn't send code", description: msg, variant: "destructive" });
+          if (status === 429) {
+            const minutes = err?.data?.retryAfterMs ? Math.ceil(err.data.retryAfterMs / 60000) : 60;
+            toast({ title: "Too many attempts", description: `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, variant: "destructive" });
+          } else {
+            toast({ title: "Couldn't send code", description: msg, variant: "destructive" });
+          }
         },
       }
     );
@@ -384,8 +406,14 @@ export default function EventDetail() {
           toast({ title: "Code resent", description: `A new code was emailed to ${cancelEmail.trim()}.` });
         },
         onError: (err: any) => {
+          const status = err?.status;
           const msg: string = err?.data?.error || err?.message || "Could not resend code. Please try again.";
-          toast({ title: "Couldn't resend code", description: msg, variant: "destructive" });
+          if (status === 429) {
+            const minutes = err?.data?.retryAfterMs ? Math.ceil(err.data.retryAfterMs / 60000) : 60;
+            toast({ title: "Too many attempts", description: `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, variant: "destructive" });
+          } else {
+            toast({ title: "Couldn't resend code", description: msg, variant: "destructive" });
+          }
         },
       }
     );

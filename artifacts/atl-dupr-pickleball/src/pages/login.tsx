@@ -37,8 +37,15 @@ export default function Login() {
             setLocation("/admin/events");
           }
         },
-        onError: () => {
-          toast({ title: "Login failed", description: "Invalid username or password.", variant: "destructive" });
+        onError: (err: any) => {
+          const status = err?.status;
+          const msg = err?.data?.error || err?.message || "Invalid username or password.";
+          if (status === 429) {
+            const minutes = err?.data?.retryAfterMs ? Math.ceil(err.data.retryAfterMs / 60000) : 15;
+            toast({ title: "Too many attempts", description: `Please try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`, variant: "destructive" });
+          } else {
+            toast({ title: "Login failed", description: msg, variant: "destructive" });
+          }
         },
       }
     );
