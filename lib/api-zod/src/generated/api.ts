@@ -482,6 +482,7 @@ export const UpdateRegistrationBody = zod.object({
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']).optional(),
   "partnerDuprId": zod.string().nullish(),
   "assignedRating": zod.number().nullish(),
+  "selfRating": zod.string().nullish().describe('Self-assessed rating (2.0-5.0) for NR (non-rated) players. Updates the member\'s self-rating.'),
   "isNew": zod.boolean().optional(),
   "eventRole": zod.string().nullish()
 })

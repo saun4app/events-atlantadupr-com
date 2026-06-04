@@ -396,6 +396,11 @@ export interface RegistrationUpdate {
   partnerDuprId?: string | null;
   /** @nullable */
   assignedRating?: number | null;
+  /**
+     * Self-assessed rating (2.0-5.0) for NR (non-rated) players. Updates the member's self-rating.
+     * @nullable
+     */
+  selfRating?: string | null;
   isNew?: boolean;
   /** @nullable */
   eventRole?: string | null;

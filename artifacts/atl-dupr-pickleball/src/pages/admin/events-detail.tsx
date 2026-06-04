@@ -77,11 +77,6 @@ function StatusBadge({ status }: { status: string }) {
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.className}`}>{s.label}</span>;
 }
 
-function isNonNumeric(rating: string | null | undefined): boolean {
-  if (!rating) return false;
-  return isNaN(parseFloat(rating)) || rating === "NR";
-}
-
 function SortHeader({ label, col, activeCol, dir, onSort }: {
   label: string; col: string; activeCol?: string; dir?: "asc" | "desc"; onSort: () => void;
 }) {
@@ -146,7 +141,7 @@ export default function AdminEventDetail() {
         const stored = localStorage.getItem("admin_event_detail_columns");
         if (stored) return new Set(JSON.parse(stored));
       } catch {}
-      return new Set(["name", "duprId", "dupr", "assigned", "status", "new", "role", "email", "phone", "signedUp"]);
+      return new Set(["name", "duprId", "dupr", "selfRating", "assigned", "status", "new", "role", "email", "phone", "signedUp"]);
     }
   );
   const toggleCol = (k: string) => setVisibleCols(prev => {
@@ -170,6 +165,7 @@ export default function AdminEventDetail() {
   const [pageSizes, setPageSizes] = useState<Record<string, number>>({});
   const getPageSize = (key: string) => pageSizes[key] ?? 25;
   const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
+  const [editingSelfRatings, setEditingSelfRatings] = useState<Record<number, string>>({});
   const [showRemoved, setShowRemoved] = useState(false);
   const [clientDialog, setClientDialog] = useState<{ mode: "email" | "text"; kind: "broadcast" | "client" } | null>(null);
   const [clientSelectedIds, setClientSelectedIds] = useState<Set<number>>(new Set());
@@ -200,6 +196,7 @@ export default function AdminEventDetail() {
       let av: any, bv: any;
       if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
       else if (s.col === "dupr") { av = parseFloat(a.doubleRating) || 0; bv = parseFloat(b.doubleRating) || 0; }
+      else if (s.col === "selfRating") { av = parseFloat(a.selfRating) || 0; bv = parseFloat(b.selfRating) || 0; }
       else if (s.col === "assigned") {
         const aParsed = parseFloat(a.doubleRating); const bParsed = parseFloat(b.doubleRating);
         av = a.assignedRating != null ? a.assignedRating : (isFinite(aParsed) ? aParsed : 0);
@@ -619,6 +616,7 @@ export default function AdminEventDetail() {
                 { key: "duprId", label: "DUPR ID" },
                 ...(event.teamFormat === "fixed_partner" ? [{ key: "partner", label: "Partner" }] : []),
                 { key: "dupr", label: "DUPR Double" },
+                { key: "selfRating", label: "Self-Rate" },
                 { key: "assigned", label: "Assigned" },
                 { key: "status", label: "Status" },
                 { key: "new", label: "New" },
@@ -727,6 +725,7 @@ export default function AdminEventDetail() {
                               {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
                               {event.teamFormat === "fixed_partner" && col("partner") && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
                               {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
+                              {col("selfRating") && <SortHeader label="Self-Rate" col="selfRating" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "selfRating")} />}
                               {col("assigned") && <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />}
                               {col("status") && <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />}
                               {col("new") && <SortHeader label="New" col="new" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "new")} />}
@@ -766,7 +765,57 @@ export default function AdminEventDetail() {
                                   {col("dupr") && (
                                     <td className="px-5 py-3 font-mono">
                                       {reg.doubleRating || "NR"}
-                                      {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
+                                    </td>
+                                  )}
+                                  {col("selfRating") && (
+                                    <td className="px-2 py-2">
+                                      {(() => {
+                                        const storedSelfRating = reg.selfRating ?? null;
+                                        const editSelfVal = editingSelfRatings[reg.id] !== undefined ? editingSelfRatings[reg.id] : (storedSelfRating != null ? String(storedSelfRating) : "");
+                                        const saveSelfRating = (val: string) => {
+                                          const parsed = val.trim() === "" ? null : val;
+                                          if (parsed !== storedSelfRating) {
+                                            const num = parsed !== null ? parseFloat(parsed) : null;
+                                            if (parsed !== null && (isNaN(num!) || num! < 2.0 || num! > 5.0)) {
+                                              toast({ title: "Self-rating must be between 2.0 and 5.0", variant: "destructive" });
+                                              setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                              return;
+                                            }
+                                            if (parsed !== null && !/^\d+(\.\d{1,2})?$/.test(parsed)) {
+                                              toast({ title: "Self-rating must have at most 2 decimal places", variant: "destructive" });
+                                              setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                              return;
+                                            }
+                                            updateReg.mutate(
+                                              { id: eventId, regId: reg.id, data: { selfRating: parsed } },
+                                              {
+                                                onSuccess: () => { invalidate(); setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; }); },
+                                                onError: () => toast({ title: "Failed to update self-rating", variant: "destructive" }),
+                                              }
+                                            );
+                                          } else {
+                                            setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                          }
+                                        };
+                                        return (
+                                          <input
+                                            data-testid={`input-self-rating-${reg.id}`}
+                                            type="number"
+                                            step="0.01"
+                                            min="2"
+                                            max="5"
+                                            placeholder="—"
+                                            className="w-20 h-7 text-sm font-mono px-2 rounded border border-transparent bg-transparent hover:border-border focus:border-primary focus:bg-background focus:outline-none focus:ring-0 transition-colors"
+                                            value={editSelfVal}
+                                            onChange={e => setEditingSelfRatings(prev => ({ ...prev, [reg.id]: e.target.value }))}
+                                            onBlur={e => saveSelfRating(e.target.value)}
+                                            onKeyDown={e => {
+                                              if (e.key === "Enter") e.currentTarget.blur();
+                                              if (e.key === "Escape") setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
+                                            }}
+                                          />
+                                        );
+                                      })()}
                                     </td>
                                   )}
                                   {col("assigned") && (
@@ -966,7 +1015,6 @@ export default function AdminEventDetail() {
                                   {col("dupr") && (
                                     <td className="px-5 py-2 font-mono">
                                       {reg.doubleRating || "NR"}
-                                      {isNonNumeric(reg.doubleRating) && reg.selfRating && <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>}
                                     </td>
                                   )}
                                   {col("email") && <td className="px-5 py-2 text-xs">{(reg as any).playerEmail ? <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a> : <span className="text-muted-foreground">—</span>}</td>}

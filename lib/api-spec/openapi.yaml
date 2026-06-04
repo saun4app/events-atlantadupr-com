@@ -1192,6 +1192,9 @@ components:
           type: ["string", "null"]
         assignedRating:
           type: ["number", "null"]
+        selfRating:
+          type: ["string", "null"]
+          description: Self-assessed rating (2.0-5.0) for NR (non-rated) players. Updates the member's self-rating.
         isNew:
           type: boolean
         eventRole:

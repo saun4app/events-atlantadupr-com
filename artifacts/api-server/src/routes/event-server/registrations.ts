@@ -82,6 +82,17 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   const [settings] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.id, 1));
   const contactEmail = settings?.eventContactEmails?.[0];
 
+  // Determine if member is NR (non-rated) and requires self-rating
+  const [member] = await db
+    .select()
+    .from(membersTable)
+    .where(sql`lower(${membersTable.email}) = lower(${email})`);
+  function isNR(rating: string | null): boolean {
+    if (!rating || rating === "NR") return true;
+    return isNaN(parseFloat(rating));
+  }
+  const selfRatingRequired = member ? isNR(member.doubleRating) : false;
+
   // The "from" address must be on a domain verified in the project's Resend
   // account. The event contact email often lives on a domain the operator does
   // not control (e.g. a Zoho Desk subdomain), so prefer a dedicated verified
@@ -90,7 +101,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   const fromEmail = process.env.VERIFICATION_EMAIL_FROM || contactEmail;
   if (!fromEmail) {
     logger.error("Cannot send verification code: no VERIFICATION_EMAIL_FROM or eventContactEmails configured");
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired: false });
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
   }
   // Route replies back to the human contact address when the sender is a
   // dedicated no-reply style verified address.
@@ -98,7 +109,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
 
   const code = await issueCode(email);
   if (code === null) {
-    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired: false });
+    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
   }
 
   try {
@@ -126,19 +137,8 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
       });
     }
 
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired: false });
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
   }
-
-  // Determine if member is NR (non-rated) and requires self-rating
-  const [member] = await db
-    .select()
-    .from(membersTable)
-    .where(sql`lower(${membersTable.email}) = lower(${email})`);
-  function isNR(rating: string | null): boolean {
-    if (!rating || rating === "NR") return true;
-    return isNaN(parseFloat(rating));
-  }
-  const selfRatingRequired = member ? isNR(member.doubleRating) : false;
 
   return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
 });
@@ -293,6 +293,23 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
     const ar = req.body.assignedRating;
     updates.assignedRating = ar !== null && isFinite(Number(ar)) ? Number(ar) : null;
   }
+  if (req.body.selfRating !== undefined) {
+    const sr = req.body.selfRating;
+    if (sr !== null && sr !== "") {
+      const num = parseFloat(sr);
+      if (isNaN(num) || num < 2.0 || num > 5.0) {
+        return res.status(400).json({ error: "Self-rating must be a number between 2.0 and 5.0." });
+      }
+      if (!/^\d+(\.\d{1,2})?$/.test(sr)) {
+        return res.status(400).json({ error: "Self-rating must have at most 2 decimal places (e.g. 3.50)." });
+      }
+      // Update member's self-rating
+      await db.update(membersTable).set({ selfRating: sr }).where(eq(membersTable.duprId, existing.memberDuprId));
+    } else {
+      // Clear self-rating if null/empty
+      await db.update(membersTable).set({ selfRating: null }).where(eq(membersTable.duprId, existing.memberDuprId));
+    }
+  }
 
   // Server-managed cancellation metadata: when status transitions to cancelled,
   // record the timestamp and the acting staff member. When moving away from
@@ -307,13 +324,17 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
     updates.cancelledBy = null;
   }
 
-  const [updated] = await db
-    .update(registrationsTable)
-    .set(updates)
-    .where(eq(registrationsTable.id, Number(req.params.regId)))
-    .returning();
+  let updatedReg = existing;
+  if (Object.keys(updates).length > 0) {
+    const [updated] = await db
+      .update(registrationsTable)
+      .set(updates)
+      .where(eq(registrationsTable.id, Number(req.params.regId)))
+      .returning();
+    updatedReg = updated;
+  }
 
-  return res.json(await buildRosterEntry(updated, true));
+  return res.json(await buildRosterEntry(updatedReg, true));
 });
 
 router.delete("/:regId", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<RegParams>, res: Response) => {
