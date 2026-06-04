@@ -421,14 +421,14 @@ export default function AdminEventNew() {
               </div>
             </div>
 
-            {/* Description */}
+            {/* Guidelines and Rules */}
             <div className="space-y-1.5">
-              <Label>Description *</Label>
+              <Label>Guidelines and Rules *</Label>
               <RichTextEditor
                 key={`${form.teamFormat}-${descriptionGeneration}`}
                 data-testid="input-event-description" value={form.description}
                 onChange={v => { descriptionEdited.current = true; setField("description", v); }}
-                placeholder="Tell participants what to expect..."
+                placeholder="Add rules, requirements, waivers, and other guidelines that participants should know..."
               />
             </div>
 
