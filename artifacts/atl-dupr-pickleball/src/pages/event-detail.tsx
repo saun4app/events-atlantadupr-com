@@ -41,30 +41,6 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-function formatRatingInfo(event: any, skillLevels: SkillLevel[]): { label: string; detail?: string } | null {
-  const type = event.ratingTypeRequired;
-  const cfg = event.ratingConfig;
-  if (type === "none" || !type) return null;
-  if (type === "dupr") {
-    if (cfg) return { label: "DUPR Rating Required", detail: `${cfg.min}–${cfg.max}${cfg.nrAllowed ? " (NR OK)" : ""}` };
-    return { label: "DUPR Rating Required" };
-  }
-  if (type === "self_numeric") {
-    if (cfg) return { label: "Self-Rating Required", detail: `${cfg.min}–${cfg.max}` };
-    return { label: "Self-Rating Required" };
-  }
-  if (type === "self_skill") {
-    if (cfg && skillLevels.length > 0) {
-      const minLv = skillLevels.find(l => l.level === cfg.minLevel);
-      const maxLv = skillLevels.find(l => l.level === cfg.maxLevel);
-      if (minLv && maxLv) return { label: "Skill Level Required", detail: `${minLv.text} – ${maxLv.text}` };
-      if (maxLv) return { label: "Skill Level Required", detail: `Up to: ${maxLv.text}` };
-    }
-    return { label: "Skill Level Required" };
-  }
-  return { label: "Rating Required" };
-}
-
 function ParticipantTable({ registrations, event }: { registrations: any[]; event: any }) {
   if (registrations.length === 0) return null;
   return (
@@ -189,8 +165,6 @@ export default function EventDetail() {
     isFuture(new Date(event.signupEndDatetime)) &&
     isPast(new Date(event.signupStartDatetime));
   const signupNotYet = isFuture(new Date(event.signupStartDatetime));
-
-  const ratingInfo = formatRatingInfo(event, skillLevels);
 
   const confirmedRegs = registrations?.filter(r => r.status === "confirmed") ?? [];
 
@@ -349,7 +323,7 @@ export default function EventDetail() {
             </div>
             <div className="flex items-center gap-2 text-muted-foreground">
               <Star className="w-4 h-4 text-primary" />
-              {ratingInfo ? `${ratingInfo.label}${ratingInfo.detail ? ` — ${ratingInfo.detail}` : ""}` : "All Levels"}
+              All Levels
             </div>
             {event.requireApproval !== "none" && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
@@ -371,18 +345,6 @@ export default function EventDetail() {
 
         </div>
 
-        {/* Rating notice */}
-        {ratingInfo && (
-          <div className="flex items-start gap-3 bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-700">
-            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-            <span>
-              <strong>Rating Required:</strong> {ratingInfo.label}{ratingInfo.detail ? ` — ${ratingInfo.detail}` : ""}.
-              {(event as any).ratingTypeRequired === "dupr" && " Your DUPR doubles rating will be verified."}
-              {(event as any).ratingTypeRequired === "self_numeric" && " Please self-report your numeric rating."}
-              {(event as any).ratingTypeRequired === "self_skill" && " Please indicate your skill level when registering."}
-            </span>
-          </div>
-        )}
 
         {/* Registration form */}
         {signupOpen && (
