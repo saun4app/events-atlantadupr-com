@@ -54,6 +54,8 @@ export default function AdminSettings() {
     contactPersons: [] as ContactPerson[],
     maintenanceMode: false,
     joinInstructions: "",
+    homeTitle: "",
+    homeSubtitle: "",
   });
   const [dirty, setDirty] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
@@ -66,6 +68,8 @@ export default function AdminSettings() {
         contactPersons: (settings.contactPersons as ContactPerson[]) ?? [],
         maintenanceMode: settings.maintenanceMode ?? false,
         joinInstructions: (settings as any).joinInstructions ?? "",
+        homeTitle: (settings as any).homeTitle ?? "",
+        homeSubtitle: (settings as any).homeSubtitle ?? "",
       });
     }
   }, [settings]);
@@ -158,6 +162,34 @@ export default function AdminSettings() {
                   <SelectContent>{TIMEZONES.map(tz => <SelectItem key={tz} value={tz}>{tz}</SelectItem>)}</SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">Used as the default timezone when displaying event times.</p>
+              </div>
+            </section>
+
+            {/* ── Home Page Text ───────────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-4">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Home Page</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Text shown at the top of the home page.</p>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="home-title">Title</Label>
+                <Input
+                  id="home-title"
+                  value={form.homeTitle}
+                  onChange={e => update("homeTitle", e.target.value, true)}
+                  placeholder="Upcoming Events"
+                  data-testid="input-home-title"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="home-subtitle">Subtitle</Label>
+                <Input
+                  id="home-subtitle"
+                  value={form.homeSubtitle}
+                  onChange={e => update("homeSubtitle", e.target.value, true)}
+                  placeholder="Atlanta DUPR Pickleball — competitive round robins for serious players"
+                  data-testid="input-home-subtitle"
+                />
               </div>
             </section>
 
