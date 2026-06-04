@@ -420,7 +420,8 @@ export const CreateRegistrationBody = zod.object({
   "email": zod.string().optional(),
   "memberDuprId": zod.string().optional(),
   "partnerDuprId": zod.string().nullish(),
-  "code": zod.string().nullish().describe('6-digit email verification code (required for public self-registration)')
+  "code": zod.string().nullish().describe('6-digit email verification code (required for public self-registration)'),
+  "selfRating": zod.string().nullish().describe('Self-assessed rating (2.0-5.0) for NR (non-rated) players')
 })
 
 
@@ -437,7 +438,8 @@ export const RequestRegistrationCodeBody = zod.object({
 
 export const RequestRegistrationCodeResponse = zod.object({
   "sent": zod.boolean(),
-  "cooldownSeconds": zod.number().optional().describe('Seconds the client should wait before requesting another code')
+  "cooldownSeconds": zod.number().optional().describe('Seconds the client should wait before requesting another code'),
+  "selfRatingRequired": zod.boolean().optional().describe('Whether the member is NR (non-rated) and must provide a self-rating')
 })
 
 

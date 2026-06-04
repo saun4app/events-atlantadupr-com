@@ -10,4 +10,6 @@ export interface RequestCodeResult {
   sent: boolean;
   /** Seconds the client should wait before requesting another code */
   cooldownSeconds?: number;
+  /** Whether the member is NR (non-rated) and must provide a self-rating */
+  selfRatingRequired?: boolean;
 }

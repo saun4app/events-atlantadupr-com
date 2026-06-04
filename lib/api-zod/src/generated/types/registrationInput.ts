@@ -16,4 +16,9 @@ export interface RegistrationInput {
      * @nullable
      */
   code?: string | null;
+  /**
+     * Self-assessed rating (2.0-5.0) for NR (non-rated) players
+     * @nullable
+     */
+  selfRating?: string | null;
 }

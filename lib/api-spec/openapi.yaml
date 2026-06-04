@@ -1148,6 +1148,9 @@ components:
         code:
           type: ["string", "null"]
           description: 6-digit email verification code (required for public self-registration)
+        selfRating:
+          type: ["string", "null"]
+          description: Self-assessed rating (2.0-5.0) for NR (non-rated) players
 
     RequestCodeInput:
       type: object
@@ -1165,6 +1168,9 @@ components:
         cooldownSeconds:
           type: integer
           description: Seconds the client should wait before requesting another code
+        selfRatingRequired:
+          type: boolean
+          description: Whether the member is NR (non-rated) and must provide a self-rating
 
     CancelRegistrationInput:
       type: object

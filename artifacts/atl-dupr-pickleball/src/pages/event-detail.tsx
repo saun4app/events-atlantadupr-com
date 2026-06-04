@@ -124,9 +124,6 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
                 <span data-testid={`text-rating-${reg.id}`} className="font-mono">
                   {reg.doubleRating || "NR"}
                 </span>
-                {isNonNumeric(reg.doubleRating) && reg.selfRating && (
-                  <span className="ml-2 text-xs text-muted-foreground">(self: {reg.selfRating})</span>
-                )}
               </td>
               <td className="px-5 py-3">
                 <StatusBadge status={reg.status} />
@@ -167,6 +164,9 @@ export default function EventDetail() {
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [notMemberDialogOpen, setNotMemberDialogOpen] = useState(false);
   const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+  const [selfRating, setSelfRating] = useState("");
+  const [selfRatingError, setSelfRatingError] = useState("");
+  const [selfRatingRequired, setSelfRatingRequired] = useState(false);
 
   const [cancelEmail, setCancelEmail] = useState("");
   const [cancelCode, setCancelCode] = useState("");
@@ -253,6 +253,9 @@ export default function EventDetail() {
           setCodeSent(true);
           setCode("");
           setCooldown(res.cooldownSeconds ?? 30);
+          setSelfRatingRequired(res.selfRatingRequired ?? false);
+          setSelfRating("");
+          setSelfRatingError("");
           toast({ title: "Verification code sent", description: `We emailed a 6-digit code to ${email.trim()}. It expires in 10 minutes.` });
         },
         onError: (err: any) => {
@@ -290,10 +293,30 @@ export default function EventDetail() {
     setCode("");
     setCodeSent(false);
     setCooldown(0);
+    setSelfRating("");
+    setSelfRatingError("");
+    setSelfRatingRequired(false);
   }
 
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
+    // Frontend validation for self-rating
+    const ratingVal = selfRating.trim();
+    if (selfRatingRequired) {
+      if (!ratingVal) {
+        setSelfRatingError("Self-rating is required.");
+        return;
+      }
+      const num = parseFloat(ratingVal);
+      if (isNaN(num) || num < 2.0 || num > 5.0) {
+        setSelfRatingError("Self-rating must be between 2.0 and 5.0.");
+        return;
+      }
+      if (!/^\d+(\.\d{1,2})?$/.test(ratingVal)) {
+        setSelfRatingError("Self-rating must have at most 2 decimal places (e.g. 3.50).");
+        return;
+      }
+    }
     createReg.mutate(
       {
         id: eventId,
@@ -301,6 +324,7 @@ export default function EventDetail() {
           email: email.trim(),
           code: code.trim(),
           partnerDuprId: event?.teamFormat === "fixed_partner" ? partnerDuprId.trim() || null : null,
+          selfRating: ratingVal || null,
         },
       },
       {
@@ -584,6 +608,34 @@ export default function EventDetail() {
                     </button>
                   </p>
                 </div>
+                {selfRatingRequired && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="self-rating">Self-Rating <span className="text-destructive">*</span></Label>
+                    <Input
+                      id="self-rating"
+                      type="text"
+                      inputMode="decimal"
+                      data-testid="input-self-rating"
+                      value={selfRating}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "" || /^\d+(\.\d{0,2})?$/.test(v)) {
+                          setSelfRating(v);
+                          setSelfRatingError("");
+                        }
+                      }}
+                      placeholder="e.g. 3.50"
+                      required={selfRatingRequired}
+                      className={selfRatingError ? "border-destructive" : ""}
+                    />
+                    {selfRatingError && (
+                      <p className="text-xs text-destructive">{selfRatingError}</p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Your DUPR rating is NR (non-rated). Enter a self-assessed rating between 2.0 and 5.0 (e.g. 3.50).
+                    </p>
+                  </div>
+                )}
                 <Button data-testid="button-register" type="submit" disabled={createReg.isPending || code.trim().length !== 6}>
                   {createReg.isPending ? "Submitting..." : "Submit Registration"}
                 </Button>

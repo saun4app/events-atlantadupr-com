@@ -354,6 +354,11 @@ export interface RegistrationInput {
      * @nullable
      */
   code?: string | null;
+  /**
+     * Self-assessed rating (2.0-5.0) for NR (non-rated) players
+     * @nullable
+     */
+  selfRating?: string | null;
 }
 
 export interface RequestCodeInput {
@@ -364,6 +369,8 @@ export interface RequestCodeResult {
   sent: boolean;
   /** Seconds the client should wait before requesting another code */
   cooldownSeconds?: number;
+  /** Whether the member is NR (non-rated) and must provide a self-rating */
+  selfRatingRequired?: boolean;
 }
 
 export interface CancelRegistrationInput {

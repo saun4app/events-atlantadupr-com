@@ -90,7 +90,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   const fromEmail = process.env.VERIFICATION_EMAIL_FROM || contactEmail;
   if (!fromEmail) {
     logger.error("Cannot send verification code: no VERIFICATION_EMAIL_FROM or eventContactEmails configured");
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired: false });
   }
   // Route replies back to the human contact address when the sender is a
   // dedicated no-reply style verified address.
@@ -98,7 +98,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
 
   const code = await issueCode(email);
   if (code === null) {
-    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired: false });
   }
 
   try {
@@ -126,15 +126,26 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
       });
     }
 
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired: false });
   }
 
-  return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+  // Determine if member is NR (non-rated) and requires self-rating
+  const [member] = await db
+    .select()
+    .from(membersTable)
+    .where(sql`lower(${membersTable.email}) = lower(${email})`);
+  function isNR(rating: string | null): boolean {
+    if (!rating || rating === "NR") return true;
+    return isNaN(parseFloat(rating));
+  }
+  const selfRatingRequired = member ? isNR(member.doubleRating) : false;
+
+  return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
 });
 
 router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
-  const { email, memberDuprId, partnerDuprId, code } = req.body;
+  const { email, memberDuprId, partnerDuprId, code, selfRating } = req.body;
 
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!event) return res.status(404).json({ error: "Event not found" });
@@ -205,6 +216,22 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   function isNR(rating: string | null): boolean {
     if (!rating || rating === "NR") return true;
     return isNaN(parseFloat(rating));
+  }
+
+  // Validate and store self-rating for NR players
+  if (isNR(member?.doubleRating)) {
+    if (!selfRating || typeof selfRating !== "string") {
+      return res.status(400).json({ error: "Self-rating is required for NR (non-rated) players. Please enter a rating between 2.0 and 5.0." });
+    }
+    const num = parseFloat(selfRating);
+    if (isNaN(num) || num < 2.0 || num > 5.0) {
+      return res.status(400).json({ error: "Self-rating must be a number between 2.0 and 5.0." });
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(selfRating)) {
+      return res.status(400).json({ error: "Self-rating must have at most 2 decimal places (e.g. 3.50)." });
+    }
+    // Update member's self-rating
+    await db.update(membersTable).set({ selfRating }).where(eq(membersTable.duprId, finalMemberDuprId));
   }
 
   let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
