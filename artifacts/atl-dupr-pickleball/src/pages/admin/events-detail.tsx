@@ -166,8 +166,9 @@ export default function AdminEventDetail() {
   const getPageSize = (key: string) => pageSizes[key] ?? 25;
   const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
   const [showRemoved, setShowRemoved] = useState(false);
-  const [clientDialog, setClientDialog] = useState<{ mode: "email" | "text" } | null>(null);
+  const [clientDialog, setClientDialog] = useState<{ mode: "email" | "text"; kind: "broadcast" | "client" } | null>(null);
   const [clientSelectedIds, setClientSelectedIds] = useState<Set<number>>(new Set());
+  const [clientMessage, setClientMessage] = useState("");
 
   const enabledRatingTypes = [
     { key: "none", label: "No Rating Required" },
@@ -354,25 +355,21 @@ export default function AdminEventDetail() {
   const confirmedEmails = Array.from(new Set(confirmed.map(r => (r as any).playerEmail as string | undefined).filter((e): e is string => !!e)));
   const confirmedPhones = Array.from(new Set(confirmed.map(r => (r as any).playerPhone as string | undefined).filter((p): p is string => !!p)));
 
-  const handleEmailBroadcast = () => {
-    if (confirmedEmails.length === 0) {
-      toast({ title: "No email addresses", description: "No confirmed participants have an email on file.", variant: "destructive" });
-      return;
-    }
-    toast({ title: "Email broadcast", description: `Bulk email to ${confirmedEmails.length} confirmed participant${confirmedEmails.length === 1 ? "" : "s"} will be enabled soon.` });
-  };
-
-  const handleTextBroadcast = () => {
-    if (confirmedPhones.length === 0) {
-      toast({ title: "No phone numbers", description: "No confirmed participants have a phone number on file.", variant: "destructive" });
-      return;
-    }
-    toast({ title: "Text broadcast", description: `Bulk text to ${confirmedPhones.length} confirmed participant${confirmedPhones.length === 1 ? "" : "s"} will be enabled soon.` });
-  };
-
   const clientField = (mode: "email" | "text") => (mode === "email" ? "playerEmail" : "playerPhone");
 
-  const openClientDialog = (mode: "email" | "text") => {
+  const defaultNotifyMessage = () => {
+    if (!event) return "";
+    const dateStr = event.startDatetime ? format(new Date(event.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a") : "";
+    const loc = [event.locationName, event.locationAddress].filter(Boolean).join(", ");
+    const lines = [
+      event.name ? `Event: ${event.name}` : "",
+      dateStr ? `When: ${dateStr}` : "",
+      loc ? `Where: ${loc}` : "",
+    ].filter(Boolean);
+    return lines.length ? `${lines.join("\n")}\n\n` : "";
+  };
+
+  const openNotifyDialog = (mode: "email" | "text", kind: "broadcast" | "client") => {
     const field = clientField(mode);
     const eligible = confirmed.filter(r => !!(r as any)[field]);
     if (eligible.length === 0) {
@@ -382,8 +379,13 @@ export default function AdminEventDetail() {
       return;
     }
     setClientSelectedIds(new Set(eligible.map(r => r.id)));
-    setClientDialog({ mode });
+    setClientMessage(defaultNotifyMessage());
+    setClientDialog({ mode, kind });
   };
+
+  const handleEmailBroadcast = () => openNotifyDialog("email", "broadcast");
+
+  const handleTextBroadcast = () => openNotifyDialog("text", "broadcast");
 
   const clientRecipients = clientDialog
     ? sortRegs(confirmed, "Confirmed").filter(r => !!(r as any)[clientField(clientDialog.mode)])
@@ -406,7 +408,7 @@ export default function AdminEventDetail() {
 
   const confirmClientDialog = () => {
     if (!clientDialog) return;
-    const mode = clientDialog.mode;
+    const { mode, kind } = clientDialog;
     const field = clientField(mode);
     const values = Array.from(new Set(
       clientRecipients
@@ -418,17 +420,30 @@ export default function AdminEventDetail() {
       toast({ title: "No recipients selected", description: `Select at least one participant to ${mode === "email" ? "email" : "text"}.`, variant: "destructive" });
       return;
     }
+    const message = clientMessage.trim();
+    if (kind === "broadcast") {
+      toast({
+        title: mode === "email" ? "Email broadcast" : "Text broadcast",
+        description: `Bulk ${mode === "email" ? "email" : "text"} to ${values.length} confirmed participant${values.length === 1 ? "" : "s"} will be enabled soon.`,
+      });
+      setClientDialog(null);
+      return;
+    }
     if (mode === "email") {
-      window.location.href = `mailto:?bcc=${encodeURIComponent(values.join(","))}`;
+      const subject = event?.name ? `Update: ${event.name}` : "Event update";
+      const params = [`bcc=${encodeURIComponent(values.join(","))}`, `subject=${encodeURIComponent(subject)}`];
+      if (message) params.push(`body=${encodeURIComponent(message)}`);
+      window.location.href = `mailto:?${params.join("&")}`;
     } else {
-      window.location.href = `sms:${encodeURIComponent(values.join(","))}`;
+      const base = `sms:${encodeURIComponent(values.join(","))}`;
+      window.location.href = message ? `${base}?body=${encodeURIComponent(message)}` : base;
     }
     setClientDialog(null);
   };
 
-  const handleEmailClient = () => openClientDialog("email");
+  const handleEmailClient = () => openNotifyDialog("email", "client");
 
-  const handleTextClient = () => openClientDialog("text");
+  const handleTextClient = () => openNotifyDialog("text", "client");
 
   const exportColumns = () => {
     const cols: { label: string; get: (r: any) => string }[] = [];
@@ -1018,7 +1033,10 @@ export default function AdminEventDetail() {
       <Dialog open={!!clientDialog} onOpenChange={open => { if (!open) setClientDialog(null); }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{clientDialog?.mode === "text" ? "Text confirmed participants" : "Email confirmed participants"}</DialogTitle>
+            <DialogTitle>
+              {(clientDialog?.mode === "text" ? "Text" : "Email")}{" "}
+              {(clientDialog?.kind === "broadcast" ? "broadcast" : "confirmed participants")}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <label className="flex items-center gap-2 text-sm font-medium border-b border-border pb-2 cursor-pointer">
@@ -1032,7 +1050,7 @@ export default function AdminEventDetail() {
               />
               Select all ({clientRecipients.length})
             </label>
-            <div className="max-h-72 overflow-y-auto space-y-1 pr-1">
+            <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
               {clientRecipients.map(r => {
                 const contact = clientDialog?.mode === "text" ? (r as any).playerPhone : (r as any).playerEmail;
                 return (
@@ -1049,6 +1067,17 @@ export default function AdminEventDetail() {
                   </label>
                 );
               })}
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="notify-message" className="text-sm font-medium">Message</Label>
+              <Textarea
+                id="notify-message"
+                data-testid="textarea-notify-message"
+                rows={6}
+                value={clientMessage}
+                onChange={e => setClientMessage(e.target.value)}
+                placeholder="Add a message for participants…"
+              />
             </div>
           </div>
           <DialogFooter className="flex-row items-center gap-2">
