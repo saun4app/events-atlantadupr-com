@@ -13,8 +13,9 @@ import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import {
   SlidersHorizontal, Plus, Trash2, Pencil, MapPin, DollarSign,
-  ChevronUp, ChevronDown, Mail,
+  ChevronUp, ChevronDown, Mail, Users,
 } from "lucide-react";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -70,6 +71,8 @@ export default function AdminEventSetup() {
     defaultEventNames: [] as string[],
     eventRoles: [] as string[],
     ratingRequirementsConfig: DEFAULT_RATING_CONFIG as RatingRequirementsConfig,
+    rotatingPartnersDescription: "",
+    fixedPartnerDescription: "",
   });
   const [dirty, setDirty] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
@@ -122,6 +125,8 @@ export default function AdminEventSetup() {
           selfNumeric: { ...DEFAULT_RATING_CONFIG.selfNumeric, ...(rrc.selfNumeric ?? {}) },
           selfSkill: { ...DEFAULT_RATING_CONFIG.selfSkill, ...(rrc.selfSkill ?? {}) },
         },
+        rotatingPartnersDescription: (settings as any).rotatingPartnersDescription ?? "",
+        fixedPartnerDescription: (settings as any).fixedPartnerDescription ?? "",
       });
     }
   }, [settings]);
@@ -339,6 +344,32 @@ export default function AdminEventSetup() {
                 <Label htmlFor="event-duration">Default Event Duration (hours)</Label>
                 <NumericInput id="event-duration" data-testid="input-event-duration-hours" min={1} max={24} value={form.defaultEventDurationHours} onChange={v => update("defaultEventDurationHours", Math.max(1, v))} />
                 <p className="text-xs text-muted-foreground">Used to auto-calculate the end time when creating new events.</p>
+              </div>
+            </section>
+
+            {/* ── Partner Descriptions ─────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Partner Descriptions</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Explanations of event formats shown to participants during registration.</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-medium"><Users className="w-4 h-4 text-muted-foreground" />Rotating Partners</Label>
+                <RichTextEditor
+                  value={form.rotatingPartnersDescription}
+                  onChange={v => update("rotatingPartnersDescription", v)}
+                  placeholder="Describe the rotating partners format — partners rotate each round, etc."
+                  data-testid="editor-rotating-partners-description"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2 text-sm font-medium"><Users className="w-4 h-4 text-muted-foreground" />Fixed Partners</Label>
+                <RichTextEditor
+                  value={form.fixedPartnerDescription}
+                  onChange={v => update("fixedPartnerDescription", v)}
+                  placeholder="Describe the fixed partners format — teams stay together throughout the event, etc."
+                  data-testid="editor-fixed-partner-description"
+                />
               </div>
             </section>
 
