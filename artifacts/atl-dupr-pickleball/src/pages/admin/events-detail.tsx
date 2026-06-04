@@ -511,7 +511,8 @@ export default function AdminEventDetail() {
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [22, 163, 74] },
       });
-      doc.save(`confirmed-${safeName}.pdf`);
+      const pdfUrl = doc.output("bloburl");
+      window.open(pdfUrl, "_blank");
     }
   };
 
