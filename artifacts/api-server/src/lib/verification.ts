@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { db } from "@workspace/db";
 import { emailVerificationCodesTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { eq, lt } from "drizzle-orm";
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 const COOLDOWN_MS = 30 * 1000;
@@ -34,6 +34,8 @@ function generateCode(): string {
 export async function issueCode(rawEmail: string): Promise<string | null> {
   const email = normalizeEmail(rawEmail);
   const now = new Date();
+
+  await clearExpiredCodes(now);
 
   const [existing] = await db
     .select()
@@ -91,4 +93,14 @@ export async function peekCode(rawEmail: string, code: string): Promise<boolean>
 export async function consumeCode(rawEmail: string): Promise<void> {
   const email = normalizeEmail(rawEmail);
   await db.delete(emailVerificationCodesTable).where(eq(emailVerificationCodesTable.email, email));
+}
+
+/**
+ * Opportunistically removes verification codes that have already expired.
+ * Called on code issuance to keep the table tidy without a separate scheduler.
+ */
+export async function clearExpiredCodes(now: Date = new Date()): Promise<void> {
+  await db
+    .delete(emailVerificationCodesTable)
+    .where(lt(emailVerificationCodesTable.expiresAt, now));
 }
