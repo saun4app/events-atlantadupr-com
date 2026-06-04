@@ -74,6 +74,8 @@ export default function AdminEventSetup() {
     rotatingPartnersDescription: "",
     fixedPartnerDescription: "",
     guidelinesAndRules: "",
+    homeTitle: "",
+    homeSubtitle: "",
   });
   const [dirty, setDirty] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
@@ -129,6 +131,8 @@ export default function AdminEventSetup() {
         rotatingPartnersDescription: (settings as any).rotatingPartnersDescription ?? "",
         fixedPartnerDescription: (settings as any).fixedPartnerDescription ?? "",
         guidelinesAndRules: (settings as any).guidelinesAndRules ?? "",
+        homeTitle: (settings as any).homeTitle ?? "",
+        homeSubtitle: (settings as any).homeSubtitle ?? "",
       });
     }
   }, [settings]);
@@ -346,6 +350,32 @@ export default function AdminEventSetup() {
                 <Label htmlFor="event-duration">Default Event Duration (hours)</Label>
                 <NumericInput id="event-duration" data-testid="input-event-duration-hours" min={1} max={24} value={form.defaultEventDurationHours} onChange={v => update("defaultEventDurationHours", Math.max(1, v))} />
                 <p className="text-xs text-muted-foreground">Used to auto-calculate the end time when creating new events.</p>
+              </div>
+            </section>
+
+            {/* ── Home Page Text ───────────────────────────── */}
+            <section className="bg-card border border-card-border rounded-lg p-5 space-y-5">
+              <div>
+                <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Home Page</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Text shown at the top of the home page.</p>
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Title</Label>
+                <Input
+                  value={form.homeTitle}
+                  onChange={e => update("homeTitle", e.target.value, true)}
+                  placeholder="Upcoming Events"
+                  data-testid="input-home-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Subtitle</Label>
+                <Input
+                  value={form.homeSubtitle}
+                  onChange={e => update("homeSubtitle", e.target.value, true)}
+                  placeholder="Atlanta DUPR Pickleball — competitive round robins for serious players"
+                  data-testid="input-home-subtitle"
+                />
               </div>
             </section>
 

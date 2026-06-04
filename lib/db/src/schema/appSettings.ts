@@ -98,6 +98,8 @@ export const appSettingsTable = pgTable("app_settings", {
   joinInstructions: text("join_instructions").notNull().default(""),
   eventContactEmails: jsonb("event_contact_emails").$type<string[]>().notNull().default([]),
   guidelinesAndRules: text("guidelines_and_rules").notNull().default(""),
+  homeTitle: text("home_title").notNull().default("Upcoming Events"),
+  homeSubtitle: text("home_subtitle").notNull().default("Atlanta DUPR Pickleball — competitive round robins for serious players"),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;

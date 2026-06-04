@@ -117,6 +117,8 @@ export interface MemberUpdate {
 export interface CsvUploadResult {
   imported: number;
   skipped: number;
+  removed: number;
+  regSkipped: string[];
   errors: string[];
 }
 
@@ -432,6 +434,10 @@ export interface AppSettings {
   defaultRatingRequirements: RatingRequirement[];
   /** Default guidelines and rules content for new events */
   guidelinesAndRules?: string;
+  /** Page title displayed on the home page */
+  homeTitle?: string;
+  /** Subtitle displayed on the home page */
+  homeSubtitle?: string;
 }
 
 export interface AppSettingsInput {
@@ -450,6 +456,10 @@ export interface AppSettingsInput {
   defaultRatingRequirements?: RatingRequirement[];
   /** Default guidelines and rules content for new events */
   guidelinesAndRules?: string;
+  /** Page title displayed on the home page */
+  homeTitle?: string;
+  /** Subtitle displayed on the home page */
+  homeSubtitle?: string;
 }
 
 export type ListMembersParams = {

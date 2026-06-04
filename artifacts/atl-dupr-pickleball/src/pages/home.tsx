@@ -84,8 +84,8 @@ export default function Home() {
 
       <div className="bg-white py-10 px-4 border-b border-border">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold tracking-tight mb-1 text-foreground">Upcoming Events</h1>
-          <p className="text-muted-foreground text-sm">Atlanta DUPR Pickleball — competitive round robins for serious players</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-1 text-foreground">{settings?.homeTitle || "Upcoming Events"}</h1>
+          <p className="text-muted-foreground text-sm">{settings?.homeSubtitle || "Atlanta DUPR Pickleball — competitive round robins for serious players"}</p>
         </div>
       </div>
 

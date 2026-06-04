@@ -193,6 +193,12 @@ function validateSettingsInput(body: unknown): string | null {
   if (b.joinInstructions !== undefined && typeof b.joinInstructions !== "string") {
     return "joinInstructions must be a string";
   }
+  if (b.homeTitle !== undefined && typeof b.homeTitle !== "string") {
+    return "homeTitle must be a string";
+  }
+  if (b.homeSubtitle !== undefined && typeof b.homeSubtitle !== "string") {
+    return "homeSubtitle must be a string";
+  }
   if (b.eventContactEmails !== undefined) {
     if (!Array.isArray(b.eventContactEmails)) return "eventContactEmails must be an array";
     for (let i = 0; i < b.eventContactEmails.length; i++) {
@@ -246,6 +252,8 @@ router.put("/", requireRole("admin"), async (req, res) => {
     joinInstructions,
     eventContactEmails,
     guidelinesAndRules,
+    homeTitle,
+    homeSubtitle,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -289,6 +297,8 @@ router.put("/", requireRole("admin"), async (req, res) => {
     updates.eventContactEmails = (eventContactEmails as string[]).map((e: string) => e.trim().toLowerCase()).filter(Boolean);
   }
   if (guidelinesAndRules !== undefined) updates.guidelinesAndRules = guidelinesAndRules;
+  if (homeTitle !== undefined) updates.homeTitle = homeTitle;
+  if (homeSubtitle !== undefined) updates.homeSubtitle = homeSubtitle;
 
   const [updated] = await db
     .insert(appSettingsTable)

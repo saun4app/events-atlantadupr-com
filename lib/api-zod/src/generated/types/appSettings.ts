@@ -28,4 +28,8 @@ export interface AppSettings {
   defaultRatingRequirements: RatingRequirement[];
   /** Default guidelines and rules content for new events */
   guidelinesAndRules?: string;
+  /** Page title displayed on the home page */
+  homeTitle?: string;
+  /** Subtitle displayed on the home page */
+  homeSubtitle?: string;
 }

@@ -86,6 +86,8 @@ export const CreateMemberBody = zod.object({
 export const UploadMembersCsvResponse = zod.object({
   "imported": zod.number(),
   "skipped": zod.number(),
+  "removed": zod.number(),
+  "regSkipped": zod.array(zod.string()),
   "errors": zod.array(zod.string())
 })
 
@@ -652,7 +654,9 @@ export const GetSettingsResponse = zod.object({
   "key": zod.string(),
   "label": zod.string()
 })).describe('Admin-defined list of rating requirement options'),
-  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events')
+  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
+  "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
+  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
 })
 
 
@@ -686,7 +690,9 @@ export const UpdateSettingsBody = zod.object({
   "key": zod.string(),
   "label": zod.string()
 })).optional(),
-  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events')
+  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
+  "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
+  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -716,7 +722,9 @@ export const UpdateSettingsResponse = zod.object({
   "key": zod.string(),
   "label": zod.string()
 })).describe('Admin-defined list of rating requirement options'),
-  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events')
+  "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
+  "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
+  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
 })
 
 

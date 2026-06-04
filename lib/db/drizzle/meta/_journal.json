@@ -22,6 +22,13 @@
       "when": 1780594224943,
       "tag": "0002_many_maelstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1780602543000,
+      "tag": "0003_glossy_ember",
+      "breakpoints": true
     }
   ]
 }

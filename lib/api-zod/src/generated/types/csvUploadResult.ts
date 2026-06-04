@@ -9,5 +9,7 @@
 export interface CsvUploadResult {
   imported: number;
   skipped: number;
+  removed: number;
+  regSkipped: string[];
   errors: string[];
 }

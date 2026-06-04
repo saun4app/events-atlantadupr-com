@@ -1273,6 +1273,12 @@ components:
         guidelinesAndRules:
           type: string
           description: Default guidelines and rules content for new events
+        homeTitle:
+          type: string
+          description: Page title displayed on the home page
+        homeSubtitle:
+          type: string
+          description: Subtitle displayed on the home page
 
     AppSettingsInput:
       type: object
@@ -1314,3 +1320,9 @@ components:
         guidelinesAndRules:
           type: string
           description: Default guidelines and rules content for new events
+        homeTitle:
+          type: string
+          description: Page title displayed on the home page
+        homeSubtitle:
+          type: string
+          description: Subtitle displayed on the home page
