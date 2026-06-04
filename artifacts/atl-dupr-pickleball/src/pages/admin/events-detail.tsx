@@ -40,6 +40,8 @@ interface SelfNumericConfig { enabled: boolean; minAllowed: number; maxAllowed: 
 interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; defaultMinLevel: number; defaultMaxLevel: number; }
 interface RatingRequirementsConfig { dupr: DuprRatingConfig; selfNumeric: SelfNumericConfig; selfSkill: SelfSkillConfig; }
 
+const NOTIFY_FROM_EMAIL = "saun@atlantadupr.com";
+
 const DEFAULT_RRC: RatingRequirementsConfig = {
   dupr: { enabled: true, minAllowed: 2.0, maxAllowed: 8.0, defaultMin: 2.0, defaultMax: 4.0, defaultNrAllowed: false },
   selfNumeric: { enabled: true, minAllowed: 2.0, maxAllowed: 6.0, defaultMin: 2.0, defaultMax: 4.0 },
@@ -431,7 +433,11 @@ export default function AdminEventDetail() {
     }
     if (mode === "email") {
       const subject = event?.name ? `Update: ${event.name}` : "Event update";
-      const params = [`bcc=${encodeURIComponent(values.join(","))}`, `subject=${encodeURIComponent(subject)}`];
+      const params = [
+        `from=${encodeURIComponent(NOTIFY_FROM_EMAIL)}`,
+        `bcc=${encodeURIComponent(values.join(","))}`,
+        `subject=${encodeURIComponent(subject)}`,
+      ];
       if (message) params.push(`body=${encodeURIComponent(message)}`);
       window.location.href = `mailto:?${params.join("&")}`;
     } else {
