@@ -2,7 +2,7 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useLogout, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, Users, Shield, LogOut, Menu, Settings, X } from "lucide-react";
+import { Calendar, Users, Shield, LogOut, Menu, Settings, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
 
@@ -15,6 +15,7 @@ export function AdminNav() {
 
   const links = [
     { href: "/admin/events", label: "Manage Events", icon: Calendar, roles: ["admin", "event_organizer", "event_captain", "court_leader"] },
+    { href: "/admin/event-setup", label: "Event Setup", icon: SlidersHorizontal, roles: ["admin", "event_organizer", "event_captain", "court_leader"] },
     { href: "/admin/members", label: "Manage Members", icon: Users, roles: ["admin"] },
     { href: "/admin/users", label: "Manage Users", icon: Shield, roles: ["admin"] },
     { href: "/admin/settings", label: "Settings", icon: Settings, roles: ["admin"] },

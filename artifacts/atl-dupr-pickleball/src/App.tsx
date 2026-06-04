@@ -16,6 +16,7 @@ import AdminEventDetail from "@/pages/admin/events-detail";
 import AdminMembers from "@/pages/admin/members";
 import AdminUsers from "@/pages/admin/users";
 import AdminSettings from "@/pages/admin/settings";
+import AdminEventSetup from "@/pages/admin/event-setup";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ function Router() {
       <Route path="/admin/events/:id" component={AdminEventDetail} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
+      <Route path="/admin/event-setup" component={AdminEventSetup} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
