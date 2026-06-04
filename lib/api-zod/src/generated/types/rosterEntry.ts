@@ -19,6 +19,10 @@ export interface RosterEntry {
   approvedAt?: string | null;
   /** @nullable */
   approvedBy?: number | null;
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancelledBy?: string | null;
   playerName?: string;
   /** @nullable */
   doubleRating?: string | null;

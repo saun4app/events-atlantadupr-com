@@ -8,6 +8,7 @@
 
 export * from './appSettings';
 export * from './appSettingsInput';
+export * from './cancelRegistrationInput';
 export * from './contactPerson';
 export * from './csvUploadResult';
 export * from './defaultLocation';

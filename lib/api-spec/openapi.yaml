@@ -626,6 +626,35 @@ paths:
               schema:
                 $ref: "#/components/schemas/RosterEntry"
 
+  /events/{id}/registrations/cancel:
+    post:
+      operationId: cancelRegistration
+      tags: [registrations]
+      summary: Cancel a registration by participant (self-cancel)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelRegistrationInput"
+      responses:
+        "200":
+          description: Registration cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+        "400":
+          description: Invalid or expired verification code
+        "404":
+          description: Registration or event not found
+
   /settings:
     get:
       operationId: getSettings
@@ -1080,6 +1109,10 @@ components:
           type: ["string", "null"]
         approvedBy:
           type: ["integer", "null"]
+        cancelledAt:
+          type: ["string", "null"]
+        cancelledBy:
+          type: ["string", "null"]
         playerName:
           type: string
         doubleRating:
@@ -1120,6 +1153,16 @@ components:
         cooldownSeconds:
           type: integer
           description: Seconds the client should wait before requesting another code
+
+    CancelRegistrationInput:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+        code:
+          type: string
+          description: 6-digit email verification code
 
     RegistrationUpdate:
       type: object

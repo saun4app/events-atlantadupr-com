@@ -25,6 +25,8 @@ export const registrationsTable = pgTable("atl_dupr_signups", {
   registeredAt: timestamp("registered_at").notNull().defaultNow(),
   approvedAt: timestamp("approved_at"),
   approvedBy: integer("approved_by").references(() => usersTable.id),
+  cancelledAt: timestamp("cancelled_at"),
+  cancelledBy: text("cancelled_by"),
 });
 
 export const insertRegistrationSchema = createInsertSchema(registrationsTable).omit({

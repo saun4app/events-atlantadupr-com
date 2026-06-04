@@ -22,6 +22,7 @@ import type {
 import type {
   AppSettings,
   AppSettingsInput,
+  CancelRegistrationInput,
   CsvUploadResult,
   Event,
   EventCloneInput,
@@ -2201,6 +2202,78 @@ export const usePromoteFromWaitlist = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getPromoteFromWaitlistMutationOptions(options));
+    }
+
+export const getCancelRegistrationUrl = (id: number,) => {
+
+
+
+
+  return `/api/events/${id}/registrations/cancel`
+}
+
+/**
+ * @summary Cancel a registration by participant (self-cancel)
+ */
+export const cancelRegistration = async (id: number,
+    cancelRegistrationInput: CancelRegistrationInput, options?: RequestInit): Promise<RosterEntry> => {
+
+  return customFetch<RosterEntry>(getCancelRegistrationUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      cancelRegistrationInput,)
+  }
+);}
+
+
+
+
+export const getCancelRegistrationMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{id: number;data: BodyType<CancelRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{id: number;data: BodyType<CancelRegistrationInput>}, TContext> => {
+
+const mutationKey = ['cancelRegistration'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelRegistration>>, {id: number;data: BodyType<CancelRegistrationInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  cancelRegistration(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CancelRegistrationMutationResult = NonNullable<Awaited<ReturnType<typeof cancelRegistration>>>
+    export type CancelRegistrationMutationBody = BodyType<CancelRegistrationInput>
+    export type CancelRegistrationMutationError = ErrorType<void>
+
+    /**
+ * @summary Cancel a registration by participant (self-cancel)
+ */
+export const useCancelRegistration = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{id: number;data: BodyType<CancelRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof cancelRegistration>>,
+        TError,
+        {id: number;data: BodyType<CancelRegistrationInput>},
+        TContext
+      > => {
+      return useMutation(getCancelRegistrationMutationOptions(options));
     }
 
 export const getGetSettingsUrl = () => {

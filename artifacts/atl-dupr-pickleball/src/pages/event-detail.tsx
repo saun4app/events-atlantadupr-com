@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import {
   useGetEvent, useGetEventRosterSummary, useListRegistrations, useCreateRegistration,
-  useRequestRegistrationCode, useGetSettings,
+  useRequestRegistrationCode, useGetSettings, useCancelRegistration,
   getGetEventQueryKey, getGetEventRosterSummaryQueryKey, getListRegistrationsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -32,6 +32,7 @@ function StatusBadge({ status }: { status: string }) {
     waitlisted: { label: "Waitlisted", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
     pending_approval: { label: "Pending Approval", className: "bg-blue-100 text-blue-700 border-blue-200" },
     rejected: { label: "Rejected", className: "bg-destructive/10 text-destructive border-destructive/20" },
+    cancelled: { label: "Cancelled", className: "bg-gray-100 text-gray-700 border-gray-200" },
   };
   const s = map[status] ?? { label: status, className: "" };
   return (
@@ -102,6 +103,7 @@ export default function EventDetail() {
   const { data: settings } = useGetSettings();
   const createReg = useCreateRegistration();
   const requestCode = useRequestRegistrationCode();
+  const cancelReg = useCancelRegistration();
 
   const [email, setEmail] = useState("");
   const [partnerDuprId, setPartnerDuprId] = useState("");
@@ -112,11 +114,23 @@ export default function EventDetail() {
   const [notMemberDialogOpen, setNotMemberDialogOpen] = useState(false);
   const [showApprovalNotice, setShowApprovalNotice] = useState(false);
 
+  const [cancelEmail, setCancelEmail] = useState("");
+  const [cancelCode, setCancelCode] = useState("");
+  const [cancelCodeSent, setCancelCodeSent] = useState(false);
+  const [cancelCooldown, setCancelCooldown] = useState(0);
+  const [showCancelForm, setShowCancelForm] = useState(false);
+
   useEffect(() => {
     if (cooldown <= 0) return;
     const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
     return () => clearTimeout(t);
   }, [cooldown]);
+
+  useEffect(() => {
+    if (cancelCooldown <= 0) return;
+    const t = setTimeout(() => setCancelCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cancelCooldown]);
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
   const joinInstructions: string = (settings as any)?.joinInstructions ?? "";
@@ -250,6 +264,79 @@ export default function EventDetail() {
           } else {
             toast({ title: "Registration failed", description: msg, variant: "destructive" });
           }
+        },
+      }
+    );
+  }
+
+  function handleCancelSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    requestCode.mutate(
+      { id: eventId, data: { email: cancelEmail.trim() } },
+      {
+        onSuccess: (res) => {
+          if (!res?.sent) {
+            toast({ title: "Couldn't send code", description: "We couldn't send a verification code right now. Please try again later.", variant: "destructive" });
+            return;
+          }
+          setCancelCodeSent(true);
+          setCancelCode("");
+          setCancelCooldown(res.cooldownSeconds ?? 30);
+          toast({ title: "Verification code sent", description: `We emailed a 6-digit code to ${cancelEmail.trim()}. It expires in 10 minutes.` });
+        },
+        onError: (err: any) => {
+          const msg: string = err?.data?.error || err?.message || "Could not send verification code. Please try again.";
+          toast({ title: "Couldn't send code", description: msg, variant: "destructive" });
+        },
+      }
+    );
+  }
+
+  function handleCancelResendCode() {
+    if (cancelCooldown > 0) return;
+    requestCode.mutate(
+      { id: eventId, data: { email: cancelEmail.trim() } },
+      {
+        onSuccess: (res) => {
+          if (!res?.sent) {
+            toast({ title: "Couldn't resend code", description: "Please try again later.", variant: "destructive" });
+            return;
+          }
+          setCancelCooldown(res.cooldownSeconds ?? 30);
+          toast({ title: "Code resent", description: `A new code was emailed to ${cancelEmail.trim()}.` });
+        },
+        onError: (err: any) => {
+          const msg: string = err?.data?.error || err?.message || "Could not resend code. Please try again.";
+          toast({ title: "Couldn't resend code", description: msg, variant: "destructive" });
+        },
+      }
+    );
+  }
+
+  function handleCancelSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    cancelReg.mutate(
+      {
+        id: eventId,
+        data: {
+          email: cancelEmail.trim(),
+          code: cancelCode.trim(),
+        },
+      },
+      {
+        onSuccess: () => {
+          toast({ title: "Registration cancelled", description: "You have been removed from the event roster." });
+          setCancelEmail("");
+          setCancelCode("");
+          setCancelCodeSent(false);
+          setCancelCooldown(0);
+          setShowCancelForm(false);
+          queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
+          queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
+        },
+        onError: (err: any) => {
+          const msg: string = err?.data?.error || err?.message || "Cancellation failed. Please try again.";
+          toast({ title: "Cancellation failed", description: msg, variant: "destructive" });
         },
       }
     );
@@ -448,6 +535,102 @@ export default function EventDetail() {
         {!signupOpen && event.status !== "upcoming" && (
           <div className="bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
             Registration is closed for this event.
+          </div>
+        )}
+
+        {/* Cancel Registration trigger */}
+        {!showCancelForm && (
+          <div className="text-center">
+            <button
+              type="button"
+              data-testid="button-show-cancel"
+              className="text-sm text-muted-foreground hover:text-destructive underline"
+              onClick={() => setShowCancelForm(true)}
+            >
+              Cancel my registration
+            </button>
+          </div>
+        )}
+
+        {/* Cancel Registration form */}
+        {showCancelForm && (
+          <div className="bg-card border border-destructive/30 rounded-lg p-5">
+            <h2 className="font-semibold text-foreground mb-4">Cancel My Registration</h2>
+            {!cancelCodeSent ? (
+              <form onSubmit={handleCancelSendCode} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="cancel-email">Email Address</Label>
+                  <Input
+                    id="cancel-email"
+                    type="email"
+                    data-testid="input-cancel-email"
+                    value={cancelEmail}
+                    onChange={(e) => setCancelEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Use the email address linked to your DUPR account.</strong> We will send a verification code to confirm cancellation.
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" variant="destructive" disabled={requestCode.isPending}>
+                    {requestCode.isPending ? "Sending..." : "Send Code"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setShowCancelForm(false)}>
+                    Never mind
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={handleCancelSubmit} className="space-y-3">
+                <div className="flex items-center justify-between text-sm bg-muted/50 rounded-md px-3 py-2">
+                  <span className="text-muted-foreground truncate">
+                    Code sent to <span className="font-medium text-foreground">{cancelEmail.trim()}</span>
+                  </span>
+                  <button
+                    type="button"
+                    className="text-primary hover:underline font-medium shrink-0 ml-3"
+                    onClick={() => { setCancelCodeSent(false); setCancelCode(""); }}
+                  >
+                    Change
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="cancel-code">Verification Code</Label>
+                  <Input
+                    id="cancel-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    data-testid="input-cancel-code"
+                    value={cancelCode}
+                    onChange={(e) => setCancelCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="123456"
+                    maxLength={6}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the 6-digit code we emailed you. It expires in 10 minutes.{" "}
+                    <button
+                      type="button"
+                      className="text-primary hover:underline font-medium disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+                      onClick={handleCancelResendCode}
+                      disabled={cancelCooldown > 0 || requestCode.isPending}
+                    >
+                      {cancelCooldown > 0 ? `Resend code (${cancelCooldown}s)` : "Resend code"}
+                    </button>
+                  </p>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="submit" variant="destructive" disabled={cancelReg.isPending || cancelCode.trim().length !== 6}>
+                    {cancelReg.isPending ? "Cancelling..." : "Cancel My Registration"}
+                  </Button>
+                  <Button type="button" variant="outline" onClick={() => setShowCancelForm(false)}>
+                    Never mind
+                  </Button>
+                </div>
+              </form>
+            )}
           </div>
         )}
 

@@ -321,6 +321,10 @@ export interface RosterEntry {
   approvedAt?: string | null;
   /** @nullable */
   approvedBy?: number | null;
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancelledBy?: string | null;
   playerName?: string;
   /** @nullable */
   doubleRating?: string | null;
@@ -352,6 +356,12 @@ export interface RequestCodeResult {
   sent: boolean;
   /** Seconds the client should wait before requesting another code */
   cooldownSeconds?: number;
+}
+
+export interface CancelRegistrationInput {
+  email: string;
+  /** 6-digit email verification code */
+  code: string;
 }
 
 export type RegistrationUpdateStatus = typeof RegistrationUpdateStatus[keyof typeof RegistrationUpdateStatus];

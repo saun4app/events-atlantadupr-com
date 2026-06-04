@@ -390,6 +390,8 @@ export const ListRegistrationsResponseItem = zod.object({
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
   "playerName": zod.string().optional(),
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
@@ -448,6 +450,8 @@ export const GetRegistrationResponse = zod.object({
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
   "playerName": zod.string().optional(),
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
@@ -481,6 +485,8 @@ export const UpdateRegistrationResponse = zod.object({
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
   "playerName": zod.string().optional(),
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
@@ -515,6 +521,8 @@ export const ApproveRegistrationResponse = zod.object({
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
   "playerName": zod.string().optional(),
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
@@ -540,6 +548,8 @@ export const RejectRegistrationResponse = zod.object({
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
   "playerName": zod.string().optional(),
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
@@ -565,6 +575,39 @@ export const PromoteFromWaitlistResponse = zod.object({
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
+  "playerName": zod.string().optional(),
+  "doubleRating": zod.string().nullish(),
+  "singleRating": zod.string().nullish(),
+  "selfRating": zod.string().nullish(),
+  "partnerName": zod.string().nullish()
+})
+
+
+/**
+ * @summary Cancel a registration by participant (self-cancel)
+ */
+export const CancelRegistrationParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CancelRegistrationBody = zod.object({
+  "email": zod.string(),
+  "code": zod.string().describe('6-digit email verification code')
+})
+
+export const CancelRegistrationResponse = zod.object({
+  "id": zod.number(),
+  "eventId": zod.number(),
+  "memberDuprId": zod.string(),
+  "partnerDuprId": zod.string().nullish(),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "registeredAt": zod.coerce.date(),
+  "approvedAt": zod.string().nullish(),
+  "approvedBy": zod.number().nullish(),
+  "cancelledAt": zod.string().nullish(),
+  "cancelledBy": zod.string().nullish(),
   "playerName": zod.string().optional(),
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),

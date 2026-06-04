@@ -39,6 +39,8 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, inc
     registeredAt: reg.registeredAt,
     approvedAt: reg.approvedAt ?? null,
     approvedBy: reg.approvedBy ?? null,
+    cancelledAt: reg.cancelledAt ?? null,
+    cancelledBy: reg.cancelledBy ?? null,
     playerName: member?.playerName ?? reg.memberDuprId,
     doubleRating: member?.doubleRating ?? null,
     singleRating: member?.singleRating ?? null,
@@ -265,6 +267,19 @@ router.patch("/:regId", requireAuth, requireRole("admin", "event_organizer", "ev
     updates.assignedRating = ar !== null && isFinite(Number(ar)) ? Number(ar) : null;
   }
 
+  // Server-managed cancellation metadata: when status transitions to cancelled,
+  // record the timestamp and the acting staff member. When moving away from
+  // cancelled, clear the metadata so the fields stay accurate.
+  const newStatus = req.body.status;
+  if (newStatus === "cancelled" && existing.status !== "cancelled") {
+    updates.cancelledAt = new Date();
+    const sessionUser = (req as any).session;
+    updates.cancelledBy = sessionUser?.username || sessionUser?.role || "admin";
+  } else if (newStatus !== undefined && newStatus !== "cancelled" && existing.status === "cancelled") {
+    updates.cancelledAt = null;
+    updates.cancelledBy = null;
+  }
+
   const [updated] = await db
     .update(registrationsTable)
     .set(updates)
@@ -381,6 +396,53 @@ router.post("/:regId/promote", requireAuth, requireRole("admin", "event_organize
     .returning();
 
   return res.json(await buildRosterEntry(updated, true));
+});
+
+router.post("/cancel", async (req: Request<EventParams>, res: Response) => {
+  const eventId = Number(req.params.id);
+  const { email, code } = req.body;
+
+  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
+  if (!event) return res.status(404).json({ error: "Event not found" });
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "A valid email address is required" });
+  }
+
+  const verified = await peekCode(email, typeof code === "string" ? code.trim() : "");
+  if (!verified) {
+    return res.status(400).json({ error: "Invalid or expired verification code. Please request a new code." });
+  }
+
+  const [member] = await db
+    .select()
+    .from(membersTable)
+    .where(sql`lower(${membersTable.email}) = lower(${email})`);
+  if (!member) {
+    return res.status(404).json({ error: "No member found with that email address." });
+  }
+
+  const [reg] = await db
+    .select()
+    .from(registrationsTable)
+    .where(
+      and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.memberDuprId, member.duprId)),
+    );
+  if (!reg) return res.status(404).json({ error: "Registration not found" });
+
+  if (reg.status === "cancelled") {
+    return res.status(400).json({ error: "Registration is already cancelled." });
+  }
+
+  const [updated] = await db
+    .update(registrationsTable)
+    .set({ status: "cancelled", cancelledAt: new Date(), cancelledBy: "participant" })
+    .where(eq(registrationsTable.id, reg.id))
+    .returning();
+
+  await consumeCode(email);
+
+  return res.json(await buildRosterEntry(updated, false));
 });
 
 export default router;
