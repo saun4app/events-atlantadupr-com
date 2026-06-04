@@ -99,7 +99,11 @@ function SortHeader({ label, col, activeCol, dir, onSort }: {
 
 function toLocalInput(dt: string | null | undefined): string {
   if (!dt) return "";
-  try { return new Date(dt).toISOString().slice(0, 16); } catch { return ""; }
+  try {
+    const d = new Date(dt);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  } catch { return ""; }
 }
 
 export default function AdminEventDetail() {

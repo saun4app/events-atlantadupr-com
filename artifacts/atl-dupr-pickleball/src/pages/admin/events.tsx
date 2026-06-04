@@ -4,6 +4,7 @@ import {
   useListEvents,
   getListEventsQueryKey,
   useEmailFailures,
+  type EmailFailure,
 } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/ui/button";
@@ -82,13 +83,13 @@ function EmailFailureBadge() {
               ))}
             </div>
           </div>
-          {data.failures.some((f) => f.errorMessage) && (
+          {data.failures.some((f: EmailFailure) => f.errorMessage) && (
             <details className="mt-3">
               <summary className="text-xs text-muted-foreground cursor-pointer select-none hover:text-foreground">
                 Show error details
               </summary>
               <div className="mt-2 space-y-2">
-                {data.failures.map((f) => (
+                {data.failures.map((f: EmailFailure) => (
                   <div key={f.id} className="rounded bg-muted/50 px-3 py-2">
                     <p className="text-xs font-medium text-foreground mb-0.5">{f.recipientAddress}</p>
                     <p className="text-xs text-muted-foreground font-mono break-all">{f.errorMessage}</p>
