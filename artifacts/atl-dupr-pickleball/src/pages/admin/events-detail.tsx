@@ -1102,7 +1102,17 @@ export default function AdminEventDetail() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Guidelines and Rules</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Guidelines and Rules</Label>
+                    <button
+                      type="button"
+                      data-testid="button-edit-update-guidelines"
+                      onClick={() => setEditForm((f: any) => ({ ...f, description: settings?.guidelinesAndRules || "" }))}
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Update
+                    </button>
+                  </div>
                   <RichTextEditor
                     value={editForm.description ?? ""}
                     onChange={v => setEditForm((f: any) => ({ ...f, description: v }))}
