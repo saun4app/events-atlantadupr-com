@@ -508,8 +508,8 @@ export default function AdminEventDetail() {
         styles: { fontSize: 8, cellPadding: 2 },
         headStyles: { fillColor: [22, 163, 74] },
       });
-      const pdfUrl = doc.output("bloburl");
-      window.open(pdfUrl, "_blank");
+      const safeName = (event?.name ?? "event").replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "event";
+      doc.save(`registrations-${safeName}.pdf`);
     }
   };
 
