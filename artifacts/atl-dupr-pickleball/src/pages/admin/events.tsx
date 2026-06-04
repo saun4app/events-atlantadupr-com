@@ -23,7 +23,7 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { format } from "date-fns";
-import { Plus, Search, Calendar, MapPin, TriangleAlert } from "lucide-react";
+import { Search, Calendar, MapPin, TriangleAlert } from "lucide-react";
 
 function statusBadge(status: string) {
   if (status === "upcoming") return <Badge className="text-xs bg-primary/10 text-primary border-primary/20 border">Upcoming</Badge>;
@@ -136,14 +136,8 @@ export default function AdminEvents() {
             <h1 className="text-xl font-bold text-foreground">Manage Events</h1>
             <p className="text-muted-foreground text-sm mt-0.5">{events?.length ?? 0} total events</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div>
             <EmailFailureBadge />
-            <Link href="/admin/events/new">
-              <Button data-testid="button-create-event" className="gap-2">
-                <Plus className="w-4 h-4" />
-                New Event
-              </Button>
-            </Link>
           </div>
         </div>
 
