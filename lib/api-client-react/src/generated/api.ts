@@ -37,6 +37,8 @@ import type {
   MemberUpdate,
   RegistrationInput,
   RegistrationUpdate,
+  RequestCodeInput,
+  RequestCodeResult,
   RosterEntry,
   RosterSummary,
   User,
@@ -1683,6 +1685,78 @@ export const useCreateRegistration = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getCreateRegistrationMutationOptions(options));
+    }
+
+export const getRequestRegistrationCodeUrl = (id: number,) => {
+
+
+
+
+  return `/api/events/${id}/registrations/request-code`
+}
+
+/**
+ * @summary Request an email verification code for public self-registration
+ */
+export const requestRegistrationCode = async (id: number,
+    requestCodeInput: RequestCodeInput, options?: RequestInit): Promise<RequestCodeResult> => {
+
+  return customFetch<RequestCodeResult>(getRequestRegistrationCodeUrl(id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      requestCodeInput,)
+  }
+);}
+
+
+
+
+export const getRequestRegistrationCodeMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{id: number;data: BodyType<RequestCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{id: number;data: BodyType<RequestCodeInput>}, TContext> => {
+
+const mutationKey = ['requestRegistrationCode'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestRegistrationCode>>, {id: number;data: BodyType<RequestCodeInput>}> = (props) => {
+          const {id,data} = props ?? {};
+
+          return  requestRegistrationCode(id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RequestRegistrationCodeMutationResult = NonNullable<Awaited<ReturnType<typeof requestRegistrationCode>>>
+    export type RequestRegistrationCodeMutationBody = BodyType<RequestCodeInput>
+    export type RequestRegistrationCodeMutationError = ErrorType<void>
+
+    /**
+ * @summary Request an email verification code for public self-registration
+ */
+export const useRequestRegistrationCode = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{id: number;data: BodyType<RequestCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof requestRegistrationCode>>,
+        TError,
+        {id: number;data: BodyType<RequestCodeInput>},
+        TContext
+      > => {
+      return useMutation(getRequestRegistrationCodeMutationOptions(options));
     }
 
 export const getGetRegistrationUrl = (id: number,

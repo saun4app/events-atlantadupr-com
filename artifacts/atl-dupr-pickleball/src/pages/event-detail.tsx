@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, Link } from "wouter";
 import {
-  useGetEvent, useGetEventRosterSummary, useListRegistrations, useCreateRegistration, useGetSettings,
+  useGetEvent, useGetEventRosterSummary, useListRegistrations, useCreateRegistration,
+  useRequestRegistrationCode, useGetSettings,
   getGetEventQueryKey, getGetEventRosterSummaryQueryKey, getListRegistrationsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -124,12 +125,22 @@ export default function EventDetail() {
   });
   const { data: settings } = useGetSettings();
   const createReg = useCreateRegistration();
+  const requestCode = useRequestRegistrationCode();
 
   const [email, setEmail] = useState("");
   const [partnerDuprId, setPartnerDuprId] = useState("");
+  const [code, setCode] = useState("");
+  const [codeSent, setCodeSent] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [joinDialogOpen, setJoinDialogOpen] = useState(false);
   const [notMemberDialogOpen, setNotMemberDialogOpen] = useState(false);
   const [showApprovalNotice, setShowApprovalNotice] = useState(false);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
   const joinInstructions: string = (settings as any)?.joinInstructions ?? "";
@@ -183,6 +194,62 @@ export default function EventDetail() {
 
   const confirmedRegs = registrations?.filter(r => r.status === "confirmed") ?? [];
 
+  function handleSendCode(e: React.FormEvent) {
+    e.preventDefault();
+    if (event?.teamFormat === "fixed_partner" && !partnerDuprId.trim()) {
+      toast({ title: "Partner DUPR ID required", description: "Enter your partner's DUPR ID before requesting a code.", variant: "destructive" });
+      return;
+    }
+    requestCode.mutate(
+      { id: eventId, data: { email: email.trim() } },
+      {
+        onSuccess: (res) => {
+          if (!res?.sent) {
+            toast({ title: "Couldn't send code", description: "We couldn't send a verification code right now. Please try again later.", variant: "destructive" });
+            return;
+          }
+          setCodeSent(true);
+          setCode("");
+          setCooldown(res.cooldownSeconds ?? 30);
+          toast({ title: "Verification code sent", description: `We emailed a 6-digit code to ${email.trim()}. It expires in 10 minutes.` });
+        },
+        onError: (err: any) => {
+          const msg: string = err?.data?.error || err?.message || "Could not send verification code. Please try again.";
+          toast({ title: "Couldn't send code", description: msg, variant: "destructive" });
+        },
+      }
+    );
+  }
+
+  function handleResendCode() {
+    if (cooldown > 0) return;
+    requestCode.mutate(
+      { id: eventId, data: { email: email.trim() } },
+      {
+        onSuccess: (res) => {
+          if (!res?.sent) {
+            toast({ title: "Couldn't resend code", description: "Please try again later.", variant: "destructive" });
+            return;
+          }
+          setCooldown(res.cooldownSeconds ?? 30);
+          toast({ title: "Code resent", description: `A new code was emailed to ${email.trim()}.` });
+        },
+        onError: (err: any) => {
+          const msg: string = err?.data?.error || err?.message || "Could not resend code. Please try again.";
+          toast({ title: "Couldn't resend code", description: msg, variant: "destructive" });
+        },
+      }
+    );
+  }
+
+  function resetRegistrationForm() {
+    setEmail("");
+    setPartnerDuprId("");
+    setCode("");
+    setCodeSent(false);
+    setCooldown(0);
+  }
+
   function handleSignup(e: React.FormEvent) {
     e.preventDefault();
     createReg.mutate(
@@ -190,14 +257,14 @@ export default function EventDetail() {
         id: eventId,
         data: {
           email: email.trim(),
+          code: code.trim(),
           partnerDuprId: event?.teamFormat === "fixed_partner" ? partnerDuprId.trim() || null : null,
         },
       },
       {
         onSuccess: () => {
           toast({ title: "Registration submitted!", description: "You are on the roster." });
-          setEmail("");
-          setPartnerDuprId("");
+          resetRegistrationForm();
           if (event?.requireApproval !== "none") setShowApprovalNotice(true);
           queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
           queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
@@ -321,48 +388,95 @@ export default function EventDetail() {
         {signupOpen && (
           <div className="bg-card border border-card-border rounded-lg p-5">
             <h2 className="font-semibold text-foreground mb-4">Register for This Event</h2>
-            <form onSubmit={handleSignup} className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="reg-email">Email Address</Label>
-                <Input
-                  id="reg-email"
-                  type="email"
-                  data-testid="input-reg-email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  required
-                />
-                <p className="text-xs text-muted-foreground">
-                  <strong>Use the email address linked to your DUPR account.</strong> This is how we verify your membership.{" "}
-                  {joinInstructions && (
+            {!codeSent ? (
+              <form onSubmit={handleSendCode} className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="reg-email">Email Address</Label>
+                  <Input
+                    id="reg-email"
+                    type="email"
+                    data-testid="input-reg-email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="you@example.com"
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    <strong>Use the email address linked to your DUPR account.</strong> We'll email you a 6-digit code to verify it.{" "}
+                    {joinInstructions && (
+                      <button
+                        type="button"
+                        className="inline-flex items-center gap-0.5 text-primary hover:underline font-medium"
+                        onClick={() => setJoinDialogOpen(true)}
+                      >
+                        Not a member yet? <ExternalLink className="w-3 h-3" />
+                      </button>
+                    )}
+                  </p>
+                </div>
+                {event.teamFormat === "fixed_partner" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="partner-dupr-id">Partner's DUPR ID</Label>
+                    <Input
+                      id="partner-dupr-id"
+                      data-testid="input-partner-dupr-id"
+                      value={partnerDuprId}
+                      onChange={(e) => setPartnerDuprId(e.target.value.toUpperCase())}
+                      placeholder="e.g. ATL002"
+                      className="uppercase"
+                    />
+                  </div>
+                )}
+                <Button data-testid="button-send-code" type="submit" disabled={requestCode.isPending}>
+                  {requestCode.isPending ? "Sending..." : "Send Code"}
+                </Button>
+              </form>
+            ) : (
+              <form onSubmit={handleSignup} className="space-y-3">
+                <div className="flex items-center justify-between text-sm bg-muted/50 rounded-md px-3 py-2">
+                  <span className="text-muted-foreground truncate">
+                    Code sent to <span className="font-medium text-foreground">{email.trim()}</span>
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="button-change-email"
+                    className="text-primary hover:underline font-medium shrink-0 ml-3"
+                    onClick={() => { setCodeSent(false); setCode(""); }}
+                  >
+                    Change
+                  </button>
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="reg-code">Verification Code</Label>
+                  <Input
+                    id="reg-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    data-testid="input-reg-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                    placeholder="123456"
+                    maxLength={6}
+                    required
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Enter the 6-digit code we emailed you. It expires in 10 minutes.{" "}
                     <button
                       type="button"
-                      className="inline-flex items-center gap-0.5 text-primary hover:underline font-medium"
-                      onClick={() => setJoinDialogOpen(true)}
+                      data-testid="button-resend-code"
+                      className="text-primary hover:underline font-medium disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+                      onClick={handleResendCode}
+                      disabled={cooldown > 0 || requestCode.isPending}
                     >
-                      Not a member yet? <ExternalLink className="w-3 h-3" />
+                      {cooldown > 0 ? `Resend code (${cooldown}s)` : "Resend code"}
                     </button>
-                  )}
-                </p>
-              </div>
-              {event.teamFormat === "fixed_partner" && (
-                <div className="space-y-1.5">
-                  <Label htmlFor="partner-dupr-id">Partner's DUPR ID</Label>
-                  <Input
-                    id="partner-dupr-id"
-                    data-testid="input-partner-dupr-id"
-                    value={partnerDuprId}
-                    onChange={(e) => setPartnerDuprId(e.target.value.toUpperCase())}
-                    placeholder="e.g. ATL002"
-                    className="uppercase"
-                  />
+                  </p>
                 </div>
-              )}
-              <Button data-testid="button-register" type="submit" disabled={createReg.isPending}>
-                {createReg.isPending ? "Submitting..." : "Submit Registration"}
-              </Button>
-            </form>
+                <Button data-testid="button-register" type="submit" disabled={createReg.isPending || code.trim().length !== 6}>
+                  {createReg.isPending ? "Submitting..." : "Submit Registration"}
+                </Button>
+              </form>
+            )}
           </div>
         )}
 

@@ -39,6 +39,8 @@ export * from './recurrenceInputFrequency';
 export * from './registrationInput';
 export * from './registrationUpdate';
 export * from './registrationUpdateStatus';
+export * from './requestCodeInput';
+export * from './requestCodeResult';
 export * from './rosterEntry';
 export * from './rosterEntryStatus';
 export * from './rosterSummary';

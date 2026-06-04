@@ -1,14 +1,24 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { registrationsTable, eventsTable, membersTable } from "@workspace/db";
+import { registrationsTable, eventsTable, membersTable, appSettingsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { canAccessEvent } from "./events.js";
+import { issueCode, peekCode, consumeCode, VERIFICATION_COOLDOWN_SECONDS } from "../../lib/verification.js";
+import { sendVerificationEmail } from "../../lib/email.js";
+import { logger } from "../../lib/logger.js";
 
 const router = Router({ mergeParams: true });
 
 type EventParams = { id: string };
 type RegParams = { id: string; regId: string };
+
+const STAFF_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
+
+function isStaffRequest(req: Request): boolean {
+  const role = (req as any).session?.role;
+  return typeof role === "string" && STAFF_ROLES.includes(role);
+}
 
 async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false) {
   const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, reg.memberDuprId));
@@ -56,9 +66,42 @@ router.get("/", async (req: Request<EventParams>, res: Response) => {
   return res.json(entries);
 });
 
+router.post("/request-code", async (req: Request<EventParams>, res: Response) => {
+  const eventId = Number(req.params.id);
+  const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+
+  if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return res.status(400).json({ error: "A valid email address is required" });
+  }
+
+  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
+  if (!event) return res.status(404).json({ error: "Event not found" });
+
+  const [settings] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.id, 1));
+  const fromEmail = settings?.eventContactEmails?.[0];
+  if (!fromEmail) {
+    logger.error("Cannot send verification code: no eventContactEmails configured");
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+  }
+
+  const code = await issueCode(email);
+  if (code === null) {
+    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+  }
+
+  try {
+    await sendVerificationEmail({ to: email, code, from: fromEmail, eventName: event.name });
+  } catch (err) {
+    logger.error({ err }, "Failed to send verification email");
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+  }
+
+  return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
+});
+
 router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
-  const { email, memberDuprId, partnerDuprId } = req.body;
+  const { email, memberDuprId, partnerDuprId, code } = req.body;
 
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!event) return res.status(404).json({ error: "Event not found" });
@@ -77,6 +120,19 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   }
   if (!email && !memberDuprId) {
     return res.status(400).json({ error: "email or memberDuprId is required" });
+  }
+
+  // Public self-registration (email-based, unauthenticated) requires a verified
+  // email. Staff adding participants from the admin console are exempt.
+  const staff = isStaffRequest(req);
+  if (!staff) {
+    if (!email) {
+      return res.status(400).json({ error: "email is required" });
+    }
+    const verified = await peekCode(email, typeof code === "string" ? code.trim() : "");
+    if (!verified) {
+      return res.status(400).json({ error: "Invalid or expired verification code. Please request a new code." });
+    }
   }
 
   let member: typeof membersTable.$inferSelect | undefined;
@@ -134,6 +190,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     .insert(registrationsTable)
     .values({ eventId, memberDuprId: finalMemberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
     .returning();
+
+  if (!staff && email) {
+    await consumeCode(email);
+  }
 
   const entry = await buildRosterEntry(reg, false);
   return res.status(201).json(entry);

@@ -5,3 +5,4 @@ export * from "./registrations";
 export * from "./eventAssignments";
 export * from "./appSettings";
 export * from "./sessions";
+export * from "./emailVerificationCodes";

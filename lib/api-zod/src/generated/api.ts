@@ -409,7 +409,25 @@ export const CreateRegistrationParams = zod.object({
 export const CreateRegistrationBody = zod.object({
   "email": zod.string().optional(),
   "memberDuprId": zod.string().optional(),
-  "partnerDuprId": zod.string().nullish()
+  "partnerDuprId": zod.string().nullish(),
+  "code": zod.string().nullish().describe('6-digit email verification code (required for public self-registration)')
+})
+
+
+/**
+ * @summary Request an email verification code for public self-registration
+ */
+export const RequestRegistrationCodeParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RequestRegistrationCodeBody = zod.object({
+  "email": zod.string()
+})
+
+export const RequestRegistrationCodeResponse = zod.object({
+  "sent": zod.boolean(),
+  "cooldownSeconds": zod.number().optional().describe('Seconds the client should wait before requesting another code')
 })
 
 

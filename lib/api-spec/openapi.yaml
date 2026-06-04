@@ -451,6 +451,33 @@ paths:
         "404":
           description: Event not found
 
+  /events/{id}/registrations/request-code:
+    post:
+      operationId: requestRegistrationCode
+      tags: [registrations]
+      summary: Request an email verification code for public self-registration
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCodeInput"
+      responses:
+        "200":
+          description: Code request accepted (always succeeds to avoid revealing membership)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestCodeResult"
+        "404":
+          description: Event not found
+
   /events/{id}/registrations/{regId}:
     get:
       operationId: getRegistration
@@ -1073,6 +1100,26 @@ components:
           type: string
         partnerDuprId:
           type: ["string", "null"]
+        code:
+          type: ["string", "null"]
+          description: 6-digit email verification code (required for public self-registration)
+
+    RequestCodeInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+
+    RequestCodeResult:
+      type: object
+      required: [sent]
+      properties:
+        sent:
+          type: boolean
+        cooldownSeconds:
+          type: integer
+          description: Seconds the client should wait before requesting another code
 
     RegistrationUpdate:
       type: object

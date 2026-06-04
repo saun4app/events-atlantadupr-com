@@ -337,6 +337,21 @@ export interface RegistrationInput {
   memberDuprId?: string;
   /** @nullable */
   partnerDuprId?: string | null;
+  /**
+     * 6-digit email verification code (required for public self-registration)
+     * @nullable
+     */
+  code?: string | null;
+}
+
+export interface RequestCodeInput {
+  email: string;
+}
+
+export interface RequestCodeResult {
+  sent: boolean;
+  /** Seconds the client should wait before requesting another code */
+  cooldownSeconds?: number;
 }
 
 export type RegistrationUpdateStatus = typeof RegistrationUpdateStatus[keyof typeof RegistrationUpdateStatus];
