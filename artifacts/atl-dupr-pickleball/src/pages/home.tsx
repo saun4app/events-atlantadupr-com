@@ -109,23 +109,23 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <PublicNav />
 
-      <div className="bg-primary text-primary-foreground py-10 px-4">
+      <div className="bg-white py-10 px-4 border-b border-border">
         <div className="max-w-5xl mx-auto">
-          <h1 className="text-3xl font-bold tracking-tight mb-1">Upcoming Events</h1>
-          <p className="text-primary-foreground/80 text-sm">Atlanta DUPR Pickleball — competitive round robins for serious players</p>
+          <h1 className="text-3xl font-bold tracking-tight mb-1 text-foreground">Upcoming Events</h1>
+          <p className="text-muted-foreground text-sm">Atlanta DUPR Pickleball — competitive round robins for serious players</p>
           {summary && (
             <div className="flex gap-6 mt-4 text-sm">
               <div>
                 <span className="font-bold text-xl">{summary.totalUpcoming}</span>
-                <span className="text-primary-foreground/70 ml-1">upcoming</span>
+                <span className="text-muted-foreground ml-1">upcoming</span>
               </div>
               <div>
                 <span className="font-bold text-xl">{summary.openForSignup}</span>
-                <span className="text-primary-foreground/70 ml-1">open for signup</span>
+                <span className="text-muted-foreground ml-1">open for signup</span>
               </div>
               <div>
                 <span className="font-bold text-xl">{summary.totalEvents}</span>
-                <span className="text-primary-foreground/70 ml-1">total</span>
+                <span className="text-muted-foreground ml-1">total</span>
               </div>
             </div>
           )}
