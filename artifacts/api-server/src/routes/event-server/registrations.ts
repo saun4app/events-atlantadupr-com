@@ -78,11 +78,21 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   if (!event) return res.status(404).json({ error: "Event not found" });
 
   const [settings] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.id, 1));
-  const fromEmail = settings?.eventContactEmails?.[0];
+  const contactEmail = settings?.eventContactEmails?.[0];
+
+  // The "from" address must be on a domain verified in the project's Resend
+  // account. The event contact email often lives on a domain the operator does
+  // not control (e.g. a Zoho Desk subdomain), so prefer a dedicated verified
+  // sender configured via VERIFICATION_EMAIL_FROM and fall back to the contact
+  // email only if it is not set.
+  const fromEmail = process.env.VERIFICATION_EMAIL_FROM || contactEmail;
   if (!fromEmail) {
-    logger.error("Cannot send verification code: no eventContactEmails configured");
+    logger.error("Cannot send verification code: no VERIFICATION_EMAIL_FROM or eventContactEmails configured");
     return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
   }
+  // Route replies back to the human contact address when the sender is a
+  // dedicated no-reply style verified address.
+  const replyTo = contactEmail && contactEmail !== fromEmail ? contactEmail : undefined;
 
   const code = await issueCode(email);
   if (code === null) {
@@ -90,7 +100,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   }
 
   try {
-    await sendVerificationEmail({ to: email, code, from: fromEmail, eventName: event.name });
+    await sendVerificationEmail({ to: email, code, from: fromEmail, replyTo, eventName: event.name });
   } catch (err) {
     logger.error({ err }, "Failed to send verification email");
     return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });

@@ -7,6 +7,7 @@ export interface SendVerificationEmailParams {
   to: string;
   code: string;
   from: string;
+  replyTo?: string;
   eventName?: string;
 }
 
@@ -24,23 +25,26 @@ function buildHtml(code: string, eventName?: string): string {
 }
 
 export async function sendVerificationEmail(params: SendVerificationEmailParams): Promise<void> {
-  const { to, code, from, eventName } = params;
+  const { to, code, from, replyTo, eventName } = params;
   const connectors = new ReplitConnectors();
 
   const subject = eventName
     ? `Your code for ${eventName}: ${code}`
     : `Your verification code: ${code}`;
 
+  const payload: Record<string, unknown> = {
+    from,
+    to: [to],
+    subject,
+    html: buildHtml(code, eventName),
+    text: `Your verification code is ${code}. It expires in 10 minutes.`,
+  };
+  if (replyTo) payload.reply_to = replyTo;
+
   const response = await connectors.proxy("resend", "/emails", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject,
-      html: buildHtml(code, eventName),
-      text: `Your verification code is ${code}. It expires in 10 minutes.`,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
