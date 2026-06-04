@@ -46,7 +46,7 @@ type SortKey = "playerName" | "doubleRating";
 type SortDir = "asc" | "desc";
 
 function useSortedRegistrations(data: any[]) {
-  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>({ key: "doubleRating", dir: "desc" });
   const sorted = useMemo(() => {
     if (!sort) return data;
     const arr = [...data];
