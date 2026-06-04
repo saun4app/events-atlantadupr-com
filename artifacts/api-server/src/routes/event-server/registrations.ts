@@ -5,7 +5,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { canAccessEvent } from "./events.js";
 import { issueCode, peekCode, consumeCode, VERIFICATION_COOLDOWN_SECONDS } from "../../lib/verification.js";
-import { sendVerificationEmail } from "../../lib/email.js";
+import { sendVerificationEmail, sendFailureAlertEmail } from "../../lib/email.js";
 import { logger } from "../../lib/logger.js";
 
 const router = Router({ mergeParams: true });
@@ -102,7 +102,22 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   try {
     await sendVerificationEmail({ to: email, code, from: fromEmail, replyTo, eventName: event.name });
   } catch (err) {
-    logger.error({ err }, "Failed to send verification email");
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    logger.error({ err, recipient: email, event: event.name }, "Failed to send verification email");
+
+    const alertRecipients = settings?.eventContactEmails ?? [];
+    if (alertRecipients.length > 0) {
+      sendFailureAlertEmail({
+        to: alertRecipients,
+        from: fromEmail,
+        recipientAddress: email,
+        eventName: event.name,
+        errorMessage,
+      }).catch((alertErr) => {
+        logger.error({ alertErr }, "Failed to send email failure alert to organizer");
+      });
+    }
+
     return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS });
   }
 
