@@ -26,21 +26,6 @@ function isNonNumeric(rating: string | null | undefined): boolean {
   return isNaN(parseFloat(rating)) || rating === "NR";
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; className: string }> = {
-    confirmed: { label: "Confirmed", className: "bg-primary/10 text-primary border-primary/20" },
-    waitlisted: { label: "Waitlisted", className: "bg-yellow-100 text-yellow-700 border-yellow-200" },
-    pending_approval: { label: "Pending Approval", className: "bg-blue-100 text-blue-700 border-blue-200" },
-    rejected: { label: "Rejected", className: "bg-destructive/10 text-destructive border-destructive/20" },
-    cancelled: { label: "Cancelled", className: "bg-gray-100 text-gray-700 border-gray-200" },
-  };
-  const s = map[status] ?? { label: status, className: "" };
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${s.className}`}>
-      {s.label}
-    </span>
-  );
-}
 
 type SortKey = "playerName" | "doubleRating";
 type SortDir = "asc" | "desc";
@@ -109,7 +94,6 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
             <th className="text-left px-5 py-3">
               <SortHeader label="DUPR Rating" activeKey="doubleRating" sort={sort} onSort={toggleSort} />
             </th>
-            <th className="text-left px-5 py-3 font-medium text-muted-foreground">Status</th>
           </tr>
         </thead>
         <tbody>
@@ -124,9 +108,6 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
                 <span data-testid={`text-rating-${reg.id}`} className="font-mono">
                   {reg.doubleRating || "NR"}
                 </span>
-              </td>
-              <td className="px-5 py-3">
-                <StatusBadge status={reg.status} />
               </td>
             </tr>
           ))}
