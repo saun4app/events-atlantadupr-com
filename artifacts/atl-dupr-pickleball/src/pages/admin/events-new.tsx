@@ -436,7 +436,21 @@ export default function AdminEventNew() {
 
             {/* Guidelines and Rules */}
             <div className="space-y-1.5">
-              <Label>Guidelines and Rules *</Label>
+              <div className="flex items-center justify-between">
+                <Label>Guidelines and Rules *</Label>
+                <button
+                  type="button"
+                  data-testid="button-update-guidelines"
+                  onClick={() => {
+                    descriptionEdited.current = true;
+                    setDescriptionGeneration(g => g + 1);
+                    setField("description", settings?.guidelinesAndRules || "");
+                  }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Update
+                </button>
+              </div>
               <RichTextEditor
                 key={`${form.teamFormat}-${descriptionGeneration}`}
                 data-testid="input-event-guidelines" value={form.description}
