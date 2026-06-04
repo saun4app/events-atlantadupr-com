@@ -197,7 +197,8 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
               "p-1 rounded flex flex-col items-center gap-0.5 transition-colors",
               "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
-            onMouseDown={() => {
+            onMouseDown={(e) => {
+              e.preventDefault();
               if (editor) {
                 const { from, to } = editor.state.selection;
                 colorSelectionRef.current = { from, to };
