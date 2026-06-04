@@ -19,6 +19,7 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
   const [showLinkInput, setShowLinkInput] = useState(false);
   const savedSelection = useRef<{ from: number; to: number } | null>(null);
   const colorSelectionRef = useRef<{ from: number; to: number } | null>(null);
+  const colorInputRef = useRef<HTMLInputElement>(null);
 
   const editor = useEditor({
     extensions: [
@@ -196,6 +197,13 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
               "p-1 rounded flex flex-col items-center gap-0.5 transition-colors",
               "text-muted-foreground hover:bg-muted hover:text-foreground"
             )}
+            onMouseDown={() => {
+              if (editor) {
+                const { from, to } = editor.state.selection;
+                colorSelectionRef.current = { from, to };
+              }
+            }}
+            onClick={() => colorInputRef.current?.click()}
           >
             <Palette className="w-3.5 h-3.5" />
             <span
@@ -204,18 +212,13 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
             />
           </button>
           <input
+            ref={colorInputRef}
             type="color"
             value={currentColor || "#000000"}
-            onMouseDown={() => {
-              if (editor) {
-                const { from, to } = editor.state.selection;
-                colorSelectionRef.current = { from, to };
-              }
-            }}
             onChange={e => handleColorChange(e.target.value)}
             tabIndex={-1}
             title="Text color"
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer pointer-events-none"
           />
         </div>
       </div>
