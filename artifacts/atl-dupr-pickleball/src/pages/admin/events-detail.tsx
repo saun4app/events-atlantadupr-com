@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { DateTimeInput } from "@/components/date-time-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -1137,11 +1138,11 @@ export default function AdminEventDetail() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-start">Start Date & Time</Label>
-                    <Input id="edit-start" type="datetime-local" value={editForm.startDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, startDatetime: e.target.value }))} />
+                    <DateTimeInput id="edit-start" value={editForm.startDatetime ?? ""} onChange={v => setEditForm((f: any) => ({ ...f, startDatetime: v }))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-end">End Date & Time</Label>
-                    <Input id="edit-end" type="datetime-local" value={editForm.endDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, endDatetime: e.target.value }))} />
+                    <DateTimeInput id="edit-end" value={editForm.endDatetime ?? ""} onChange={v => setEditForm((f: any) => ({ ...f, endDatetime: v }))} />
                   </div>
                 </div>
                 <div className="space-y-1.5">
@@ -1310,11 +1311,11 @@ export default function AdminEventDetail() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label>Signup Opens</Label>
-                    <Input type="datetime-local" value={editForm.signupStartDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, signupStartDatetime: e.target.value }))} />
+                    <DateTimeInput value={editForm.signupStartDatetime ?? ""} onChange={v => setEditForm((f: any) => ({ ...f, signupStartDatetime: v }))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label>Signup Closes</Label>
-                    <Input type="datetime-local" value={editForm.signupEndDatetime ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, signupEndDatetime: e.target.value }))} />
+                    <DateTimeInput value={editForm.signupEndDatetime ?? ""} onChange={v => setEditForm((f: any) => ({ ...f, signupEndDatetime: v }))} />
                   </div>
                 </div>
                 <div className="space-y-1.5">

@@ -7,6 +7,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminNav } from "@/components/admin-nav";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import { DateTimeInput } from "@/components/date-time-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/numeric-input";
@@ -435,7 +436,7 @@ export default function AdminEventNew() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="start">Start Date & Time *</Label>
-                <Input id="start" data-testid="input-event-start" type="datetime-local" value={form.startDatetime} onChange={e => setField("startDatetime", e.target.value)} required />
+                <DateTimeInput id="start" data-testid="input-event-start" value={form.startDatetime} onChange={v => setField("startDatetime", v)} required />
                 {dtDow(form.startDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.startDatetime)}</p>}
               </div>
               <div className="space-y-1.5">
@@ -445,7 +446,7 @@ export default function AdminEventNew() {
                     <span className="ml-1.5 text-xs font-normal text-muted-foreground">(auto: {settings.defaultEventDurationHours}h after start)</span>
                   )}
                 </Label>
-                <Input id="end" data-testid="input-event-end" type="datetime-local" value={form.endDatetime} onChange={e => { endEdited.current = true; setField("endDatetime", e.target.value); }} required />
+                <DateTimeInput id="end" data-testid="input-event-end" value={form.endDatetime} onChange={v => { endEdited.current = true; setField("endDatetime", v); }} required />
                 {dtDow(form.endDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.endDatetime)}</p>}
               </div>
             </div>
@@ -627,7 +628,7 @@ export default function AdminEventNew() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="signup-start">Signup Opens *</Label>
-                <Input id="signup-start" data-testid="input-signup-start" type="datetime-local" value={form.signupStartDatetime} onChange={e => setField("signupStartDatetime", e.target.value)} required />
+                <DateTimeInput id="signup-start" data-testid="input-signup-start" value={form.signupStartDatetime} onChange={v => setField("signupStartDatetime", v)} required />
                 {dtDow(form.signupStartDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.signupStartDatetime)}</p>}
               </div>
               <div className="space-y-1.5">
@@ -635,7 +636,7 @@ export default function AdminEventNew() {
                   Signup Closes *
                   <span className="ml-1.5 text-xs font-normal text-muted-foreground">(auto: 12h before start)</span>
                 </Label>
-                <Input id="signup-end" data-testid="input-signup-end" type="datetime-local" value={form.signupEndDatetime} onChange={e => { signupEndEdited.current = true; setField("signupEndDatetime", e.target.value); }} required />
+                <DateTimeInput id="signup-end" data-testid="input-signup-end" value={form.signupEndDatetime} onChange={v => { signupEndEdited.current = true; setField("signupEndDatetime", v); }} required />
                 {dtDow(form.signupEndDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.signupEndDatetime)}</p>}
               </div>
             </div>
