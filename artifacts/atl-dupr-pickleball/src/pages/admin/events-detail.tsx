@@ -359,7 +359,16 @@ export default function AdminEventDetail() {
 
   const defaultNotifyMessage = () => {
     if (!event) return "";
-    const dateStr = event.startDatetime ? format(new Date(event.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a") : "";
+    let dateStr = "";
+    if (event.startDatetime) {
+      const start = new Date(event.startDatetime);
+      dateStr = format(start, "EEE, MMM d, yyyy 'at' h:mm a");
+      if (event.endDatetime) {
+        const end = new Date(event.endDatetime);
+        const sameDay = start.toDateString() === end.toDateString();
+        dateStr += ` – ${format(end, sameDay ? "h:mm a" : "EEE, MMM d, yyyy 'at' h:mm a")}`;
+      }
+    }
     const loc = event.locationName ?? "";
     const lines = [
       event.name ? `Event: ${event.name}` : "",
