@@ -33,7 +33,7 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
     },
     editorProps: {
       attributes: {
-        class: "min-h-[100px] px-3 py-2 text-sm focus:outline-none prose prose-sm max-w-none",
+        class: "min-h-[100px] px-3 py-2 text-sm focus:outline-none prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0",
       },
     },
   });

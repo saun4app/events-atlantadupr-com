@@ -366,7 +366,7 @@ export default function EventDetail() {
           </div>
 
           {event.description && (
-            <div className="prose prose-sm max-w-none text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
+            <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
           )}
 
         </div>
@@ -528,7 +528,7 @@ export default function EventDetail() {
             <DialogTitle>How to Join Atlanta DUPR Pickleball</DialogTitle>
           </DialogHeader>
           {joinInstructions ? (
-            <div className="prose prose-sm max-w-none text-foreground" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
+            <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-foreground" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
           ) : (
             <p className="text-sm text-muted-foreground">No join instructions have been configured yet.</p>
           )}
@@ -546,7 +546,7 @@ export default function EventDetail() {
               Your email wasn't found in our member list. To register for events, you'll need to be a member of the Atlanta DUPR Pickleball club.
             </p>
             {joinInstructions ? (
-              <div className="prose prose-sm max-w-none text-foreground border-t border-border pt-3" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
+              <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-foreground border-t border-border pt-3" dangerouslySetInnerHTML={{ __html: joinInstructions }} />
             ) : (
               (event as any).contactEmail ? (
                 <p className="text-sm text-muted-foreground">
