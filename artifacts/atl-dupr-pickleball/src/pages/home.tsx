@@ -34,6 +34,7 @@ function EventCard({ event }: { event: any }) {
               event.locationName?.toLowerCase().includes("dill dinkers") ? "text-orange-500 font-medium" :
               event.locationName?.toLowerCase().includes("pickleball kingdom") ? "text-blue-500 font-medium" :
               event.locationName?.toLowerCase().includes("ace") ? "text-[#ed0973] font-medium" :
+              event.locationName?.toLowerCase().includes("nickajack") ? "text-green-600 font-medium" :
               ""
             }>{event.locationName}</span>
           </div>
