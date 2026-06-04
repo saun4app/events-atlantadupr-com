@@ -18,6 +18,7 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
   const [linkUrl, setLinkUrl] = useState("");
   const [showLinkInput, setShowLinkInput] = useState(false);
   const savedSelection = useRef<{ from: number; to: number } | null>(null);
+  const colorSelectionRef = useRef<{ from: number; to: number } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -49,7 +50,17 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
 
   const handleColorChange = useCallback((color: string) => {
     if (!editor) return;
-    editor.chain().focus().setColor(color).run();
+    const sel = colorSelectionRef.current;
+    if (sel && sel.from !== sel.to) {
+      editor.chain()
+        .setTextSelection({ from: sel.from, to: sel.to })
+        .setColor(color)
+        .run();
+    } else {
+      // Caret (collapsed selection) or no saved selection — set color for future typing
+      editor.chain().focus().setColor(color).run();
+    }
+    colorSelectionRef.current = null;
   }, [editor]);
 
   function openLinkInput() {
@@ -195,6 +206,12 @@ export function RichTextEditor({ value, onChange, placeholder, "data-testid": te
           <input
             type="color"
             value={currentColor || "#000000"}
+            onMouseDown={() => {
+              if (editor) {
+                const { from, to } = editor.state.selection;
+                colorSelectionRef.current = { from, to };
+              }
+            }}
             onChange={e => handleColorChange(e.target.value)}
             tabIndex={-1}
             title="Text color"
