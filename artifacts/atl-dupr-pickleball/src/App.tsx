@@ -1,5 +1,6 @@
 import React from 'react';
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { useEffect } from "react";
+import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -20,12 +21,21 @@ import AdminEventSetup from "@/pages/admin/event-setup";
 
 const queryClient = new QueryClient();
 
+function AdminRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    setLocation("/admin/events");
+  }, [setLocation]);
+  return null;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/events/:id" component={EventDetail} />
       <Route path="/login" component={Login} />
+      <Route path="/admin" component={AdminRedirect} />
       <Route path="/admin/events" component={AdminEvents} />
       <Route path="/admin/events/new" component={AdminEventNew} />
       <Route path="/admin/events/setup" component={AdminEventSetup} />
