@@ -25,6 +25,7 @@ export const eventsTable = pgTable("atl_dupr_events", {
   seriesId: text("series_id"),
   name: text("name").notNull(),
   description: text("description"),
+  eventDescription: text("event_description"),
   startDatetime: timestamp("start_datetime").notNull(),
   endDatetime: timestamp("end_datetime").notNull(),
   locationName: text("location_name").notNull(),

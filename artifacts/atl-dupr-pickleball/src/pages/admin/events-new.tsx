@@ -116,6 +116,7 @@ export default function AdminEventNew() {
     teamFormat: "rotating" as "rotating" | "fixed_partner",
     name: "",
     description: "",
+    eventDescription: "",
     startDatetime: "",
     endDatetime: "",
     locationName: "",
@@ -240,7 +241,7 @@ export default function AdminEventNew() {
       signupEndEdited.current = false;
       endEdited.current = false;
       setDescriptionGeneration(g => g + 1);
-      setForm(f => ({ ...f, name: "", description: "" }));
+      setForm(f => ({ ...f, name: "", description: "", eventDescription: "" }));
       return;
     }
     const ev = allEvents.find(e => String(e.id) === eventIdStr);
@@ -253,6 +254,7 @@ export default function AdminEventNew() {
       teamFormat: ev.teamFormat as "rotating" | "fixed_partner",
       name: ev.name + " (Copy)",
       description: ev.description ?? "",
+      eventDescription: ev.eventDescription ?? "",
       startDatetime: "",
       endDatetime: "",
       locationName: ev.locationName,
@@ -312,6 +314,7 @@ export default function AdminEventNew() {
     const payload: any = {
       name: form.name,
       description: form.description || null,
+      eventDescription: form.eventDescription || null,
       startDatetime: new Date(form.startDatetime).toISOString(),
       endDatetime: new Date(form.endDatetime).toISOString(),
       locationName: form.locationName,
@@ -421,12 +424,22 @@ export default function AdminEventNew() {
               </div>
             </div>
 
+            {/* Event Description */}
+            <div className="space-y-1.5">
+              <Label>Event Description</Label>
+              <RichTextEditor
+                data-testid="input-event-description" value={form.eventDescription}
+                onChange={v => setField("eventDescription", v)}
+                placeholder="Describe the event, what to expect, and any special details..."
+              />
+            </div>
+
             {/* Guidelines and Rules */}
             <div className="space-y-1.5">
               <Label>Guidelines and Rules *</Label>
               <RichTextEditor
                 key={`${form.teamFormat}-${descriptionGeneration}`}
-                data-testid="input-event-description" value={form.description}
+                data-testid="input-event-guidelines" value={form.description}
                 onChange={v => { descriptionEdited.current = true; setField("description", v); }}
                 placeholder="Add rules, requirements, waivers, and other guidelines that participants should know..."
               />

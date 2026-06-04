@@ -232,6 +232,7 @@ export default function AdminEventDetail() {
     setEditForm({
       name: event.name ?? "",
       description: event.description ?? "",
+      eventDescription: event.eventDescription ?? "",
       startDatetime: toLocalInput(event.startDatetime),
       endDatetime: toLocalInput(event.endDatetime),
       locationName: event.locationName ?? "",
@@ -285,6 +286,7 @@ export default function AdminEventDetail() {
       data: {
         name: editForm.name || undefined,
         description: editForm.description || null,
+        eventDescription: editForm.eventDescription || null,
         startDatetime: editForm.startDatetime ? new Date(editForm.startDatetime).toISOString() : undefined,
         endDatetime: editForm.endDatetime ? new Date(editForm.endDatetime).toISOString() : undefined,
         locationName: editForm.locationName || undefined,
@@ -1092,11 +1094,19 @@ export default function AdminEventDetail() {
                   <Input id="edit-name" value={editForm.name ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} required />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Description</Label>
+                  <Label>Event Description</Label>
+                  <RichTextEditor
+                    value={editForm.eventDescription ?? ""}
+                    onChange={v => setEditForm((f: any) => ({ ...f, eventDescription: v }))}
+                    placeholder="Describe the event, what to expect, and any special details..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Guidelines and Rules</Label>
                   <RichTextEditor
                     value={editForm.description ?? ""}
                     onChange={v => setEditForm((f: any) => ({ ...f, description: v }))}
-                    placeholder="Tell participants what to expect..."
+                    placeholder="Add rules, requirements, waivers, and other guidelines..."
                   />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -153,6 +153,8 @@ export interface Event {
   name: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  eventDescription?: string | null;
   startDatetime: string;
   endDatetime: string;
   locationName: string;
@@ -218,6 +220,8 @@ export interface EventInput {
   name: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  eventDescription?: string | null;
   startDatetime: string;
   endDatetime: string;
   locationName: string;
@@ -266,6 +270,8 @@ export interface EventUpdate {
   name?: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  eventDescription?: string | null;
   startDatetime?: string;
   endDatetime?: string;
   locationName?: string;

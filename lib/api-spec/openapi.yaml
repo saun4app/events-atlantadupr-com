@@ -900,6 +900,8 @@ components:
           type: string
         description:
           type: ["string", "null"]
+        eventDescription:
+          type: ["string", "null"]
         startDatetime:
           type: string
           format: date-time
@@ -975,6 +977,8 @@ components:
           type: string
         description:
           type: ["string", "null"]
+        eventDescription:
+          type: ["string", "null"]
         startDatetime:
           type: string
           format: date-time
@@ -1020,6 +1024,8 @@ components:
         name:
           type: string
         description:
+          type: ["string", "null"]
+        eventDescription:
           type: ["string", "null"]
         startDatetime:
           type: string

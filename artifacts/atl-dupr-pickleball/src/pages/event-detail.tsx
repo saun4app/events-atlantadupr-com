@@ -428,7 +428,14 @@ export default function EventDetail() {
 
         </div>
 
-        {/* Description */}
+        {/* Event Description */}
+        {event.eventDescription && (
+          <div className="bg-card border border-card-border rounded-lg p-5">
+            <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.eventDescription }} />
+          </div>
+        )}
+
+        {/* Guidelines and Rules */}
         {event.description && (
           <div className="bg-card border border-card-border rounded-lg p-5">
             <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />

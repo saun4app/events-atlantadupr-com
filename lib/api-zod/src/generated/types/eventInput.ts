@@ -13,6 +13,8 @@ export interface EventInput {
   name: string;
   /** @nullable */
   description?: string | null;
+  /** @nullable */
+  eventDescription?: string | null;
   startDatetime: Date;
   endDatetime: Date;
   locationName: string;
