@@ -260,7 +260,8 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   }
 
   // Validate and store self-rating for NR players
-  if (isNR(member?.doubleRating)) {
+  // Staff adding participants from admin console are exempt from self-rating requirement
+  if (isNR(member?.doubleRating) && !staff) {
     if (!selfRating || typeof selfRating !== "string") {
       return res.status(400).json({ error: "Self-rating is required for NR (non-rated) players. Please enter a rating between 2.0 and 5.0." });
     }
