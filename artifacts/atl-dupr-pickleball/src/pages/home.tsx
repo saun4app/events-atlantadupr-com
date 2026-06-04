@@ -1,27 +1,15 @@
 import { Link } from "wouter";
 import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
 import { PublicNav } from "@/components/public-nav";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign } from "lucide-react";
-import { format, isPast, isFuture } from "date-fns";
+import { format } from "date-fns";
 
 function teamFormat(t: string) {
   return t === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners";
 }
 
-function signupStatus(event: { signupStartDatetime: string; signupEndDatetime: string; status: string }) {
-  const now = new Date();
-  const start = new Date(event.signupStartDatetime);
-  const end = new Date(event.signupEndDatetime);
-  if (event.status === "ended" || event.status === "closed") return { label: "Registration Closed", color: "secondary" as const };
-  if (isFuture(start)) return { label: `Opens ${format(start, "EEE, MMM d")}`, color: "secondary" as const };
-  if (isPast(end)) return { label: "Signup Closed", color: "secondary" as const };
-  return { label: "Open for Signup", color: "default" as const };
-}
-
 function EventCard({ event }: { event: any }) {
-  const sig = signupStatus(event);
   return (
     <Link href={`/events/${event.id}`} data-testid={`card-event-${event.id}`}>
       <div className="bg-card border border-card-border rounded-lg p-5 hover:shadow-md transition-all cursor-pointer hover:border-primary/40 group">
@@ -29,21 +17,6 @@ function EventCard({ event }: { event: any }) {
           <h2 className="font-semibold text-foreground text-base leading-snug group-hover:text-primary transition-colors">
             {event.name}
           </h2>
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            <Badge
-              variant={sig.color === "default" ? "default" : "secondary"}
-              className="text-xs whitespace-nowrap"
-              data-testid={`status-signup-${event.id}`}
-            >
-              {sig.label}
-            </Badge>
-            <span className="text-xs font-medium text-muted-foreground">
-              {event.ratingTypeRequired === "dupr" ? "DUPR Required"
-                : event.ratingTypeRequired === "self_numeric" ? "Self-Rating Required"
-                : event.ratingTypeRequired === "self_skill" ? "Skill Level Required"
-                : "All Levels"}
-            </span>
-          </div>
         </div>
 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-muted-foreground">
