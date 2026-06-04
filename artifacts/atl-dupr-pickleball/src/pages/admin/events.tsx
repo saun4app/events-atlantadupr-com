@@ -7,6 +7,7 @@ import {
   type EmailFailure,
 } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
+import { EventsNav } from "@/components/events-nav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -127,6 +128,7 @@ export default function AdminEvents() {
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
+      <EventsNav />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">

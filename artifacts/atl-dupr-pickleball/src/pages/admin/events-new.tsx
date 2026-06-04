@@ -6,6 +6,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminNav } from "@/components/admin-nav";
+import { EventsNav } from "@/components/events-nav";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { DateTimeInput } from "@/components/date-time-input";
 import { Button } from "@/components/ui/button";
@@ -350,6 +351,7 @@ export default function AdminEventNew() {
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
+      <EventsNav />
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
         <Link href="/admin/events" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ChevronLeft className="w-4 h-4" />

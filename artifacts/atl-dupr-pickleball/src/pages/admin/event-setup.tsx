@@ -3,6 +3,7 @@ import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
+import { EventsNav } from "@/components/events-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/numeric-input";
@@ -290,6 +291,7 @@ export default function AdminEventSetup() {
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
+      <EventsNav />
       <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
         <div className="mb-6">
           <h1 className="text-xl font-bold text-foreground">Event Setup</h1>

@@ -28,10 +28,10 @@ function Router() {
       <Route path="/login" component={Login} />
       <Route path="/admin/events" component={AdminEvents} />
       <Route path="/admin/events/new" component={AdminEventNew} />
+      <Route path="/admin/events/setup" component={AdminEventSetup} />
       <Route path="/admin/events/:id" component={AdminEventDetail} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
-      <Route path="/admin/event-setup" component={AdminEventSetup} />
       <Route path="/admin/settings" component={AdminSettings} />
       <Route component={NotFound} />
     </Switch>
