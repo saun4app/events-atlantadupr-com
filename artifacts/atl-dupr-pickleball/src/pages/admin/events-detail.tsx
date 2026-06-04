@@ -645,6 +645,7 @@ export default function AdminEventDetail() {
                   { label: "Confirmed", regs: confirmed, color: "text-primary", empty: "No confirmed participants yet." },
                   { label: "Pending Approval", regs: pending, color: "text-blue-600", empty: "No pending approvals." },
                   { label: "Waitlisted", regs: waitlisted, color: "text-yellow-600", empty: "Waitlist is empty." },
+                  { label: "Cancelled", regs: cancelled, color: "text-muted-foreground", empty: "No cancelled registrations." },
                 ].map(section => {
                   const key = section.label;
                   const sorted = sortRegs(section.regs, key);
@@ -919,120 +920,83 @@ export default function AdminEventDetail() {
                   );
                 })}
 
-                {/* ── Removed / Inactive ───────────────────────────── */}
-                {(rejected.length > 0 || cancelled.length > 0) && (
+                {/* ── Rejected ─────────────────────────────────────── */}
+                {rejected.length > 0 && (
                   <div className="bg-muted border border-border rounded-lg overflow-hidden">
                     <button
                       type="button"
                       onClick={() => setShowRemoved(prev => !prev)}
-                      className="w-full px-5 py-2 border-b border-border bg-muted/50 flex items-center justify-between gap-3 hover:bg-muted/80 transition-colors"
+                      className="w-full px-5 py-3 border-b border-border bg-muted/50 flex items-center justify-between gap-3 hover:bg-muted/80 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Removed</span>
-                        <span className="text-xs text-muted-foreground">({rejected.length + cancelled.length})</span>
+                        <span className="text-sm font-semibold text-destructive">Rejected</span>
+                        <span className="text-xs text-muted-foreground">({rejected.length})</span>
                       </div>
                       {showRemoved ? <ChevronUp className="w-4 h-4 text-muted-foreground" /> : <ChevronDown className="w-4 h-4 text-muted-foreground" />}
                     </button>
-                    {showRemoved && [
-                      { label: "Rejected", regs: rejected, color: "text-muted-foreground" },
-                      { label: "Cancelled", regs: cancelled, color: "text-muted-foreground" },
-                    ].map(sub => {
-                      const key = sub.label;
-                      const sorted = sortRegs(sub.regs, key);
-                      const subPageSize = getPageSize(key);
-                      const totalPages = Math.max(1, Math.ceil(sorted.length / subPageSize));
-                      const curPage = Math.min(pageNums[key] ?? 0, totalPages - 1);
-                      const paged = sorted.slice(curPage * subPageSize, (curPage + 1) * subPageSize);
-                      const sortCol = sortState[key]?.col;
-                      const sortDir = sortState[key]?.dir;
-                      if (sub.regs.length === 0) return null;
-                      return (
-                        <div key={key} className="border-b border-border last:border-0">
-                          <div className="px-5 py-2 bg-muted/30 flex items-center gap-2">
-                            <span className={`text-xs font-semibold ${sub.color}`}>{sub.label}</span>
-                            <span className="text-xs text-muted-foreground">({sub.regs.length})</span>
-                          </div>
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b border-border">
-                                  <th className="text-left px-5 py-2 font-medium text-muted-foreground w-10">#</th>
-                                  {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
-                                  {col("duprId") && <th className="text-left px-5 py-2 font-medium text-muted-foreground">DUPR ID</th>}
-                                  {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
-                                  {col("email") && <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />}
-                                  {col("signedUp") && <SortHeader label="Signed Up" col="signedUp" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "signedUp")} />}
-                                  <th className="text-right px-5 py-2 font-medium text-muted-foreground">Actions</th>
+                    {showRemoved && (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-border">
+                              <th className="text-left px-5 py-2 font-medium text-muted-foreground w-10">#</th>
+                              {col("name") && <SortHeader label="Name" col="name" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "name")} />}
+                              {col("duprId") && <th className="text-left px-5 py-2 font-medium text-muted-foreground">DUPR ID</th>}
+                              {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "dupr")} />}
+                              {col("email") && <SortHeader label="Email" col="email" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "email")} />}
+                              {col("signedUp") && <SortHeader label="Signed Up" col="signedUp" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "signedUp")} />}
+                              <th className="text-right px-5 py-2 font-medium text-muted-foreground">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {(() => {
+                              const sorted = sortRegs(rejected, "Rejected");
+                              const pageSize = getPageSize("Rejected");
+                              const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+                              const curPage = Math.min(pageNums["Rejected"] ?? 0, totalPages - 1);
+                              const paged = sorted.slice(curPage * pageSize, (curPage + 1) * pageSize);
+                              return paged.map((reg, idx) => (
+                                <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
+                                  <td className="px-5 py-2 text-muted-foreground font-mono text-xs">{curPage * pageSize + idx + 1}</td>
+                                  {col("name") && <td className="px-5 py-2 font-medium">{reg.playerName}</td>}
+                                  {col("duprId") && <td className="px-5 py-2 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
+                                  {col("dupr") && <td className="px-5 py-2 font-mono">{reg.doubleRating || "NR"}</td>}
+                                  {col("email") && <td className="px-5 py-2 text-xs">{(reg as any).playerEmail ? <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a> : <span className="text-muted-foreground">—</span>}</td>}
+                                  {col("signedUp") && <td className="px-5 py-2 text-xs text-muted-foreground whitespace-nowrap">{reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d, yyyy h:mm a") : "—"}</td>}
+                                  <td className="px-5 py-2">
+                                    <div className="flex items-center justify-end">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
+                                            Actions <ChevronDown className="w-3 h-3" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                          <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
+                                            <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                            <Clock className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
+                                            <List className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
+                                            <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </td>
                                 </tr>
-                              </thead>
-                              <tbody>
-                                {paged.map((reg, idx) => (
-                                  <tr key={reg.id} data-testid={`row-reg-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/20">
-                                    <td className="px-5 py-2 text-muted-foreground font-mono text-xs">{curPage * subPageSize + idx + 1}</td>
-                                    {col("name") && <td className="px-5 py-2 font-medium">{reg.playerName}</td>}
-                                    {col("duprId") && <td className="px-5 py-2 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
-                                    {col("dupr") && <td className="px-5 py-2 font-mono">{reg.doubleRating || "NR"}</td>}
-                                    {col("email") && <td className="px-5 py-2 text-xs">{(reg as any).playerEmail ? <a href={`mailto:${(reg as any).playerEmail}`} className="text-primary hover:underline">{(reg as any).playerEmail}</a> : <span className="text-muted-foreground">—</span>}</td>}
-                                    {col("signedUp") && <td className="px-5 py-2 text-xs text-muted-foreground whitespace-nowrap">{reg.registeredAt ? format(new Date(reg.registeredAt), "MMM d, yyyy h:mm a") : "—"}</td>}
-                                    <td className="px-5 py-2">
-                                      <div className="flex items-center justify-end">
-                                        <DropdownMenu>
-                                          <DropdownMenuTrigger asChild>
-                                            <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
-                                              Actions <ChevronDown className="w-3 h-3" />
-                                            </Button>
-                                          </DropdownMenuTrigger>
-                                          <DropdownMenuContent align="end" className="w-48">
-                                            {reg.status !== "confirmed" && (
-                                              <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
-                                                <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
-                                              </DropdownMenuItem>
-                                            )}
-                                            {reg.status !== "pending_approval" && (
-                                              <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
-                                                <Clock className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
-                                              </DropdownMenuItem>
-                                            )}
-                                            {reg.status !== "waitlisted" && (
-                                              <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
-                                                <List className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
-                                              </DropdownMenuItem>
-                                            )}
-                                            {reg.status !== "rejected" && (
-                                              <DropdownMenuItem data-testid={`action-move-to-rejected-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "rejected" } as any }, { onSuccess: () => { toast({ title: "Moved to rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
-                                                <XCircle className="w-3.5 h-3.5 text-destructive" /> Move to Rejected
-                                              </DropdownMenuItem>
-                                            )}
-                                            {reg.status !== "cancelled" && (
-                                              <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
-                                                <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
-                                              </DropdownMenuItem>
-                                            )}
-                                          </DropdownMenuContent>
-                                        </DropdownMenu>
-                                      </div>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                          {totalPages > 1 && (
-                            <div className="flex items-center justify-between px-5 py-2 border-t border-border bg-muted/10">
-                              <span className="text-xs text-muted-foreground">{curPage * subPageSize + 1}–{Math.min((curPage + 1) * subPageSize, sorted.length)} of {sorted.length}</span>
-                              <div className="flex items-center gap-1">
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={curPage === 0} onClick={() => setPageNums(prev => ({ ...prev, [key]: curPage - 1 }))}><ChevronLeft className="w-4 h-4" /></Button>
-                                <span className="text-xs text-muted-foreground px-1">{curPage + 1} / {totalPages}</span>
-                                <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={curPage >= totalPages - 1} onClick={() => setPageNums(prev => ({ ...prev, [key]: curPage + 1 }))}><ChevronRight className="w-4 h-4" /></Button>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
+                              ));
+                            })()}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 )}
-
                 {(registrations?.length ?? 0) === 0 && (
                   <div className="text-center py-12 text-muted-foreground"><p className="text-sm">No registrations yet.</p></div>
                 )}
