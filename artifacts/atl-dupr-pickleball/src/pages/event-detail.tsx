@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "wouter";
 import {
   useGetEvent, useGetEventRosterSummary, useListRegistrations, useCreateRegistration,
@@ -14,7 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink, Star } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink, Star, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -42,24 +42,78 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+type SortKey = "playerName" | "doubleRating";
+type SortDir = "asc" | "desc";
+
+function useSortedRegistrations(data: any[]) {
+  const [sort, setSort] = useState<{ key: SortKey; dir: SortDir } | null>(null);
+  const sorted = useMemo(() => {
+    if (!sort) return data;
+    const arr = [...data];
+    arr.sort((a, b) => {
+      let va = a[sort.key];
+      let vb = b[sort.key];
+      if (sort.key === "doubleRating") {
+        const na = parseFloat(va);
+        const nb = parseFloat(vb);
+        if (!isNaN(na) && !isNaN(nb)) return sort.dir === "asc" ? na - nb : nb - na;
+        if (isNaN(na) && isNaN(nb)) return 0;
+        if (isNaN(na)) return sort.dir === "asc" ? 1 : -1;
+        return sort.dir === "asc" ? -1 : 1;
+      }
+      return sort.dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
+    });
+    return arr;
+  }, [data, sort]);
+  return { sorted, sort, setSort };
+}
+
+function SortHeader({ label, activeKey, sort, onSort }: { label: string; activeKey: SortKey; sort: { key: SortKey; dir: SortDir } | null; onSort: (key: SortKey) => void }) {
+  const active = sort?.key === activeKey;
+  return (
+    <button
+      onClick={() => onSort(activeKey)}
+      className="flex items-center gap-1 text-left font-medium text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {label}
+      {active ? (
+        sort.dir === "asc" ? <ArrowUp className="w-3.5 h-3.5" /> : <ArrowDown className="w-3.5 h-3.5" />
+      ) : (
+        <ArrowUpDown className="w-3.5 h-3.5 opacity-30" />
+      )}
+    </button>
+  );
+}
+
 function ParticipantTable({ registrations, event }: { registrations: any[]; event: any }) {
+  const { sorted, sort, setSort } = useSortedRegistrations(registrations);
   if (registrations.length === 0) return null;
+  function toggleSort(key: SortKey) {
+    setSort(s => {
+      if (s?.key === key) return { key, dir: s.dir === "asc" ? "desc" : "asc" };
+      return { key, dir: "asc" };
+    });
+  }
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-border bg-muted/50">
             <th className="text-left px-5 py-3 font-medium text-muted-foreground">#</th>
-            <th className="text-left px-5 py-3 font-medium text-muted-foreground">Name</th>
+            <th className="text-left px-5 py-3">
+              <SortHeader label="Name" activeKey="playerName" sort={sort} onSort={toggleSort} />
+            </th>
             {event.teamFormat === "fixed_partner" && (
               <th className="text-left px-5 py-3 font-medium text-muted-foreground">Partner</th>
             )}
-            <th className="text-left px-5 py-3 font-medium text-muted-foreground">DUPR Rating</th>
+            <th className="text-left px-5 py-3">
+              <SortHeader label="DUPR Rating" activeKey="doubleRating" sort={sort} onSort={toggleSort} />
+            </th>
             <th className="text-left px-5 py-3 font-medium text-muted-foreground">Status</th>
           </tr>
         </thead>
         <tbody>
-          {registrations.map((reg, idx) => (
+          {sorted.map((reg, idx) => (
             <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
               <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
               <td className="px-5 py-3 font-medium">{reg.playerName}</td>
@@ -656,7 +710,7 @@ export default function EventDetail() {
         <div className="bg-card border border-card-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">
-              Confirmed{confirmedRegs.length > 0 ? ` (${confirmedRegs.length})` : ""}
+              Confirmed Participants{confirmedRegs.length > 0 ? ` (${confirmedRegs.length})` : ""}
             </h2>
           </div>
           {regLoading ? (
