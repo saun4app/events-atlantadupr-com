@@ -72,14 +72,14 @@ export default function AdminMembers() {
     if (!deleteId) return;
     deleteMember.mutate({ duprId: deleteId }, {
       onSuccess: () => { toast({ title: "Member deleted" }); invalidate(); setDeleteId(null); },
-      onError: () => toast({ title: "Failed to delete", variant: "destructive" }),
+      onError: (err: any) => toast({ title: err?.data?.error || "Failed to delete", variant: "destructive" }),
     });
   }
 
   function handleClearAll() {
     clearAll.mutate(undefined, {
       onSuccess: () => { toast({ title: "All members cleared" }); invalidate(); setShowClearDialog(false); },
-      onError: () => toast({ title: "Failed to clear members", variant: "destructive" }),
+      onError: (err: any) => toast({ title: err?.data?.error || "Failed to clear members", variant: "destructive" }),
     });
   }
 

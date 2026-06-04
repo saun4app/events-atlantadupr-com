@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { membersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { membersTable, registrationsTable } from "@workspace/db";
+import { eq, count } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
 
 const router = Router();
@@ -46,6 +46,10 @@ router.post("/", requireRole("admin"), async (req, res) => {
 });
 
 router.delete("/", requireRole("admin"), async (req, res) => {
+  const [result] = await db.select({ count: count() }).from(registrationsTable);
+  if (result.count > 0) {
+    return res.status(409).json({ error: "Cannot clear member list while event registrations exist. Registrations are linked to members and clearing the list would break these records." });
+  }
   await db.delete(membersTable);
   return res.status(204).send();
 });
@@ -147,8 +151,13 @@ router.patch("/:duprId", requireRole("admin"), async (req, res) => {
 
 router.delete("/:duprId", requireRole("admin"), async (req, res) => {
   const duprId = String(req.params.duprId);
-  const [deleted] = await db.delete(membersTable).where(eq(membersTable.duprId, duprId)).returning();
-  if (!deleted) return res.status(404).json({ error: "Member not found" });
+  const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, duprId));
+  if (!existing) return res.status(404).json({ error: "Member not found" });
+  const [regCount] = await db.select({ count: count() }).from(registrationsTable).where(eq(registrationsTable.memberDuprId, duprId));
+  if (regCount.count > 0) {
+    return res.status(409).json({ error: "Cannot delete this member because they have active event registrations. Cancel or remove their registrations first." });
+  }
+  await db.delete(membersTable).where(eq(membersTable.duprId, duprId));
   return res.status(204).send();
 });
 
