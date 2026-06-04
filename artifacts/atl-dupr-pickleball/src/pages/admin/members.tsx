@@ -98,7 +98,7 @@ export default function AdminMembers() {
         phone: addForm.phone.trim() || null,
       } as any
     }, {
-      onSuccess: () => { toast({ title: "Member added" }); invalidate(); setShowAddDialog(false); setAddForm(emptyForm); },
+      onSuccess: () => { toast({ title: "Member upserted" }); invalidate(); setShowAddDialog(false); setAddForm(emptyForm); },
       onError: (err: any) => toast({ title: err?.data?.error || "Failed to add member", variant: "destructive" }),
     });
   }
@@ -199,7 +199,7 @@ export default function AdminMembers() {
               disabled={uploadCsv.isPending}
             >
               <Upload className="w-4 h-4" />
-              {uploadCsv.isPending ? "Uploading..." : "Upload CSV"}
+              {uploadCsv.isPending ? "Upserting..." : "Upsert CSV"}
             </Button>
             <Button
               data-testid="button-clear-all"
@@ -216,7 +216,7 @@ export default function AdminMembers() {
               onClick={() => setShowAddDialog(true)}
             >
               <Plus className="w-4 h-4" />
-              Add Member
+              Upsert Member
             </Button>
           </div>
         </div>
@@ -331,7 +331,7 @@ export default function AdminMembers() {
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Add Member</DialogTitle>
+            <DialogTitle>Upsert Member</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -375,7 +375,7 @@ export default function AdminMembers() {
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>Cancel</Button>
               <Button type="submit" data-testid="button-submit-add-member" disabled={createMember.isPending}>
-                {createMember.isPending ? "Adding..." : "Add Member"}
+                {createMember.isPending ? "Upserting..." : "Upsert Member"}
               </Button>
             </DialogFooter>
           </form>

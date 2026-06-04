@@ -40,6 +40,19 @@ router.post("/", requireRole("admin"), async (req, res) => {
   const [member] = await db
     .insert(membersTable)
     .values({ duprId, playerName, doubleRating, doubleReliability, singleRating, singleReliability, selfRating, email: email || null, phone: phone || null })
+    .onConflictDoUpdate({
+      target: membersTable.duprId,
+      set: {
+        playerName,
+        doubleRating,
+        doubleReliability,
+        singleRating,
+        singleReliability,
+        selfRating,
+        email: email || null,
+        phone: phone || null,
+      },
+    })
     .returning();
 
   return res.status(201).json(member);
