@@ -9,7 +9,9 @@ const MAX_ATTEMPTS = 5;
 
 const PEPPER =
   process.env.SESSION_SECRET ??
-  (process.env.NODE_ENV === "production" ? "" : "atl_dupr_dev_session_secret");
+  (process.env.NODE_ENV === "production"
+    ? (() => { throw new Error("SESSION_SECRET env var must be set in production"); })()
+    : "atl_dupr_dev_session_secret");
 
 export const VERIFICATION_COOLDOWN_SECONDS = Math.round(COOLDOWN_MS / 1000);
 
