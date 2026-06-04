@@ -33,11 +33,10 @@ export function AdminNav() {
   return (
     <header className="bg-white border-b border-border sticky top-0 z-40 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2 font-bold text-primary text-sm tracking-wide uppercase">
-              <span className="w-2 h-6 bg-primary rounded-sm inline-block" />
-              ATL DUPR
+            <Link href="/" className="flex items-center">
+              <img src="/logo-transparent.png" alt="Atlanta DUPR Pickleball" className="h-12 w-auto" />
             </Link>
             <nav className="hidden md:flex items-center gap-1">
               {links.map(l => {
