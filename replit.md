@@ -1,10 +1,11 @@
-# [Project name]
+# Atlanta DUPR Pickleball — Events App
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlantadupr.com`. It handles event registration, round robin scheduling, and DUPR-rated player management.
 
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm --filter @workspace/atl-dupr-pickleball run dev` — run the web frontend (port 20563)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
@@ -22,24 +23,39 @@ _Replace the heading above with the project's name, and this line with one sente
 
 ## Where things live
 
-_Populate as you build — short repo map plus pointers to the source-of-truth file for DB schema, API contracts, theme files, etc._
+- Frontend: `artifacts/atl-dupr-pickleball/`
+- Backend API: `artifacts/api-server/`
+- OpenAPI spec: `lib/api-spec/openapi.yaml`
+- DB schema: `lib/db/src/schema.ts`
+- Shared API client: `lib/api-client-react/`
+- Zod schemas: `lib/api-zod/`
 
 ## Architecture decisions
 
-_Populate as you build — non-obvious choices a reader couldn't infer from the code (3-5 bullets)._
+- Single monorepo with shared API server and frontend
+- Frontend is a React + Vite SPA with static build in production
+- API routes live under `/api/` path
+- Auth uses sessions with role-based access control
 
 ## Product
 
-_Describe the high-level user-facing capabilities of this app once they exist._
+- Public event browsing with registration, DUPR rating checks, and waitlist
+- Fixed-partner and rotating formats supported
+- Admin event management with participant roster, CSV/PDF export, email notifications
+- Court fee collection and member/non-member pricing
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- None yet
 
 ## Gotchas
 
-_Populate as you build — sharp edges, "always run X before Y" rules._
+- Always run `pnpm --filter @workspace/api-spec run codegen` after changing `openapi.yaml`
+- Frontend builds to `artifacts/atl-dupr-pickleball/dist/public` for production
+- The `BASE_PATH` env var must match the `previewPath` in artifact.toml
 
-## Pointers
+## Deployment
 
-- See the `pnpm-workspace` skill for workspace structure, TypeScript setup, and package details
+- Custom domain: `events.atlantadupr.com` (primary)
+- Fallback: `atlanta-dupr-pickleball.replit.app` (auto-generated from Replit name)
+- To rename the Replit (and thus the `.replit.app` URL): go to Replit dashboard → rename the repl
