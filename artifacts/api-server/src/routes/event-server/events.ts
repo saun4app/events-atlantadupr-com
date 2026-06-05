@@ -60,7 +60,7 @@ router.get("/", async (req, res) => {
 
   if (upcoming === "true") {
     const now = new Date();
-    rows = rows.filter((e) => new Date(e.startDatetime) >= now && e.status !== "ended");
+    rows = rows.filter((e) => new Date(e.startDatetime) >= now && e.status !== "ended" && e.status !== "closed");
   }
 
   if (search) {
