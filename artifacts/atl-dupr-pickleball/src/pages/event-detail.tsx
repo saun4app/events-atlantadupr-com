@@ -27,6 +27,14 @@ function isNonNumeric(rating: string | null | undefined): boolean {
 }
 
 
+function formatNameInitials(name: string | null): string {
+  if (!name) return "";
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0];
+  const last = parts.pop()!;
+  return parts.map(p => p[0] + ".").join(" ") + " " + last;
+}
+
 type SortKey = "playerName" | "doubleRating";
 type SortDir = "asc" | "desc";
 
@@ -100,7 +108,7 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
           {sorted.map((reg, idx) => (
             <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
               <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
-              <td className="px-5 py-3 font-medium">{reg.playerName}</td>
+              <td className="px-5 py-3 font-medium">{formatNameInitials(reg.playerName)}</td>
               {event.teamFormat === "fixed_partner" && (
                 <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
               )}
@@ -543,7 +551,7 @@ export default function EventDetail() {
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    <strong>Use the email address linked to your DUPR account.</strong> We'll email you a 6-digit code to verify it.{" "}
+                    <strong>Use the email address linked to your DUPR account.</strong>{" "}
                     {joinInstructions && (
                       <button
                         type="button"
@@ -568,7 +576,7 @@ export default function EventDetail() {
                   </div>
                 )}
                 <Button data-testid="button-send-code" type="submit" disabled={requestCode.isPending}>
-                  {requestCode.isPending ? "Sending..." : "Send Code"}
+                  {requestCode.isPending ? "Sending..." : "Register"}
                 </Button>
               </form>
             ) : (
