@@ -32,7 +32,7 @@ function formatNameInitials(name: string | null): string {
   const parts = name.trim().split(/\s+/);
   if (parts.length === 1) return parts[0];
   const last = parts.pop()!;
-  return parts.map(p => p[0] + ".").join(" ") + " " + last;
+  return parts.join(" ") + " " + last[0] + ".";
 }
 
 type SortKey = "playerName" | "doubleRating";
