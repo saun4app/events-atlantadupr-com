@@ -316,6 +316,10 @@ export default function AdminEventDetail() {
     e.preventDefault();
     const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
     if (emails.length === 0) return;
+    if (event?.teamFormat === "fixed_partner" && emails.length > 1) {
+      toast({ title: "Only one email allowed", description: "Fixed-partner events require a single participant email.", variant: "destructive" });
+      return;
+    }
     let succeeded = 0;
     const failures: string[] = [];
     const notFound: string[] = [];
@@ -579,17 +583,32 @@ export default function AdminEventDetail() {
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>
               <form onSubmit={handleAdd} className="flex items-start gap-3 flex-wrap">
                 <div className="space-y-1.5">
-                  <Label htmlFor="add-emails">Email Address(es)</Label>
-                  <Textarea
-                    id="add-emails"
-                    data-testid="input-add-emails"
-                    value={addEmails}
-                    onChange={e => setAddEmails(e.target.value.toLowerCase())}
-                    placeholder={"player@example.com\nplayer2@example.com, player3@example.com"}
-                    className="w-72 h-20 text-sm font-mono resize-none"
-                    required
-                  />
-                  <p className="text-xs text-muted-foreground">Separate multiple emails with commas, spaces, or new lines.</p>
+                  <Label htmlFor="add-emails">{event.teamFormat === "fixed_partner" ? "Email Address" : "Email Address(es)"}</Label>
+                  {event.teamFormat === "fixed_partner" ? (
+                    <Input
+                      id="add-emails"
+                      data-testid="input-add-emails"
+                      type="email"
+                      value={addEmails}
+                      onChange={e => setAddEmails(e.target.value.toLowerCase())}
+                      placeholder="player@example.com"
+                      className="w-72 text-sm font-mono"
+                      required
+                    />
+                  ) : (
+                    <Textarea
+                      id="add-emails"
+                      data-testid="input-add-emails"
+                      value={addEmails}
+                      onChange={e => setAddEmails(e.target.value.toLowerCase())}
+                      placeholder={"player@example.com\nplayer2@example.com, player3@example.com"}
+                      className="w-72 h-20 text-sm font-mono resize-none"
+                      required
+                    />
+                  )}
+                  {event.teamFormat !== "fixed_partner" && (
+                    <p className="text-xs text-muted-foreground">Separate multiple emails with commas, spaces, or new lines.</p>
+                  )}
                 </div>
                 {event.teamFormat === "fixed_partner" && (
                   <div className="space-y-1.5">
