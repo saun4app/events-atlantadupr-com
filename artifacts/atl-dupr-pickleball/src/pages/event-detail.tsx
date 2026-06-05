@@ -35,7 +35,7 @@ function formatNameInitials(name: string | null): string {
   return parts.join(" ") + " " + last[0] + ".";
 }
 
-type SortKey = "playerName" | "doubleRating";
+type SortKey = "playerName" | "partnerName" | "doubleRating" | "partnerDoubleRating" | "teamRating";
 type SortDir = "asc" | "desc";
 
 function useSortedRegistrations(data: any[]) {
@@ -46,7 +46,7 @@ function useSortedRegistrations(data: any[]) {
     arr.sort((a, b) => {
       let va = a[sort.key];
       let vb = b[sort.key];
-      if (sort.key === "doubleRating") {
+      if (sort.key === "doubleRating" || sort.key === "partnerDoubleRating" || sort.key === "teamRating") {
         const na = parseFloat(va);
         const nb = parseFloat(vb);
         if (!isNaN(na) && !isNaN(nb)) return sort.dir === "asc" ? na - nb : nb - na;
@@ -87,6 +87,7 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
       return { key, dir: "asc" };
     });
   }
+  const isFixed = event.teamFormat === "fixed_partner";
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -96,12 +97,24 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
             <th className="text-left px-5 py-3">
               <SortHeader label="Name" activeKey="playerName" sort={sort} onSort={toggleSort} />
             </th>
-            {event.teamFormat === "fixed_partner" && (
-              <th className="text-left px-5 py-3 font-medium text-muted-foreground">Partner</th>
+            {isFixed && (
+              <th className="text-left px-5 py-3">
+                <SortHeader label="Partner" activeKey="partnerName" sort={sort} onSort={toggleSort} />
+              </th>
             )}
             <th className="text-left px-5 py-3">
               <SortHeader label="DUPR Rating" activeKey="doubleRating" sort={sort} onSort={toggleSort} />
             </th>
+            {isFixed && (
+              <th className="text-left px-5 py-3">
+                <SortHeader label="Partner DUPR" activeKey="partnerDoubleRating" sort={sort} onSort={toggleSort} />
+              </th>
+            )}
+            {isFixed && (
+              <th className="text-left px-5 py-3">
+                <SortHeader label="Team Rating" activeKey="teamRating" sort={sort} onSort={toggleSort} />
+              </th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -109,7 +122,7 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
             <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
               <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
               <td className="px-5 py-3 font-medium">{formatNameInitials(reg.playerName)}</td>
-              {event.teamFormat === "fixed_partner" && (
+              {isFixed && (
                 <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
               )}
               <td className="px-5 py-3">
@@ -117,6 +130,16 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
                   {reg.doubleRating || "NR"}
                 </span>
               </td>
+              {isFixed && (
+                <td className="px-5 py-3 font-mono">
+                  {reg.partnerDoubleRating || "NR"}
+                </td>
+              )}
+              {isFixed && (
+                <td className="px-5 py-3 font-mono">
+                  {reg.teamRating || "NR"}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -478,7 +501,7 @@ export default function EventDetail() {
                 <Users className="w-4 h-4 text-primary" />
                 <span className="text-muted-foreground">{event.teamFormat === "fixed_partner" ? "Teams" : "Players"}:</span>
                 <span data-testid="text-confirmed-count">
-                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> / {event.teamFormat === "fixed_partner" ? rosterSummary.maxTeams ?? rosterSummary.maxParticipants : rosterSummary.maxParticipants}
+                  <span className="font-semibold text-primary">{event.teamFormat === "fixed_partner" ? rosterSummary.confirmedTeams ?? rosterSummary.confirmed : rosterSummary.confirmed}</span> / {event.teamFormat === "fixed_partner" ? rosterSummary.maxTeams ?? rosterSummary.maxParticipants : rosterSummary.maxParticipants}
                 </span>
               </div>
             )}

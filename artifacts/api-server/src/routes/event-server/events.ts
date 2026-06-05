@@ -256,6 +256,9 @@ router.get("/:id/roster-summary", async (req, res) => {
   const pendingApproval = regs.filter((r) => r.status === "pending_approval").length;
 
   const maxTeams = event.teamFormat === "fixed_partner" ? Math.floor(event.maxParticipants / 2) : null;
+  const confirmedTeams = event.teamFormat === "fixed_partner" ? Math.floor(confirmed / 2) : null;
+  const waitlistedTeams = event.teamFormat === "fixed_partner" ? Math.floor(waitlisted / 2) : null;
+  const pendingTeams = event.teamFormat === "fixed_partner" ? Math.floor(pendingApproval / 2) : null;
   return res.json({
     confirmed,
     waitlisted,
@@ -263,6 +266,9 @@ router.get("/:id/roster-summary", async (req, res) => {
     total: confirmed + waitlisted + pendingApproval,
     maxParticipants: event.maxParticipants,
     maxTeams,
+    confirmedTeams,
+    waitlistedTeams,
+    pendingTeams,
   });
 });
 

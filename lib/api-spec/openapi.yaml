@@ -1100,6 +1100,12 @@ components:
           type: integer
         maxTeams:
           type: ["integer", "null"]
+        confirmedTeams:
+          type: ["integer", "null"]
+        waitlistedTeams:
+          type: ["integer", "null"]
+        pendingTeams:
+          type: ["integer", "null"]
 
     RosterEntry:
       type: object
@@ -1136,6 +1142,10 @@ components:
         selfRating:
           type: ["string", "null"]
         partnerName:
+          type: ["string", "null"]
+        partnerDoubleRating:
+          type: ["string", "null"]
+        teamRating:
           type: ["string", "null"]
 
     RegistrationInput:

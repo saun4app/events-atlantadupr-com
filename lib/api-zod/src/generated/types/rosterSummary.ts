@@ -14,4 +14,10 @@ export interface RosterSummary {
   maxParticipants: number;
   /** @nullable */
   maxTeams?: number | null;
+  /** @nullable */
+  confirmedTeams?: number | null;
+  /** @nullable */
+  waitlistedTeams?: number | null;
+  /** @nullable */
+  pendingTeams?: number | null;
 }

@@ -379,7 +379,10 @@ export const GetEventRosterSummaryResponse = zod.object({
   "pendingApproval": zod.number(),
   "total": zod.number(),
   "maxParticipants": zod.number(),
-  "maxTeams": zod.number().nullish()
+  "maxTeams": zod.number().nullish(),
+  "confirmedTeams": zod.number().nullish(),
+  "waitlistedTeams": zod.number().nullish(),
+  "pendingTeams": zod.number().nullish()
 })
 
 
@@ -405,7 +408,9 @@ export const ListRegistrationsResponseItem = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 export const ListRegistrationsResponse = zod.array(ListRegistrationsResponseItem)
 
@@ -468,7 +473,9 @@ export const GetRegistrationResponse = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 
 
@@ -504,7 +511,9 @@ export const UpdateRegistrationResponse = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 
 
@@ -540,7 +549,9 @@ export const ApproveRegistrationResponse = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 
 
@@ -567,7 +578,9 @@ export const RejectRegistrationResponse = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 
 
@@ -594,7 +607,9 @@ export const PromoteFromWaitlistResponse = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 
 
@@ -625,7 +640,9 @@ export const CancelRegistrationResponse = zod.object({
   "doubleRating": zod.string().nullish(),
   "singleRating": zod.string().nullish(),
   "selfRating": zod.string().nullish(),
-  "partnerName": zod.string().nullish()
+  "partnerName": zod.string().nullish(),
+  "partnerDoubleRating": zod.string().nullish(),
+  "teamRating": zod.string().nullish()
 })
 
 

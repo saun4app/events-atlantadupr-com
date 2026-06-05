@@ -151,7 +151,10 @@ export default function AdminEventDetail() {
     return next;
   });
   const col = (k: string) => visibleCols.has(k);
-  const visibleColCount = 2 + Array.from(visibleCols).filter(k => k !== "partner" || event?.teamFormat === "fixed_partner").length;
+  const visibleColCount = 2 + Array.from(visibleCols).filter(k => {
+    if (k === "partner" || k === "partnerDupr" || k === "teamRating") return event?.teamFormat === "fixed_partner";
+    return true;
+  }).length;
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
@@ -206,6 +209,8 @@ export default function AdminEventDetail() {
       else if (s.col === "new") { av = a.isNew ? 1 : 0; bv = b.isNew ? 1 : 0; }
       else if (s.col === "role") { av = (a.eventRole ?? "").toLowerCase(); bv = (b.eventRole ?? "").toLowerCase(); }
       else if (s.col === "partner") { av = (a.partnerName ?? "").toLowerCase(); bv = (b.partnerName ?? "").toLowerCase(); }
+      else if (s.col === "partnerDupr") { av = parseFloat(a.partnerDoubleRating) || 0; bv = parseFloat(b.partnerDoubleRating) || 0; }
+      else if (s.col === "teamRating") { av = parseFloat(a.teamRating) || 0; bv = parseFloat(b.teamRating) || 0; }
       else if (s.col === "email") { av = ((a as any).playerEmail ?? "").toLowerCase(); bv = ((b as any).playerEmail ?? "").toLowerCase(); }
       else if (s.col === "phone") { av = ((a as any).playerPhone ?? "").toLowerCase(); bv = ((b as any).playerPhone ?? "").toLowerCase(); }
       else if (s.col === "signedUp") { av = new Date(a.registeredAt).getTime(); bv = new Date(b.registeredAt).getTime(); }
@@ -468,6 +473,8 @@ export default function AdminEventDetail() {
     if (col("name")) cols.push({ label: "Name", get: r => r.playerName ?? "" });
     if (col("duprId")) cols.push({ label: "DUPR ID", get: r => r.memberDuprId ?? "" });
     if (event?.teamFormat === "fixed_partner" && col("partner")) cols.push({ label: "Partner", get: r => r.partnerName ?? "" });
+    if (event?.teamFormat === "fixed_partner" && col("partnerDupr")) cols.push({ label: "Partner DUPR", get: r => r.partnerDoubleRating || "NR" });
+    if (event?.teamFormat === "fixed_partner" && col("teamRating")) cols.push({ label: "Team Rating", get: r => r.teamRating || "NR" });
     if (col("dupr")) cols.push({ label: "DUPR Double", get: r => r.doubleRating || "NR" });
     if (col("assigned")) cols.push({ label: "Assigned", get: r => {
       const p = parseFloat(r.doubleRating);
@@ -636,6 +643,8 @@ export default function AdminEventDetail() {
                 { key: "name", label: "Name" },
                 { key: "duprId", label: "DUPR ID" },
                 ...(event.teamFormat === "fixed_partner" ? [{ key: "partner", label: "Partner" }] : []),
+                ...(event.teamFormat === "fixed_partner" ? [{ key: "partnerDupr", label: "Partner DUPR" }] : []),
+                ...(event.teamFormat === "fixed_partner" ? [{ key: "teamRating", label: "Team Rating" }] : []),
                 { key: "dupr", label: "DUPR Double" },
                 { key: "selfRating", label: "Self-Rate" },
                 { key: "assigned", label: "Assigned" },
@@ -745,6 +754,8 @@ export default function AdminEventDetail() {
                               {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
                               {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
                               {event.teamFormat === "fixed_partner" && col("partner") && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
+                              {event.teamFormat === "fixed_partner" && col("partnerDupr") && <SortHeader label="Partner DUPR" col="partnerDupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partnerDupr")} />}
+                              {event.teamFormat === "fixed_partner" && col("teamRating") && <SortHeader label="Team Rating" col="teamRating" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "teamRating")} />}
                               {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
                               {col("selfRating") && <SortHeader label="Self-Rate" col="selfRating" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "selfRating")} />}
                               {col("assigned") && <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />}
@@ -783,6 +794,8 @@ export default function AdminEventDetail() {
                                   {col("name") && <td className="px-5 py-3 font-medium">{reg.playerName}</td>}
                                   {col("duprId") && <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.memberDuprId}</td>}
                                   {event.teamFormat === "fixed_partner" && col("partner") && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
+                                  {event.teamFormat === "fixed_partner" && col("partnerDupr") && <td className="px-5 py-3 font-mono">{reg.partnerDoubleRating || "NR"}</td>}
+                                  {event.teamFormat === "fixed_partner" && col("teamRating") && <td className="px-5 py-3 font-mono">{reg.teamRating || "NR"}</td>}
                                   {col("dupr") && (
                                     <td className="px-5 py-3 font-mono">
                                       {reg.doubleRating || "NR"}

@@ -41,10 +41,17 @@ function isStaffRequest(req: Request): boolean {
 async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false) {
   const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, reg.memberDuprId));
   let partnerName: string | null = null;
+  let partnerDuprId: string | null = null;
+  let partnerDoubleRating: string | null = null;
   if (reg.partnerDuprId) {
     const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, reg.partnerDuprId));
     partnerName = partner?.playerName ?? null;
+    partnerDuprId = partner?.duprId ?? null;
+    partnerDoubleRating = partner?.doubleRating ?? null;
   }
+  const myRating = parseFloat(member?.doubleRating ?? "NR");
+  const partnerRating = parseFloat(partnerDoubleRating ?? "NR");
+  const teamRating = !isNaN(myRating) && !isNaN(partnerRating) ? ((myRating + partnerRating) / 2).toFixed(2) : null;
   return {
     id: reg.id,
     eventId: reg.eventId,
@@ -64,6 +71,8 @@ async function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, inc
     singleRating: member?.singleRating ?? null,
     selfRating: member?.selfRating ?? null,
     partnerName,
+    partnerDoubleRating,
+    teamRating,
     ...(includeAdminFields ? { playerEmail: member?.email ?? null, playerPhone: member?.phone ?? null } : {}),
   };
 }

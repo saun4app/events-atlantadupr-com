@@ -32,4 +32,8 @@ export interface RosterEntry {
   selfRating?: string | null;
   /** @nullable */
   partnerName?: string | null;
+  /** @nullable */
+  partnerDoubleRating?: string | null;
+  /** @nullable */
+  teamRating?: string | null;
 }

@@ -306,6 +306,12 @@ export interface RosterSummary {
   maxParticipants: number;
   /** @nullable */
   maxTeams?: number | null;
+  /** @nullable */
+  confirmedTeams?: number | null;
+  /** @nullable */
+  waitlistedTeams?: number | null;
+  /** @nullable */
+  pendingTeams?: number | null;
 }
 
 export type RosterEntryStatus = typeof RosterEntryStatus[keyof typeof RosterEntryStatus];
@@ -344,6 +350,10 @@ export interface RosterEntry {
   selfRating?: string | null;
   /** @nullable */
   partnerName?: string | null;
+  /** @nullable */
+  partnerDoubleRating?: string | null;
+  /** @nullable */
+  teamRating?: string | null;
 }
 
 export interface RegistrationInput {
