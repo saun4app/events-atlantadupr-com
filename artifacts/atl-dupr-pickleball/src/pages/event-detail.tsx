@@ -138,7 +138,7 @@ export default function EventDetail() {
   const cancelReg = useCancelRegistration();
 
   const [email, setEmail] = useState("");
-  const [partnerDuprId, setPartnerDuprId] = useState("");
+  const [partnerEmail, setPartnerEmail] = useState("");
   const [code, setCode] = useState("");
   const [codeSent, setCodeSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
@@ -219,8 +219,8 @@ export default function EventDetail() {
 
   function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
-    if (event?.teamFormat === "fixed_partner" && !partnerDuprId.trim()) {
-      toast({ title: "Partner DUPR ID required", description: "Enter your partner's DUPR ID before requesting a code.", variant: "destructive" });
+    if (event?.teamFormat === "fixed_partner" && !partnerEmail.trim()) {
+      toast({ title: "Partner email required", description: "Enter your partner's email before requesting a code.", variant: "destructive" });
       return;
     }
     requestCode.mutate(
@@ -282,7 +282,7 @@ export default function EventDetail() {
 
   function resetRegistrationForm() {
     setEmail("");
-    setPartnerDuprId("");
+    setPartnerEmail("");
     setCode("");
     setCodeSent(false);
     setCooldown(0);
@@ -316,7 +316,7 @@ export default function EventDetail() {
         data: {
           email: email.trim(),
           code: code.trim(),
-          partnerDuprId: event?.teamFormat === "fixed_partner" ? partnerDuprId.trim() || null : null,
+          partnerEmail: event?.teamFormat === "fixed_partner" ? partnerEmail.trim().toLowerCase() || null : null,
           selfRating: ratingVal || null,
         },
       },
@@ -557,14 +557,13 @@ export default function EventDetail() {
                 </div>
                 {event.teamFormat === "fixed_partner" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="partner-dupr-id">Partner's DUPR ID</Label>
+                    <Label htmlFor="partner-email">Partner's Email</Label>
                     <Input
-                      id="partner-dupr-id"
-                      data-testid="input-partner-dupr-id"
-                      value={partnerDuprId}
-                      onChange={(e) => setPartnerDuprId(e.target.value.toUpperCase())}
-                      placeholder="e.g. ATL002"
-                      className="uppercase"
+                      id="partner-email"
+                      data-testid="input-partner-email"
+                      value={partnerEmail}
+                      onChange={(e) => setPartnerEmail(e.target.value.toLowerCase())}
+                      placeholder="partner@example.com"
                     />
                   </div>
                 )}
