@@ -476,9 +476,9 @@ export default function EventDetail() {
             {rosterSummary && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <Users className="w-4 h-4 text-primary" />
-                <span className="text-muted-foreground">Players:</span>
+                <span className="text-muted-foreground">{event.teamFormat === "fixed_partner" ? "Teams" : "Players"}:</span>
                 <span data-testid="text-confirmed-count">
-                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> / {rosterSummary.maxParticipants}
+                  <span className="font-semibold text-primary">{rosterSummary.confirmed}</span> / {event.teamFormat === "fixed_partner" ? rosterSummary.maxTeams ?? rosterSummary.maxParticipants : rosterSummary.maxParticipants}
                 </span>
               </div>
             )}

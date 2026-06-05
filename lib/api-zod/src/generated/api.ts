@@ -378,7 +378,8 @@ export const GetEventRosterSummaryResponse = zod.object({
   "waitlisted": zod.number(),
   "pendingApproval": zod.number(),
   "total": zod.number(),
-  "maxParticipants": zod.number()
+  "maxParticipants": zod.number(),
+  "maxTeams": zod.number().nullish()
 })
 
 

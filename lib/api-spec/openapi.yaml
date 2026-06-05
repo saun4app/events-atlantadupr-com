@@ -1098,6 +1098,8 @@ components:
           type: integer
         maxParticipants:
           type: integer
+        maxTeams:
+          type: ["integer", "null"]
 
     RosterEntry:
       type: object

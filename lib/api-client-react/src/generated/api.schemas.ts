@@ -304,6 +304,8 @@ export interface RosterSummary {
   pendingApproval: number;
   total: number;
   maxParticipants: number;
+  /** @nullable */
+  maxTeams?: number | null;
 }
 
 export type RosterEntryStatus = typeof RosterEntryStatus[keyof typeof RosterEntryStatus];

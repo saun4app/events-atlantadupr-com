@@ -255,12 +255,14 @@ router.get("/:id/roster-summary", async (req, res) => {
   const waitlisted = regs.filter((r) => r.status === "waitlisted").length;
   const pendingApproval = regs.filter((r) => r.status === "pending_approval").length;
 
+  const maxTeams = event.teamFormat === "fixed_partner" ? Math.floor(event.maxParticipants / 2) : null;
   return res.json({
     confirmed,
     waitlisted,
     pendingApproval,
     total: confirmed + waitlisted + pendingApproval,
     maxParticipants: event.maxParticipants,
+    maxTeams,
   });
 });
 

@@ -12,4 +12,6 @@ export interface RosterSummary {
   pendingApproval: number;
   total: number;
   maxParticipants: number;
+  /** @nullable */
+  maxTeams?: number | null;
 }
