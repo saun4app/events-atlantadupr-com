@@ -133,7 +133,7 @@ export default function AdminEventDetail() {
   const createReg = useCreateRegistration();
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [addEmails, setAddEmails] = useState("");
-  const [addPartnerDuprId, setAddPartnerDuprId] = useState("");
+  const [addPartnerEmail, setAddPartnerEmail] = useState("");
   const [notFoundEmails, setNotFoundEmails] = useState<string[]>([]);
   const [visibleCols, setVisibleCols] = useState<Set<string>>(
     () => {
@@ -321,7 +321,7 @@ export default function AdminEventDetail() {
     const notFound: string[] = [];
     for (const email of emails) {
       try {
-        await createReg.mutateAsync({ id: eventId, data: { email, partnerDuprId: event?.teamFormat === "fixed_partner" ? addPartnerDuprId.trim() || null : null } });
+        await createReg.mutateAsync({ id: eventId, data: { email, partnerEmail: event?.teamFormat === "fixed_partner" ? addPartnerEmail.trim().toLowerCase() || null : null } });
         succeeded++;
       } catch (err: any) {
         const msg = err?.data?.error || "";
@@ -333,7 +333,7 @@ export default function AdminEventDetail() {
       }
     }
     setNotFoundEmails(notFound);
-    if (succeeded > 0) { toast({ title: `${succeeded} participant${succeeded !== 1 ? "s" : ""} added` }); setAddEmails(""); setAddPartnerDuprId(""); invalidate(); }
+    if (succeeded > 0) { toast({ title: `${succeeded} participant${succeeded !== 1 ? "s" : ""} added` }); setAddEmails(""); setAddPartnerEmail(""); invalidate(); }
     if (failures.length > 0) toast({ title: failures.join(" · "), variant: "destructive" });
   }
 
@@ -593,8 +593,8 @@ export default function AdminEventDetail() {
                 </div>
                 {event.teamFormat === "fixed_partner" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="add-partner">Partner DUPR ID</Label>
-                    <Input id="add-partner" data-testid="input-add-partner-dupr-id" value={addPartnerDuprId} onChange={e => setAddPartnerDuprId(e.target.value.toUpperCase())} placeholder="ATL002" className="w-32 uppercase" />
+                    <Label htmlFor="add-partner">Partner Email</Label>
+                    <Input id="add-partner" data-testid="input-add-partner-email" value={addPartnerEmail} onChange={e => setAddPartnerEmail(e.target.value.toLowerCase())} placeholder="partner@example.com" className="w-48" />
                   </div>
                 )}
                 <Button type="submit" data-testid="button-add-participant" disabled={createReg.isPending} className="gap-1.5">

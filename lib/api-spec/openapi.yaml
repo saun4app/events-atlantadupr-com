@@ -1145,6 +1145,8 @@ components:
           type: string
         partnerDuprId:
           type: ["string", "null"]
+        partnerEmail:
+          type: ["string", "null"]
         code:
           type: ["string", "null"]
           description: 6-digit email verification code (required for public self-registration)

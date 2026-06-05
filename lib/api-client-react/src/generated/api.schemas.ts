@@ -349,6 +349,8 @@ export interface RegistrationInput {
   memberDuprId?: string;
   /** @nullable */
   partnerDuprId?: string | null;
+  /** @nullable */
+  partnerEmail?: string | null;
   /**
      * 6-digit email verification code (required for public self-registration)
      * @nullable

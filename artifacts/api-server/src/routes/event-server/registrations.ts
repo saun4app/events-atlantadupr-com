@@ -174,7 +174,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
 
 router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
-  const { email, memberDuprId, partnerDuprId, code, selfRating } = req.body;
+  const { email, memberDuprId, partnerDuprId, partnerEmail, code, selfRating } = req.body;
 
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!event) return res.status(404).json({ error: "Event not found" });
@@ -237,12 +237,22 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   const finalMemberDuprId = resolvedMemberDuprId;
 
+  let resolvedPartnerDuprId: string | null = null;
   if (event.teamFormat === "fixed_partner") {
-    if (!partnerDuprId) {
-      return res.status(400).json({ error: "partnerDuprId is required for fixed-partner events" });
+    if (partnerEmail) {
+      const [partner] = await db
+        .select()
+        .from(membersTable)
+        .where(sql`lower(${membersTable.email}) = lower(${partnerEmail})`);
+      if (!partner) return res.status(404).json({ error: "Partner email not found in member list" });
+      resolvedPartnerDuprId = partner.duprId;
+    } else if (partnerDuprId) {
+      const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprId));
+      if (!partner) return res.status(404).json({ error: "Partner member not found in member list" });
+      resolvedPartnerDuprId = partnerDuprId;
+    } else {
+      return res.status(400).json({ error: "partnerDuprId or partnerEmail is required for fixed-partner events" });
     }
-    const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprId));
-    if (!partner) return res.status(404).json({ error: "Partner member not found in member list" });
   }
 
   const [existingReg] = await db
@@ -290,7 +300,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   const [reg] = await db
     .insert(registrationsTable)
-    .values({ eventId, memberDuprId: finalMemberDuprId, partnerDuprId: partnerDuprId ?? null, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
+    .values({ eventId, memberDuprId: finalMemberDuprId, partnerDuprId: resolvedPartnerDuprId, status, assignedRating: isNaN(assignedRating as any) ? null : assignedRating })
     .returning();
 
   if (!staff && email) {
