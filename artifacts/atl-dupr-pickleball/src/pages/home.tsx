@@ -44,7 +44,9 @@ function EventCard({ event }: { event: any }) {
           </div>
           <div className="flex items-center gap-1.5">
             <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-            {event.confirmedCount ?? 0} / {event.maxParticipants} players
+            {event.teamFormat === "fixed_partner"
+              ? `${event.confirmedTeams ?? 0} / ${event.maxTeams ?? 0} teams`
+              : `${event.confirmedCount ?? 0} / ${event.maxParticipants} players`}
           </div>
           <div className="flex items-center gap-1.5 col-span-2">
             <DollarSign className="w-3.5 h-3.5 text-primary shrink-0" />

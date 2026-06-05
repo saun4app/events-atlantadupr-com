@@ -80,7 +80,12 @@ router.get("/", async (req, res) => {
     .groupBy(registrationsTable.eventId);
   const countMap = Object.fromEntries(counts.map((c) => [c.eventId, c.confirmedCount]));
 
-  return res.json(rows.map((r) => ({ ...r, confirmedCount: countMap[r.id] ?? 0 })));
+  return res.json(rows.map((r) => {
+    const confirmedCount = countMap[r.id] ?? 0;
+    const confirmedTeams = r.teamFormat === "fixed_partner" ? Math.floor(confirmedCount / 2) : null;
+    const maxTeams = r.teamFormat === "fixed_partner" ? Math.floor(r.maxParticipants / 2) : null;
+    return { ...r, confirmedCount, confirmedTeams, maxTeams };
+  }));
 });
 
 router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {

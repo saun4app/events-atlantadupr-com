@@ -927,6 +927,10 @@ components:
           type: integer
         maxParticipants:
           type: integer
+        maxTeams:
+          type: ["integer", "null"]
+        confirmedTeams:
+          type: ["integer", "null"]
         waitlistEnabled:
           type: boolean
         requireApproval:

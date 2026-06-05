@@ -165,6 +165,10 @@ export interface Event {
   ratingTypeRequired: string;
   minParticipants: number;
   maxParticipants: number;
+  /** @nullable */
+  maxTeams?: number | null;
+  /** @nullable */
+  confirmedTeams?: number | null;
   waitlistEnabled: boolean;
   requireApproval: EventRequireApproval;
   signupStartDatetime: string;
