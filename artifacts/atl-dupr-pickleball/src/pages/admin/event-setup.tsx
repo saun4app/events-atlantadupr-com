@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
+import {
+  useGetSettings, useUpdateSettings, getGetSettingsQueryKey,
+  useGetEventDefaults, useUpdateEventDefaults, getGetEventDefaultsQueryKey,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/numeric-input";
@@ -41,18 +44,51 @@ function genId() {
 
 type LocationDialog = { open: false } | { open: true; mode: "add" } | { open: true; mode: "edit"; index: number; data: DefaultLocation };
 
-export default function AdminEventSetup() {
+export default function AdminEventSetup({ eventType }: { eventType: "rotating" | "fixed_partner" }) {
   const { toast } = useToast();
 
   const { data: settings, isLoading: settingsLoading } = useGetSettings();
   const updateSettings = useUpdateSettings();
   const queryClient = useQueryClient();
 
+  const { data: eventDefaults } = useGetEventDefaults(eventType, {
+    query: { queryKey: getGetEventDefaultsQueryKey(eventType) },
+  });
+  const updateEventDefaults = useUpdateEventDefaults();
+
+  const [capacity, setCapacity] = useState({ minCapacity: 8, maxCapacity: 24 });
+  const lastSyncedDefaults = useRef<typeof eventDefaults | null>(null);
+  const capacityRef = useRef(capacity);
+  capacityRef.current = capacity;
+  const capacitySaveRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (eventDefaults && eventDefaults !== lastSyncedDefaults.current) {
+      lastSyncedDefaults.current = eventDefaults;
+      const next = { minCapacity: eventDefaults.minCapacity, maxCapacity: eventDefaults.maxCapacity };
+      setCapacity(next);
+      capacityRef.current = next;
+    }
+  }, [eventDefaults]);
+
+  function updateCapacity(key: "minCapacity" | "maxCapacity", value: number) {
+    const next = { ...capacityRef.current, [key]: value };
+    setCapacity(next);
+    capacityRef.current = next;
+    if (capacitySaveRef.current) clearTimeout(capacitySaveRef.current);
+    capacitySaveRef.current = setTimeout(() => {
+      capacitySaveRef.current = null;
+      updateEventDefaults.mutate({ eventType, data: capacityRef.current }, {
+        onSuccess: (data) => { queryClient.setQueryData(getGetEventDefaultsQueryKey(eventType), data); toast({ title: "Saved" }); },
+        onError: () => toast({ title: "Failed to save", variant: "destructive" }),
+      });
+    }, 500);
+  }
+
+  const formatLabel = eventType === "fixed_partner" ? "Fixed Partners" : "Rotating Partners";
+  const capacityNoun = eventType === "fixed_partner" ? "Teams" : "Participants";
+
   const [form, setForm] = useState({
-    minParticipants: 8,
-    maxParticipants: 24,
-    minTeams: 4,
-    maxTeams: 12,
     defaultEventDurationHours: 2,
     eventContactEmails: [] as string[],
     defaultLocations: [] as DefaultLocation[],
@@ -102,10 +138,6 @@ export default function AdminEventSetup() {
       lastSyncedSettings.current = settings;
       const rrc = (settings as any).ratingRequirementsConfig ?? DEFAULT_RATING_CONFIG;
       setForm({
-        minParticipants: settings.minParticipants,
-        maxParticipants: settings.maxParticipants,
-        minTeams: settings.minTeams,
-        maxTeams: settings.maxTeams,
         defaultEventDurationHours: (settings.defaultEventDurationHours as number) ?? 2,
         eventContactEmails: ((settings as any).eventContactEmails as string[]) ?? [],
         defaultLocations: (settings.defaultLocations as DefaultLocation[]) ?? [],
@@ -299,29 +331,15 @@ export default function AdminEventSetup() {
               <h2 className="text-sm font-semibold text-foreground uppercase tracking-wide">Participant Limits</h2>
 
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Rotating Partners</p>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{formatLabel}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="min-participants">Min Participants</Label>
-                    <NumericInput id="min-participants" data-testid="input-min-participants" min={2} value={form.minParticipants} onChange={v => update("minParticipants", v)} />
+                    <Label htmlFor="min-capacity">Min {capacityNoun}</Label>
+                    <NumericInput id="min-capacity" data-testid="input-min-capacity" min={1} value={capacity.minCapacity} onChange={v => updateCapacity("minCapacity", Math.max(1, v))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="max-participants">Max Participants</Label>
-                    <NumericInput id="max-participants" data-testid="input-max-participants" min={2} value={form.maxParticipants} onChange={v => update("maxParticipants", v)} />
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Fixed Partners</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="min-teams">Min Teams</Label>
-                    <NumericInput id="min-teams" data-testid="input-min-teams" min={1} value={form.minTeams} onChange={v => update("minTeams", v)} />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="max-teams">Max Teams</Label>
-                    <NumericInput id="max-teams" data-testid="input-max-teams" min={1} value={form.maxTeams} onChange={v => update("maxTeams", v)} />
+                    <Label htmlFor="max-capacity">Max {capacityNoun}</Label>
+                    <NumericInput id="max-capacity" data-testid="input-max-capacity" min={1} value={capacity.maxCapacity} onChange={v => updateCapacity("maxCapacity", Math.max(1, v))} />
                   </div>
                 </div>
               </div>

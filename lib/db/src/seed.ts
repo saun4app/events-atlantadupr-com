@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs";
 import { db } from "./index.js";
-import { usersTable, eventsRotatingTable, eventsFixedTable, membersTable, registrationsTable, appSettingsTable } from "./schema/index.js";
+import { usersTable, eventsRotatingTable, eventsFixedTable, membersTable, registrationsTable, appSettingsTable, eventDefaultsTable } from "./schema/index.js";
 import { sql } from "drizzle-orm";
 
 async function hashPassword(password: string): Promise<string> {
@@ -10,17 +10,18 @@ async function hashPassword(password: string): Promise<string> {
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE atl_dupr_signups, atl_dupr_events_rotating, atl_dupr_events_fixed, atl_dupr_event_roles, atl_dupr_member_list, app_uses, app_settings RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE atl_dupr_signups, atl_dupr_events_rotating, atl_dupr_events_fixed, atl_dupr_event_roles, atl_dupr_member_list, app_uses, app_settings, atl_dupr_event_defaults RESTART IDENTITY CASCADE`);
+
+  await db.insert(eventDefaultsTable).values([
+    { eventType: "rotating", minCapacity: 8, maxCapacity: 24 },
+    { eventType: "fixed_partner", minCapacity: 4, maxCapacity: 12 },
+  ]);
 
   await db.insert(appSettingsTable).values({
     id: 1,
     defaultTimezone: "America/New_York",
     rotatingPartnersDescription: "<p>Players rotate partners each round. A great way to meet new people and play with a variety of skill levels.</p>",
     fixedPartnerDescription: "<p>Register with your doubles partner. You will play all rounds together as a team.</p>",
-    minParticipants: 8,
-    maxParticipants: 24,
-    minTeams: 4,
-    maxTeams: 12,
     defaultEventDurationHours: 2,
     eventRoles: ["Captain", "Sub"],
     defaultEventNames: [

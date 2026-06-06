@@ -26,6 +26,8 @@ import type {
   CsvUploadResult,
   Event,
   EventCloneInput,
+  EventDefaults,
+  EventDefaultsInput,
   EventInput,
   EventUpdate,
   EventsSummary,
@@ -2459,6 +2461,155 @@ export const useUpdateSettings = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getUpdateSettingsMutationOptions(options));
+    }
+
+export const getGetEventDefaultsUrl = (eventType: 'rotating' | 'fixed_partner',) => {
+
+
+
+
+  return `/api/event-defaults/${eventType}`
+}
+
+/**
+ * @summary Get per-format event-creation defaults
+ */
+export const getEventDefaults = async (eventType: 'rotating' | 'fixed_partner', options?: RequestInit): Promise<EventDefaults> => {
+
+  return customFetch<EventDefaults>(getGetEventDefaultsUrl(eventType),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetEventDefaultsQueryKey = (eventType: 'rotating' | 'fixed_partner',) => {
+    return [
+    `/api/event-defaults/${eventType}`
+    ] as const;
+    }
+
+
+export const getGetEventDefaultsQueryOptions = <TData = Awaited<ReturnType<typeof getEventDefaults>>, TError = ErrorType<unknown>>(eventType: 'rotating' | 'fixed_partner', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEventDefaults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetEventDefaultsQueryKey(eventType);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEventDefaults>>> = ({ signal }) => getEventDefaults(eventType, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(eventType), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEventDefaults>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetEventDefaultsQueryResult = NonNullable<Awaited<ReturnType<typeof getEventDefaults>>>
+export type GetEventDefaultsQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get per-format event-creation defaults
+ */
+
+export function useGetEventDefaults<TData = Awaited<ReturnType<typeof getEventDefaults>>, TError = ErrorType<unknown>>(
+ eventType: 'rotating' | 'fixed_partner', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEventDefaults>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetEventDefaultsQueryOptions(eventType,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getUpdateEventDefaultsUrl = (eventType: 'rotating' | 'fixed_partner',) => {
+
+
+
+
+  return `/api/event-defaults/${eventType}`
+}
+
+/**
+ * @summary Update per-format event-creation defaults (Admin only)
+ */
+export const updateEventDefaults = async (eventType: 'rotating' | 'fixed_partner',
+    eventDefaultsInput: EventDefaultsInput, options?: RequestInit): Promise<EventDefaults> => {
+
+  return customFetch<EventDefaults>(getUpdateEventDefaultsUrl(eventType),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      eventDefaultsInput,)
+  }
+);}
+
+
+
+
+export const getUpdateEventDefaultsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEventDefaults>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventDefaultsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEventDefaults>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventDefaultsInput>}, TContext> => {
+
+const mutationKey = ['updateEventDefaults'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEventDefaults>>, {eventType: 'rotating' | 'fixed_partner';data: BodyType<EventDefaultsInput>}> = (props) => {
+          const {eventType,data} = props ?? {};
+
+          return  updateEventDefaults(eventType,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type UpdateEventDefaultsMutationResult = NonNullable<Awaited<ReturnType<typeof updateEventDefaults>>>
+    export type UpdateEventDefaultsMutationBody = BodyType<EventDefaultsInput>
+    export type UpdateEventDefaultsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Update per-format event-creation defaults (Admin only)
+ */
+export const useUpdateEventDefaults = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEventDefaults>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventDefaultsInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof updateEventDefaults>>,
+        TError,
+        {eventType: 'rotating' | 'fixed_partner';data: BodyType<EventDefaultsInput>},
+        TContext
+      > => {
+      return useMutation(getUpdateEventDefaultsMutationOptions(options));
     }
 
 export const getListUsersUrl = () => {

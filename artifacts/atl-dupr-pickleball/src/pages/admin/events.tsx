@@ -162,7 +162,7 @@ export default function AdminEvents() {
                 <DialogHeader>
                   <DialogTitle>Event Setup</DialogTitle>
                 </DialogHeader>
-                <AdminEventSetup />
+                <AdminEventSetup eventType={eventType} />
               </DialogContent>
             </Dialog>
           </div>

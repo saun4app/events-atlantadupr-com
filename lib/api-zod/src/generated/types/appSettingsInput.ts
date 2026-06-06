@@ -13,10 +13,6 @@ export interface AppSettingsInput {
   defaultTimezone?: string;
   rotatingPartnersDescription?: string;
   fixedPartnerDescription?: string;
-  minParticipants?: number;
-  maxParticipants?: number;
-  minTeams?: number;
-  maxTeams?: number;
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;

@@ -758,6 +758,43 @@ paths:
               schema:
                 $ref: "#/components/schemas/AppSettings"
 
+  /event-defaults/{eventType}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: getEventDefaults
+      tags: [settings]
+      summary: Get per-format event-creation defaults
+      responses:
+        "200":
+          description: Current per-format event defaults
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDefaults"
+    put:
+      operationId: updateEventDefaults
+      tags: [settings]
+      summary: Update per-format event-creation defaults (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventDefaultsInput"
+      responses:
+        "200":
+          description: Event defaults updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDefaults"
+
   /users:
     get:
       operationId: listUsers
@@ -1359,7 +1396,7 @@ components:
 
     AppSettings:
       type: object
-      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, minParticipants, maxParticipants, minTeams, maxTeams, contactPersons, defaultLocations, maintenanceMode, defaultEventNames, defaultEventDurationHours, defaultRatingRequirements]
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, contactPersons, defaultLocations, maintenanceMode, defaultEventNames, defaultEventDurationHours, defaultRatingRequirements]
       properties:
         defaultTimezone:
           type: string
@@ -1367,14 +1404,6 @@ components:
           type: string
         fixedPartnerDescription:
           type: string
-        minParticipants:
-          type: integer
-        maxParticipants:
-          type: integer
-        minTeams:
-          type: integer
-        maxTeams:
-          type: integer
         contactPersons:
           type: array
           items:
@@ -1417,14 +1446,6 @@ components:
           type: string
         fixedPartnerDescription:
           type: string
-        minParticipants:
-          type: integer
-        maxParticipants:
-          type: integer
-        minTeams:
-          type: integer
-        maxTeams:
-          type: integer
         contactPersons:
           type: array
           items:
@@ -1454,3 +1475,25 @@ components:
         homeSubtitle:
           type: string
           description: Subtitle displayed on the home page
+
+    EventDefaults:
+      type: object
+      required: [eventType, minCapacity, maxCapacity]
+      properties:
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        minCapacity:
+          type: integer
+          description: Default minimum capacity (participants for rotating, teams for fixed_partner)
+        maxCapacity:
+          type: integer
+          description: Default maximum capacity (participants for rotating, teams for fixed_partner)
+
+    EventDefaultsInput:
+      type: object
+      properties:
+        minCapacity:
+          type: integer
+        maxCapacity:
+          type: integer

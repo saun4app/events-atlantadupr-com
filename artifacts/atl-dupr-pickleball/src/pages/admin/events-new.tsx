@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import {
-  useListEvents, useCreateEvent, useGetSettings,
-  getListEventsQueryKey, getGetEventsSummaryQueryKey,
+  useListEvents, useCreateEvent, useGetSettings, useGetEventDefaults,
+  getListEventsQueryKey, getGetEventsSummaryQueryKey, getGetEventDefaultsQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminNav } from "@/components/admin-nav";
@@ -110,6 +110,7 @@ export default function AdminEventNew() {
 
   const { data: allEvents } = useListEvents(eventType, { query: { enabled: validEventType, queryKey: getListEventsQueryKey(eventType) } });
   const { data: settings } = useGetSettings();
+  const { data: eventDefaults } = useGetEventDefaults(eventType, { query: { enabled: validEventType, queryKey: getGetEventDefaultsQueryKey(eventType) } });
 
   const defaultsApplied = useRef(false);
   const signupEndEdited = useRef(false);
@@ -160,7 +161,7 @@ export default function AdminEventNew() {
   ];
 
   useEffect(() => {
-    if (settings && !defaultsApplied.current && cloneFrom === "none") {
+    if (settings && eventDefaults && !defaultsApplied.current && cloneFrom === "none") {
       defaultsApplied.current = true;
       const tz = settings.defaultTimezone || "America/New_York";
       const nowInTz = toDatetimeLocalInTz(new Date(), tz);
@@ -169,15 +170,15 @@ export default function AdminEventNew() {
       setDescriptionGeneration(g => g + 1);
       setForm(f => ({
         ...f,
-        minParticipants: eventType === "fixed_partner" ? settings.minTeams : settings.minParticipants,
-        maxParticipants: eventType === "fixed_partner" ? settings.maxTeams : settings.maxParticipants,
+        minParticipants: eventDefaults.minCapacity,
+        maxParticipants: eventDefaults.maxCapacity,
         description: settings.guidelinesAndRules || "",
         signupStartDatetime: nowInTz,
         ratingTypeRequired: defaultType,
       }));
       setRatingConfig(getDefaultRatingConfig(defaultType, rrc));
     }
-  }, [settings, cloneFrom]);
+  }, [settings, eventDefaults, cloneFrom]);
 
   useEffect(() => {
     if (form.startDatetime && !signupEndEdited.current) {

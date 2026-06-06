@@ -75,36 +75,6 @@ function validateSettingsInput(body: unknown): string | null {
   if (b.guidelinesAndRules !== undefined && typeof b.guidelinesAndRules !== "string") {
     return "guidelinesAndRules must be a string";
   }
-  if (b.minParticipants !== undefined) {
-    if (typeof b.minParticipants !== "number" || !Number.isInteger(b.minParticipants) || b.minParticipants < 2) {
-      return "minParticipants must be an integer >= 2";
-    }
-  }
-  if (b.maxParticipants !== undefined) {
-    if (typeof b.maxParticipants !== "number" || !Number.isInteger(b.maxParticipants) || b.maxParticipants < 2) {
-      return "maxParticipants must be an integer >= 2";
-    }
-  }
-  const min = typeof b.minParticipants === "number" ? b.minParticipants : null;
-  const max = typeof b.maxParticipants === "number" ? b.maxParticipants : null;
-  if (min !== null && max !== null && max < min) {
-    return "maxParticipants must be >= minParticipants";
-  }
-  if (b.minTeams !== undefined) {
-    if (typeof b.minTeams !== "number" || !Number.isInteger(b.minTeams) || b.minTeams < 1) {
-      return "minTeams must be an integer >= 1";
-    }
-  }
-  if (b.maxTeams !== undefined) {
-    if (typeof b.maxTeams !== "number" || !Number.isInteger(b.maxTeams) || b.maxTeams < 1) {
-      return "maxTeams must be an integer >= 1";
-    }
-  }
-  const minT = typeof b.minTeams === "number" ? b.minTeams : null;
-  const maxT = typeof b.maxTeams === "number" ? b.maxTeams : null;
-  if (minT !== null && maxT !== null && maxT < minT) {
-    return "maxTeams must be >= minTeams";
-  }
   if (b.contactPersons !== undefined) {
     if (!Array.isArray(b.contactPersons)) return "contactPersons must be an array";
     for (let i = 0; i < b.contactPersons.length; i++) {
@@ -237,10 +207,6 @@ router.put("/", requireRole("admin"), async (req, res) => {
     defaultTimezone,
     rotatingPartnersDescription,
     fixedPartnerDescription,
-    minParticipants,
-    maxParticipants,
-    minTeams,
-    maxTeams,
     contactPersons,
     defaultLocations,
     maintenanceMode,
@@ -260,10 +226,6 @@ router.put("/", requireRole("admin"), async (req, res) => {
   if (defaultTimezone !== undefined) updates.defaultTimezone = defaultTimezone;
   if (rotatingPartnersDescription !== undefined) updates.rotatingPartnersDescription = rotatingPartnersDescription;
   if (fixedPartnerDescription !== undefined) updates.fixedPartnerDescription = fixedPartnerDescription;
-  if (minParticipants !== undefined) updates.minParticipants = minParticipants;
-  if (maxParticipants !== undefined) updates.maxParticipants = maxParticipants;
-  if (minTeams !== undefined) updates.minTeams = minTeams;
-  if (maxTeams !== undefined) updates.maxTeams = maxTeams;
   if (contactPersons !== undefined) updates.contactPersons = contactPersons;
   if (maintenanceMode !== undefined) updates.maintenanceMode = maintenanceMode;
   if (defaultEventDurationHours !== undefined) updates.defaultEventDurationHours = defaultEventDurationHours;

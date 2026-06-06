@@ -480,10 +480,6 @@ export interface AppSettings {
   defaultTimezone: string;
   rotatingPartnersDescription: string;
   fixedPartnerDescription: string;
-  minParticipants: number;
-  maxParticipants: number;
-  minTeams: number;
-  maxTeams: number;
   contactPersons: ContactPerson[];
   defaultLocations: DefaultLocation[];
   maintenanceMode: boolean;
@@ -505,10 +501,6 @@ export interface AppSettingsInput {
   defaultTimezone?: string;
   rotatingPartnersDescription?: string;
   fixedPartnerDescription?: string;
-  minParticipants?: number;
-  maxParticipants?: number;
-  minTeams?: number;
-  maxTeams?: number;
   contactPersons?: ContactPerson[];
   defaultLocations?: DefaultLocation[];
   maintenanceMode?: boolean;
@@ -521,6 +513,27 @@ export interface AppSettingsInput {
   homeTitle?: string;
   /** Subtitle displayed on the home page */
   homeSubtitle?: string;
+}
+
+export type EventDefaultsEventType = typeof EventDefaultsEventType[keyof typeof EventDefaultsEventType];
+
+
+export const EventDefaultsEventType = {
+  rotating: 'rotating',
+  fixed_partner: 'fixed_partner',
+} as const;
+
+export interface EventDefaults {
+  eventType: EventDefaultsEventType;
+  /** Default minimum capacity (participants for rotating, teams for fixed_partner) */
+  minCapacity: number;
+  /** Default maximum capacity (participants for rotating, teams for fixed_partner) */
+  maxCapacity: number;
+}
+
+export interface EventDefaultsInput {
+  minCapacity?: number;
+  maxCapacity?: number;
 }
 
 export type ListMembersParams = {

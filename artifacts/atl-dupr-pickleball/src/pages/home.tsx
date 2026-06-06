@@ -65,7 +65,7 @@ function EventCard({ event }: { event: any }) {
 }
 
 function isUpcoming(e: any): boolean {
-  if (e.status === "completed" || e.status === "cancelled") return false;
+  if (e.status === "ended" || e.status === "cancelled") return false;
   if (!e.endDatetime) return true;
   return new Date(e.endDatetime).getTime() >= Date.now();
 }

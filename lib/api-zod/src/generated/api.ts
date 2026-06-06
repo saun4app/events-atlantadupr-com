@@ -709,10 +709,6 @@ export const GetSettingsResponse = zod.object({
   "defaultTimezone": zod.string(),
   "rotatingPartnersDescription": zod.string(),
   "fixedPartnerDescription": zod.string(),
-  "minParticipants": zod.number(),
-  "maxParticipants": zod.number(),
-  "minTeams": zod.number(),
-  "maxTeams": zod.number(),
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
@@ -745,10 +741,6 @@ export const UpdateSettingsBody = zod.object({
   "defaultTimezone": zod.string().optional(),
   "rotatingPartnersDescription": zod.string().optional(),
   "fixedPartnerDescription": zod.string().optional(),
-  "minParticipants": zod.number().optional(),
-  "maxParticipants": zod.number().optional(),
-  "minTeams": zod.number().optional(),
-  "maxTeams": zod.number().optional(),
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
@@ -777,10 +769,6 @@ export const UpdateSettingsResponse = zod.object({
   "defaultTimezone": zod.string(),
   "rotatingPartnersDescription": zod.string(),
   "fixedPartnerDescription": zod.string(),
-  "minParticipants": zod.number(),
-  "maxParticipants": zod.number(),
-  "minTeams": zod.number(),
-  "maxTeams": zod.number(),
   "contactPersons": zod.array(zod.object({
   "name": zod.string(),
   "email": zod.string().email()
@@ -803,6 +791,39 @@ export const UpdateSettingsResponse = zod.object({
   "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
   "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
   "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
+})
+
+
+/**
+ * @summary Get per-format event-creation defaults
+ */
+export const GetEventDefaultsParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner'])
+})
+
+export const GetEventDefaultsResponse = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "minCapacity": zod.number().describe('Default minimum capacity (participants for rotating, teams for fixed_partner)'),
+  "maxCapacity": zod.number().describe('Default maximum capacity (participants for rotating, teams for fixed_partner)')
+})
+
+
+/**
+ * @summary Update per-format event-creation defaults (Admin only)
+ */
+export const UpdateEventDefaultsParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner'])
+})
+
+export const UpdateEventDefaultsBody = zod.object({
+  "minCapacity": zod.number().optional(),
+  "maxCapacity": zod.number().optional()
+})
+
+export const UpdateEventDefaultsResponse = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "minCapacity": zod.number().describe('Default minimum capacity (participants for rotating, teams for fixed_partner)'),
+  "maxCapacity": zod.number().describe('Default maximum capacity (participants for rotating, teams for fixed_partner)')
 })
 
 
