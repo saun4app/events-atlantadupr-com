@@ -944,7 +944,7 @@ components:
           format: date-time
         status:
           type: string
-          enum: [upcoming, closed, ended]
+          enum: [upcoming, closed, ended, cancelled]
         courtFeeEnabled:
           type: boolean
         memberFee:
@@ -1069,7 +1069,7 @@ components:
           format: date-time
         status:
           type: string
-          enum: [upcoming, closed, ended]
+          enum: [upcoming, closed, ended, cancelled]
         courtFeeEnabled:
           type: boolean
         memberFee:

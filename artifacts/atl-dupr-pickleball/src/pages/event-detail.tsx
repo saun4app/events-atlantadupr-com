@@ -556,8 +556,15 @@ export default function EventDetail() {
           </div>
         )}
 
+        {/* Cancelled notice */}
+        {event.status === "cancelled" && (
+          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-center text-sm text-destructive font-medium">
+            This event has been cancelled.
+          </div>
+        )}
+
         {/* Registration form */}
-        {signupOpen && (
+        {signupOpen && event.status === "upcoming" && (
           <div className="bg-card border border-card-border rounded-lg p-5">
             <h2 className="font-semibold text-foreground mb-4">Register for This Event</h2>
             {!codeSent ? (
@@ -679,7 +686,7 @@ export default function EventDetail() {
           </div>
         )}
 
-        {!signupOpen && event.status !== "upcoming" && (
+        {!signupOpen && event.status === "closed" && (
           <div className="bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
             Registration is closed for this event.
           </div>

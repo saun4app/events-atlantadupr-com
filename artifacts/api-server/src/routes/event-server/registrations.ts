@@ -188,6 +188,9 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
   if (!event) return res.status(404).json({ error: "Event not found" });
 
+  if (event.status === "cancelled") {
+    return res.status(400).json({ error: "This event has been cancelled" });
+  }
   if (event.status !== "upcoming") {
     return res.status(400).json({ error: "Event is not open for registration" });
   }

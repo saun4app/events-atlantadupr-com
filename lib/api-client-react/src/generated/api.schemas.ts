@@ -146,6 +146,7 @@ export const EventStatus = {
   upcoming: 'upcoming',
   closed: 'closed',
   ended: 'ended',
+  cancelled: 'cancelled',
 } as const;
 
 export interface Event {
@@ -270,6 +271,7 @@ export const EventUpdateStatus = {
   upcoming: 'upcoming',
   closed: 'closed',
   ended: 'ended',
+  cancelled: 'cancelled',
 } as const;
 
 export interface EventUpdate {

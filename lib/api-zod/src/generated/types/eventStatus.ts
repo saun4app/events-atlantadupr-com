@@ -13,4 +13,5 @@ export const EventStatus = {
   upcoming: 'upcoming',
   closed: 'closed',
   ended: 'ended',
+  cancelled: 'cancelled',
 } as const;

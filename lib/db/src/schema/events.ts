@@ -39,7 +39,7 @@ export const eventsTable = pgTable("atl_dupr_events", {
   requireApproval: text("require_approval", { enum: ["none", "all", "nr_only"] }).notNull().default("none"),
   signupStartDatetime: timestamp("signup_start_datetime").notNull(),
   signupEndDatetime: timestamp("signup_end_datetime").notNull(),
-  status: text("status", { enum: ["upcoming", "closed", "ended"] }).notNull().default("upcoming"),
+  status: text("status", { enum: ["upcoming", "closed", "ended", "cancelled"] }).notNull().default("upcoming"),
   courtFeeEnabled: boolean("court_fee_enabled").notNull().default(false),
   memberFee: real("member_fee").notNull().default(0),
   nonMemberFee: real("non_member_fee").notNull().default(0),

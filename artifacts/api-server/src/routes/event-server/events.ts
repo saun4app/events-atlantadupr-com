@@ -44,7 +44,7 @@ export async function canAccessEvent(eventId: number, req: Request): Promise<boo
 router.get("/summary", async (_req, res) => {
   const now = new Date();
   const allEvents = await db.select().from(eventsTable);
-  const totalUpcoming = allEvents.filter((e) => new Date(e.startDatetime) > now && e.status !== "ended").length;
+  const totalUpcoming = allEvents.filter((e) => new Date(e.startDatetime) > now && e.status !== "ended" && e.status !== "cancelled").length;
   const openForSignup = allEvents.filter(
     (e) =>
       e.status === "upcoming" &&
@@ -60,7 +60,7 @@ router.get("/", async (req, res) => {
 
   if (upcoming === "true") {
     const now = new Date();
-    rows = rows.filter((e) => new Date(e.startDatetime) >= now && e.status !== "ended" && e.status !== "closed");
+    rows = rows.filter((e) => new Date(e.startDatetime) >= now && e.status !== "ended" && e.status !== "cancelled");
   }
 
   if (search) {
