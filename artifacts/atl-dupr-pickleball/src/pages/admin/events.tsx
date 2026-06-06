@@ -28,7 +28,7 @@ import { Search, Calendar, MapPin, TriangleAlert } from "lucide-react";
 function statusBadge(status: string) {
   if (status === "upcoming") return <Badge className="text-xs bg-primary/10 text-primary border-primary/20 border">Upcoming</Badge>;
   if (status === "closed") return <Badge variant="secondary" className="text-xs">Closed</Badge>;
-  if (status === "cancelled") return <Badge variant="destructive" className="text-xs">Cancelled</Badge>;
+  if (status === "cancelled") return <Badge variant="destructive" className="text-xs">Canceled</Badge>;
   return <Badge variant="outline" className="text-xs text-muted-foreground">Ended</Badge>;
 }
 

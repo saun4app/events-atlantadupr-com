@@ -71,7 +71,7 @@ function StatusBadge({ status }: { status: string }) {
     waitlisted: { label: "Waitlisted", className: "bg-yellow-100 text-yellow-700 border-yellow-200 border" },
     pending_approval: { label: "Pending", className: "bg-blue-100 text-blue-700 border-blue-200 border" },
     rejected: { label: "Rejected", className: "bg-destructive/10 text-destructive border-destructive/20 border" },
-    cancelled: { label: "Cancelled", className: "bg-muted text-muted-foreground border border-border" },
+    cancelled: { label: "Canceled", className: "bg-muted text-muted-foreground border border-border" },
   };
   const s = map[status] ?? { label: status, className: "" };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.className}`}>{s.label}</span>;
@@ -568,7 +568,7 @@ export default function AdminEventDetail() {
                       <SelectItem value="upcoming">Upcoming</SelectItem>
                       <SelectItem value="closed">Closed</SelectItem>
                       <SelectItem value="ended">Ended</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="cancelled">Canceled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -681,7 +681,7 @@ export default function AdminEventDetail() {
                   { label: "Confirmed", regs: confirmed, color: "text-primary", empty: "No confirmed participants yet." },
                   { label: "Pending Approval", regs: pending, color: "text-blue-600", empty: "No pending approvals." },
                   { label: "Waitlisted", regs: waitlisted, color: "text-yellow-600", empty: "Waitlist is empty." },
-                  { label: "Cancelled", regs: cancelled, color: "text-muted-foreground", empty: "No cancelled registrations." },
+                  { label: "Canceled", regs: cancelled, color: "text-muted-foreground", empty: "No canceled registrations." },
                 ].map(section => {
                   const key = section.label;
                   const sorted = sortRegs(section.regs, key);
@@ -952,7 +952,7 @@ export default function AdminEventDetail() {
                                           )}
                                           {reg.status !== "cancelled" && (
                                             <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
-                                              <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
+                                              <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Canceled
                                             </DropdownMenuItem>
                                           )}
                                           {eventRolesList.length > 0 && (
@@ -1077,7 +1077,7 @@ export default function AdminEventDetail() {
                                             <List className="w-3.5 h-3.5 text-yellow-600" /> Move to Waitlist
                                           </DropdownMenuItem>
                                           <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
-                                            <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Cancelled
+                                            <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Canceled
                                           </DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>

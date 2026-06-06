@@ -189,7 +189,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   if (!event) return res.status(404).json({ error: "Event not found" });
 
   if (event.status === "cancelled") {
-    return res.status(400).json({ error: "This event has been cancelled" });
+    return res.status(400).json({ error: "This event has been canceled" });
   }
   const staff = isStaffRequest(req);
   if (!staff && event.status !== "upcoming") {
@@ -550,7 +550,7 @@ router.post("/cancel", async (req: Request<EventParams>, res: Response) => {
   if (!reg) return res.status(404).json({ error: "Registration not found" });
 
   if (reg.status === "cancelled") {
-    return res.status(400).json({ error: "Registration is already cancelled." });
+    return res.status(400).json({ error: "Registration is already canceled." });
   }
 
   const [updated] = await db

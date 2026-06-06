@@ -557,10 +557,10 @@ export default function EventDetail() {
           </div>
         )}
 
-        {/* Cancelled notice */}
+        {/* Canceled notice */}
         {event.status === "cancelled" && (
           <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-center text-sm text-destructive font-medium">
-            This event has been cancelled.
+            This event has been canceled.
           </div>
         )}
 
