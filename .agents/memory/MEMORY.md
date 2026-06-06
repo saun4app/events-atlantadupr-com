@@ -2,3 +2,4 @@
 - [api-server stale dist](api-server-stale-dist.md) — restart api-server workflow after backend/schema edits; it bundles once and doesn't watch
 - [orval path+query collision](orval-path-query-collision.md) — an op with both a path param and query params breaks api-zod codegen (TS2308); drop the query params
 - [Prod data migrations](prod-data-migrations.md) — push has no migration files; write idempotent non-destructive scripts (run before push --force) with a completion marker, not row-count guards
+- [Email-code-gated flow testing](email-code-gated-flow-testing.md) — plant a code row within the send cooldown so request-code returns sent:true without email; deterministic e2e for signup/cancel
