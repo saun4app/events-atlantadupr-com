@@ -198,24 +198,28 @@ export default function AdminEventDetail() {
     return [...regs].sort((a, b) => {
       let av: any, bv: any;
       if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
-      else if (s.col === "dupr") { av = parseFloat(a.doubleRating) || 0; bv = parseFloat(b.doubleRating) || 0; }
+      else if (s.col === "dupr") { av = parseFloat(a.doubleRating); bv = parseFloat(b.doubleRating); }
       else if (s.col === "selfRating") { av = parseFloat(a.selfRating) || 0; bv = parseFloat(b.selfRating) || 0; }
       else if (s.col === "assigned") {
         const aParsed = parseFloat(a.doubleRating); const bParsed = parseFloat(b.doubleRating);
-        av = a.assignedRating != null ? a.assignedRating : (isFinite(aParsed) ? aParsed : 0);
-        bv = b.assignedRating != null ? b.assignedRating : (isFinite(bParsed) ? bParsed : 0);
+        av = a.assignedRating != null ? a.assignedRating : (isFinite(aParsed) ? aParsed : NaN);
+        bv = b.assignedRating != null ? b.assignedRating : (isFinite(bParsed) ? bParsed : NaN);
       }
       else if (s.col === "status") { av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; }
       else if (s.col === "new") { av = a.isNew ? 1 : 0; bv = b.isNew ? 1 : 0; }
       else if (s.col === "role") { av = (a.eventRole ?? "").toLowerCase(); bv = (b.eventRole ?? "").toLowerCase(); }
       else if (s.col === "partner") { av = (a.partnerName ?? "").toLowerCase(); bv = (b.partnerName ?? "").toLowerCase(); }
-      else if (s.col === "partnerDupr") { av = parseFloat(a.partnerDoubleRating) || 0; bv = parseFloat(b.partnerDoubleRating) || 0; }
-      else if (s.col === "teamRating") { av = parseFloat(a.teamRating) || 0; bv = parseFloat(b.teamRating) || 0; }
+      else if (s.col === "partnerDupr") { av = parseFloat(a.partnerDoubleRating); bv = parseFloat(b.partnerDoubleRating); }
+      else if (s.col === "teamRating") { av = parseFloat(a.teamRating); bv = parseFloat(b.teamRating); }
       else if (s.col === "email") { av = ((a as any).playerEmail ?? "").toLowerCase(); bv = ((b as any).playerEmail ?? "").toLowerCase(); }
       else if (s.col === "phone") { av = ((a as any).playerPhone ?? "").toLowerCase(); bv = ((b as any).playerPhone ?? "").toLowerCase(); }
       else if (s.col === "signedUp") { av = new Date(a.registeredAt).getTime(); bv = new Date(b.registeredAt).getTime(); }
       else return 0;
       if (typeof av === "string") return s.dir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      // NaN/undefined/NR values go to bottom regardless of sort direction
+      if (isNaN(av) && isNaN(bv)) return 0;
+      if (isNaN(av)) return 1;
+      if (isNaN(bv)) return -1;
       return s.dir === "asc" ? av - bv : bv - av;
     });
   }

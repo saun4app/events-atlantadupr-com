@@ -49,10 +49,11 @@ function useSortedRegistrations(data: any[]) {
       if (sort.key === "doubleRating" || sort.key === "partnerDoubleRating" || sort.key === "teamRating") {
         const na = parseFloat(va);
         const nb = parseFloat(vb);
-        if (!isNaN(na) && !isNaN(nb)) return sort.dir === "asc" ? na - nb : nb - na;
+        // NaN/undefined/NR values go to bottom regardless of sort direction
         if (isNaN(na) && isNaN(nb)) return 0;
-        if (isNaN(na)) return sort.dir === "asc" ? 1 : -1;
-        return sort.dir === "asc" ? -1 : 1;
+        if (isNaN(na)) return 1;
+        if (isNaN(nb)) return -1;
+        return sort.dir === "asc" ? na - nb : nb - na;
       }
       return sort.dir === "asc" ? String(va).localeCompare(String(vb)) : String(vb).localeCompare(String(va));
     });

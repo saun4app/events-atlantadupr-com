@@ -191,12 +191,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   if (event.status === "cancelled") {
     return res.status(400).json({ error: "This event has been cancelled" });
   }
-  if (event.status !== "upcoming") {
+  const staff = isStaffRequest(req);
+  if (!staff && event.status !== "upcoming") {
     return res.status(400).json({ error: "Event is not open for registration" });
   }
 
   const now = new Date();
-  if (now < event.signupStartDatetime || now > event.signupEndDatetime) {
+  if (!staff && (now < event.signupStartDatetime || now > event.signupEndDatetime)) {
     return res.status(400).json({ error: "Registration is outside the signup window" });
   }
 
@@ -209,7 +210,6 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   // Public self-registration (email-based, unauthenticated) requires a verified
   // email. Staff adding participants from the admin console are exempt.
-  const staff = isStaffRequest(req);
   if (!staff) {
     if (!email) {
       return res.status(400).json({ error: "email is required" });
