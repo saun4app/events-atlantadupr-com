@@ -568,6 +568,7 @@ export default function AdminEventDetail() {
                       <SelectItem value="upcoming">Upcoming</SelectItem>
                       <SelectItem value="closed">Closed</SelectItem>
                       <SelectItem value="ended">Ended</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
