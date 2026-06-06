@@ -108,12 +108,10 @@ function EmailFailureBadge() {
   );
 }
 
-export default function AdminEvents() {
+export default function AdminEventsFixed() {
   const { isAuthenticated, isLoading, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
-  const { eventType: rawEventType } = useParams<{ eventType: string }>();
-  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
-  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
+  const eventType = "fixed_partner" as const;
 
   const [search, setSearch] = useState("");
   const [setupOpen, setSetupOpen] = useState(false);
@@ -125,18 +123,14 @@ export default function AdminEvents() {
 
   const { data: events, isLoading: evLoading } = useListEvents(
     eventType,
-    { query: { enabled: validEventType, queryKey: getListEventsQueryKey(eventType), refetchOnMount: "always" } }
+    { query: { queryKey: getListEventsQueryKey(eventType), refetchOnMount: "always" } }
   );
 
   const filtered = events?.filter(e =>
     !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.locationName.toLowerCase().includes(search.toLowerCase())
   ) ?? [];
 
-  const formatLabel = eventType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners";
-
-  if (!validEventType) {
-    return <NotFound />;
-  }
+  const formatLabel = "Fixed-Partner";
 
   return (
     <div className="min-h-screen bg-background">

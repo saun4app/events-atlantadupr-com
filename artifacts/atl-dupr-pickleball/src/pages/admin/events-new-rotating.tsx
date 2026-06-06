@@ -94,23 +94,21 @@ function getDefaultRatingConfig(type: string, rrc: RatingRequirementsConfig): an
   return null;
 }
 
-export default function AdminEventNew() {
+export default function AdminEventNewRotating() {
   const { isAuthenticated, isLoading, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { eventType: rawEventType } = useParams<{ eventType: string }>();
-  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
-  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
+  const eventType = "rotating" as const;
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
     if (!isLoading && isAuthenticated && !canAccessAdmin) setLocation("/");
   }, [isLoading, isAuthenticated, canAccessAdmin]);
 
-  const { data: allEvents } = useListEvents(eventType, { query: { enabled: validEventType, queryKey: getListEventsQueryKey(eventType) } });
+  const { data: allEvents } = useListEvents(eventType, { query: { queryKey: getListEventsQueryKey(eventType) } });
   const { data: settings } = useGetSettings();
-  const { data: eventDefaults } = useGetEventDefaults(eventType, { query: { enabled: validEventType, queryKey: getGetEventDefaultsQueryKey(eventType) } });
+  const { data: eventDefaults } = useGetEventDefaults(eventType, { query: { queryKey: getGetEventDefaultsQueryKey(eventType) } });
 
   const defaultsApplied = useRef(false);
   const signupEndEdited = useRef(false);
@@ -244,8 +242,8 @@ export default function AdminEventNew() {
       locationName: ev.locationName,
       locationAddress: ev.locationAddress ?? "",
       ratingTypeRequired: ev.ratingTypeRequired,
-      minParticipants: (eventType === "fixed_partner" ? ev.minTeams : ev.minParticipants) ?? 0,
-      maxParticipants: (eventType === "fixed_partner" ? ev.maxTeams : ev.maxParticipants) ?? 0,
+      minParticipants: ev.minParticipants ?? 0,
+      maxParticipants: ev.maxParticipants ?? 0,
       waitlistEnabled: ev.waitlistEnabled,
       requireApproval: (ev.requireApproval as any) || "none",
       signupStartDatetime: "",
@@ -285,9 +283,8 @@ export default function AdminEventNew() {
     } catch { return null; }
   }
 
-  const isFixed = eventType === "fixed_partner";
-  const minLabel = isFixed ? "Min Teams" : "Min Participants";
-  const maxLabel = isFixed ? "Max Teams" : "Max Participants";
+  const minLabel = "Min Participants";
+  const maxLabel = "Max Participants";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -315,13 +312,8 @@ export default function AdminEventNew() {
       contactEmail: form.contactEmail || null,
     };
 
-    if (isFixed) {
-      payload.minTeams = Number(form.minParticipants);
-      payload.maxTeams = Number(form.maxParticipants);
-    } else {
-      payload.minParticipants = Number(form.minParticipants);
-      payload.maxParticipants = Number(form.maxParticipants);
-    }
+    payload.minParticipants = Number(form.minParticipants);
+    payload.maxParticipants = Number(form.maxParticipants);
 
     if (recurrenceEnabled && selectedDates.size > 0) {
       payload.recurrence = { dates: [...selectedDates].sort() };
@@ -336,10 +328,6 @@ export default function AdminEventNew() {
     } catch {
       toast({ title: "Failed to create event", variant: "destructive" });
     }
-  }
-
-  if (!validEventType) {
-    return <NotFound />;
   }
 
   return (

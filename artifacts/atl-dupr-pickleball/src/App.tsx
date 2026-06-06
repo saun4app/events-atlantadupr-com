@@ -10,9 +10,12 @@ import { AuthProvider } from "@/lib/auth";
 import Home from "@/pages/home";
 import EventDetail from "@/pages/event-detail";
 import Login from "@/pages/login";
-import AdminEvents from "@/pages/admin/events";
-import AdminEventNew from "@/pages/admin/events-new";
-import AdminEventDetail from "@/pages/admin/events-detail";
+import AdminEventsRotating from "@/pages/admin/events-rotating";
+import AdminEventsFixed from "@/pages/admin/events-fixed";
+import AdminEventNewRotating from "@/pages/admin/events-new-rotating";
+import AdminEventNewFixed from "@/pages/admin/events-new-fixed";
+import AdminEventDetailRotating from "@/pages/admin/events-detail-rotating";
+import AdminEventDetailFixed from "@/pages/admin/events-detail-fixed";
 import AdminMembers from "@/pages/admin/members";
 import AdminUsers from "@/pages/admin/users";
 import AdminSettings from "@/pages/admin/settings";
@@ -31,9 +34,12 @@ function Router() {
       <Route path="/admin/events">
         <Redirect to="/admin/events/rotating" />
       </Route>
-      <Route path="/admin/events/:eventType/new" component={AdminEventNew} />
-      <Route path="/admin/events/:eventType" component={AdminEvents} />
-      <Route path="/admin/events/:eventType/:id" component={AdminEventDetail} />
+      <Route path="/admin/events/rotating/new" component={AdminEventNewRotating} />
+      <Route path="/admin/events/fixed_partner/new" component={AdminEventNewFixed} />
+      <Route path="/admin/events/rotating" component={AdminEventsRotating} />
+      <Route path="/admin/events/fixed_partner" component={AdminEventsFixed} />
+      <Route path="/admin/events/rotating/:id" component={AdminEventDetailRotating} />
+      <Route path="/admin/events/fixed_partner/:id" component={AdminEventDetailFixed} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/settings" component={AdminSettings} />

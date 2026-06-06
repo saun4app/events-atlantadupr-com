@@ -103,10 +103,9 @@ function toLocalInput(dt: string | null | undefined): string {
   } catch { return ""; }
 }
 
-export default function AdminEventDetail() {
-  const { eventType: rawEventType, id } = useParams<{ eventType: string; id: string }>();
-  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
-  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
+export default function AdminEventDetailRotating() {
+  const { id } = useParams<{ id: string }>();
+  const eventType = "rotating" as const;
   const eventId = Number(id);
   const { isAuthenticated, isLoading, user, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
@@ -119,10 +118,10 @@ export default function AdminEventDetail() {
   }, [isLoading, isAuthenticated, canAccessAdmin]);
 
   const { data: event, isLoading: evLoading } = useGetEvent(eventType, eventId, {
-    query: { enabled: !!eventId && validEventType, queryKey: getGetEventQueryKey(eventType, eventId) }
+    query: { enabled: !!eventId, queryKey: getGetEventQueryKey(eventType, eventId) }
   });
   const { data: registrations, isLoading: regLoading } = useListRegistrations(eventType, eventId, {
-    query: { enabled: !!eventId && validEventType, queryKey: getListRegistrationsQueryKey(eventType, eventId) }
+    query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventType, eventId) }
   });
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
@@ -302,15 +301,8 @@ export default function AdminEventDetail() {
         locationAddress: editForm.locationAddress || undefined,
         ratingTypeRequired: editForm.ratingTypeRequired || undefined,
         ratingConfig: editForm.ratingTypeRequired !== "none" ? editRatingConfig : null,
-        ...(eventType === "fixed_partner"
-          ? {
-              minTeams: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
-              maxTeams: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
-            }
-          : {
-              minParticipants: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
-              maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
-            }),
+        minParticipants: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
+        maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
         waitlistEnabled: editForm.waitlistEnabled,
         requireApproval: editForm.requireApproval,
         signupStartDatetime: editForm.signupStartDatetime ? new Date(editForm.signupStartDatetime).toISOString() : undefined,
@@ -539,8 +531,6 @@ export default function AdminEventDetail() {
     }
   };
 
-  if (!validEventType) return <NotFound />;
-
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
@@ -590,7 +580,7 @@ export default function AdminEventDetail() {
                 {waitlisted.length > 0 && <span><strong className="text-yellow-600">{waitlisted.length}</strong> waitlisted</span>}
                 {rejected.length > 0 && <span><strong className="text-destructive">{rejected.length}</strong> rejected</span>}
                 {cancelled.length > 0 && <span><strong className="text-muted-foreground">{cancelled.length}</strong> cancelled</span>}
-                <span className="text-muted-foreground">/ {eventType === "fixed_partner" ? `${event.maxTeams} max teams` : `${event.maxParticipants} max`}</span>
+                <span className="text-muted-foreground">/ {event.maxParticipants} max</span>
               </div>
               {(event as any).contactEmail && (
                 <div className="mt-3 flex items-center gap-1.5 text-sm">
@@ -1254,11 +1244,11 @@ export default function AdminEventDetail() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-min">{eventType === "fixed_partner" ? "Min Teams" : "Min Participants"}</Label>
+                    <Label htmlFor="edit-min">Min Participants</Label>
                     <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-max">{eventType === "fixed_partner" ? "Max Teams *" : "Max Participants *"}</Label>
+                    <Label htmlFor="edit-max">Max Participants *</Label>
                     <Input id="edit-max" type="number" min={1} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, maxParticipants: e.target.value }))} required />
                   </div>
                 </div>
