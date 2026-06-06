@@ -172,6 +172,19 @@ async function createDestinationSchema() {
   await db.execute(sql`ALTER TABLE atl_dupr_signups ADD COLUMN IF NOT EXISTS player_snapshot jsonb`);
   await db.execute(sql`ALTER TABLE atl_dupr_signups ADD COLUMN IF NOT EXISTS partner_snapshot jsonb`);
 
+  // Format discriminator on the registration + assignment tables. In the OLD
+  // schema these referenced the single `atl_dupr_events` table by `event_id`
+  // only. Runtime now scopes every query by (event_id, event_type), so the
+  // column must exist (additively, before push) and be backfilled from each
+  // row's owning event format — otherwise push adds it defaulting to 'rotating'
+  // and historical fixed-partner rows become orphaned for fixed events.
+  await db.execute(
+    sql`ALTER TABLE atl_dupr_signups ADD COLUMN IF NOT EXISTS event_type text NOT NULL DEFAULT 'rotating'`,
+  );
+  await db.execute(
+    sql`ALTER TABLE atl_dupr_event_roles ADD COLUMN IF NOT EXISTS event_type text NOT NULL DEFAULT 'rotating'`,
+  );
+
   // Durable completion marker so reruns are a safe no-op even when there were
   // legitimately zero historical events to copy.
   await db.execute(sql`
@@ -252,6 +265,49 @@ async function splitEvents() {
 
   console.log(
     `[2/4] Split events: inserted ${rotRes.rowCount ?? 0} rotating, ${fixRes.rowCount ?? 0} fixed (re-runs are no-ops).`,
+  );
+}
+
+async function backfillEventTypes() {
+  // Must run while the OLD `atl_dupr_events` table still exists, because the
+  // correct format for each historical signup/assignment lives in its
+  // `team_format` column. Once push drops the old table this is a no-op (the
+  // values were already written on the first run).
+  if (!(await tableExists("atl_dupr_events"))) {
+    console.log(
+      "[3a/4] Old `atl_dupr_events` table absent — event_type backfill already done, skipping.",
+    );
+    return;
+  }
+
+  let signupRows = 0;
+  if (await tableExists("atl_dupr_signups")) {
+    const res = await db.execute(sql`
+      UPDATE atl_dupr_signups s
+      SET event_type = old.team_format
+      FROM atl_dupr_events old
+      WHERE s.event_id = old.id
+        AND old.team_format IN ('rotating', 'fixed_partner')
+        AND s.event_type IS DISTINCT FROM old.team_format
+    `);
+    signupRows = res.rowCount ?? 0;
+  }
+
+  let roleRows = 0;
+  if (await tableExists("atl_dupr_event_roles")) {
+    const res = await db.execute(sql`
+      UPDATE atl_dupr_event_roles r
+      SET event_type = old.team_format
+      FROM atl_dupr_events old
+      WHERE r.event_id = old.id
+        AND old.team_format IN ('rotating', 'fixed_partner')
+        AND r.event_type IS DISTINCT FROM old.team_format
+    `);
+    roleRows = res.rowCount ?? 0;
+  }
+
+  console.log(
+    `[3a/4] Backfilled event_type: ${signupRows} signup, ${roleRows} assignment row(s) (re-runs are no-ops).`,
   );
 }
 
@@ -338,6 +394,7 @@ async function main() {
   await preflight();
   await createDestinationSchema();
   await splitEvents();
+  await backfillEventTypes();
   await backfillSnapshots();
   await seedEventDefaults();
   await recordCompletion();
