@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { membersTable, registrationsTable } from "@workspace/db";
-import { eq, count, notInArray } from "drizzle-orm";
+import { membersTable } from "@workspace/db";
+import { eq } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
 
 const router = Router();
@@ -58,11 +58,9 @@ router.post("/", requireRole("admin"), async (req, res) => {
   return res.status(201).json(member);
 });
 
-router.delete("/", requireRole("admin"), async (req, res) => {
-  const [result] = await db.select({ count: count() }).from(registrationsTable);
-  if (result.count > 0) {
-    return res.status(409).json({ error: "Cannot clear member list while event registrations exist. Registrations are linked to members and clearing the list would break these records." });
-  }
+router.delete("/", requireRole("admin"), async (_req, res) => {
+  // Registrations carry their own self-contained snapshots, so clearing the
+  // member list no longer affects existing registrations or events.
   await db.delete(membersTable);
   return res.status(204).send();
 });
@@ -136,7 +134,8 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
     }
   }
 
-  // Remove existing members that are not in the CSV, but skip those with registrations
+  // Remove existing members that are not in the CSV. Registrations keep their
+  // own snapshots, so removing a member never affects existing registrations.
   let removed = 0;
   const regSkipped: string[] = [];
   if (csvDuprIds.length > 0) {
@@ -144,16 +143,8 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
     const csvIdSet = new Set(csvDuprIds);
     for (const m of allMembers) {
       if (!csvIdSet.has(m.duprId)) {
-        const [regCount] = await db
-          .select({ count: count() })
-          .from(registrationsTable)
-          .where(eq(registrationsTable.memberDuprId, m.duprId));
-        if (regCount.count > 0) {
-          regSkipped.push(m.duprId);
-        } else {
-          await db.delete(membersTable).where(eq(membersTable.duprId, m.duprId));
-          removed++;
-        }
+        await db.delete(membersTable).where(eq(membersTable.duprId, m.duprId));
+        removed++;
       }
     }
   }
@@ -191,10 +182,8 @@ router.delete("/:duprId", requireRole("admin"), async (req, res) => {
   const duprId = String(req.params.duprId);
   const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, duprId));
   if (!existing) return res.status(404).json({ error: "Member not found" });
-  const [regCount] = await db.select({ count: count() }).from(registrationsTable).where(eq(registrationsTable.memberDuprId, duprId));
-  if (regCount.count > 0) {
-    return res.status(409).json({ error: "Cannot delete this member because they have active event registrations. Cancel or remove their registrations first." });
-  }
+  // Registrations carry their own snapshots, so deleting a member never affects
+  // existing registrations.
   await db.delete(membersTable).where(eq(membersTable.duprId, duprId));
   return res.status(204).send();
 });

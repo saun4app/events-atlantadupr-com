@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "wouter";
+import { Link, useParams } from "wouter";
 import {
   useListEvents,
   getListEventsQueryKey,
@@ -8,6 +8,8 @@ import {
 } from "@workspace/api-client-react";
 import { AdminNav } from "@/components/admin-nav";
 import { EventsNav } from "@/components/events-nav";
+import NotFound from "@/pages/not-found";
+import AdminEventSetup from "@/pages/admin/event-setup";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { format } from "date-fns";
-import { Search, Calendar, MapPin, TriangleAlert } from "lucide-react";
+import { Search, Calendar, MapPin, TriangleAlert, SlidersHorizontal } from "lucide-react";
 
 function statusBadge(status: string) {
   if (status === "upcoming") return <Badge className="text-xs bg-primary/10 text-primary border-primary/20 border">Upcoming</Badge>;
@@ -109,8 +111,12 @@ function EmailFailureBadge() {
 export default function AdminEvents() {
   const { isAuthenticated, isLoading, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
+  const { eventType: rawEventType } = useParams<{ eventType: string }>();
+  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
+  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
 
   const [search, setSearch] = useState("");
+  const [setupOpen, setSetupOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
@@ -118,27 +124,47 @@ export default function AdminEvents() {
   }, [isLoading, isAuthenticated, canAccessAdmin]);
 
   const { data: events, isLoading: evLoading } = useListEvents(
-    {},
-    { query: { queryKey: getListEventsQueryKey({}), refetchOnMount: "always" } }
+    eventType,
+    { query: { enabled: validEventType, queryKey: getListEventsQueryKey(eventType), refetchOnMount: "always" } }
   );
 
   const filtered = events?.filter(e =>
     !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.locationName.toLowerCase().includes(search.toLowerCase())
   ) ?? [];
 
+  const formatLabel = eventType === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners";
+
+  if (!validEventType) {
+    return <NotFound />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
-      <EventsNav />
+      <EventsNav eventType={eventType} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-foreground">Manage Events</h1>
+            <h1 className="text-xl font-bold text-foreground">Manage Events — {formatLabel}</h1>
             <p className="text-muted-foreground text-sm mt-0.5">{events?.length ?? 0} total events</p>
           </div>
-          <div>
+          <div className="flex items-center gap-2">
             <EmailFailureBadge />
+            <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
+              <DialogTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2" data-testid="button-event-setup">
+                  <SlidersHorizontal className="w-4 h-4" />
+                  Event Setup
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Event Setup</DialogTitle>
+                </DialogHeader>
+                <AdminEventSetup />
+              </DialogContent>
+            </Dialog>
           </div>
         </div>
 
@@ -165,7 +191,7 @@ export default function AdminEvents() {
         ) : (
           <div className="space-y-3">
             {filtered.map(ev => (
-              <Link key={ev.id} href={`/admin/events/${ev.id}`} className="block">
+              <Link key={ev.id} href={`/admin/events/${eventType}/${ev.id}`} className="block">
                 <div
                   data-testid={`card-event-${ev.id}`}
                   className="bg-card border border-card-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"

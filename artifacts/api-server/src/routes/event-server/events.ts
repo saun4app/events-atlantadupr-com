@@ -1,11 +1,89 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { eventsTable, registrationsTable, eventAssignmentsTable, usersTable } from "@workspace/db";
+import {
+  eventsRotatingTable,
+  eventsFixedTable,
+  registrationsTable,
+  eventAssignmentsTable,
+  usersTable,
+  type EventFormat,
+  type EventRatingConfig,
+} from "@workspace/db";
 import { eq, and, count } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { randomUUID } from "crypto";
 
 const router = Router();
+
+export function parseEventType(raw: string | undefined): EventFormat | null {
+  if (raw === "rotating" || raw === "fixed_partner") return raw;
+  return null;
+}
+
+// A format-agnostic view of an event. The two storage tables are fully
+// independent (rotating tracks participant capacity, fixed tracks team
+// capacity); this shape lets read paths and registration logic stay uniform.
+export interface NormalizedEvent {
+  id: number;
+  seriesId: string | null;
+  name: string;
+  description: string | null;
+  eventDescription: string | null;
+  startDatetime: Date;
+  endDatetime: Date;
+  locationName: string;
+  locationAddress: string;
+  teamFormat: EventFormat;
+  ratingTypeRequired: string;
+  ratingConfig: EventRatingConfig;
+  minParticipants: number;
+  maxParticipants: number;
+  minTeams: number | null;
+  maxTeams: number | null;
+  waitlistEnabled: boolean;
+  requireApproval: string;
+  signupStartDatetime: Date;
+  signupEndDatetime: Date;
+  status: string;
+  courtFeeEnabled: boolean;
+  memberFee: number;
+  nonMemberFee: number;
+  contactEmail: string | null;
+  createdAt: Date;
+}
+
+function normalizeRotating(r: typeof eventsRotatingTable.$inferSelect): NormalizedEvent {
+  return {
+    ...r,
+    teamFormat: "rotating",
+    minTeams: null,
+    maxTeams: null,
+  };
+}
+
+function normalizeFixed(r: typeof eventsFixedTable.$inferSelect): NormalizedEvent {
+  const { minTeams, maxTeams, ...rest } = r;
+  return {
+    ...rest,
+    teamFormat: "fixed_partner",
+    minTeams,
+    maxTeams,
+    minParticipants: minTeams * 2,
+    maxParticipants: maxTeams * 2,
+  };
+}
+
+export async function getNormalizedEvent(
+  eventType: EventFormat,
+  eventId: number,
+): Promise<NormalizedEvent | null> {
+  if (eventType === "rotating") {
+    const [r] = await db.select().from(eventsRotatingTable).where(eq(eventsRotatingTable.id, eventId));
+    return r ? normalizeRotating(r) : null;
+  }
+  const [r] = await db.select().from(eventsFixedTable).where(eq(eventsFixedTable.id, eventId));
+  return r ? normalizeFixed(r) : null;
+}
 
 function generateRecurringDates(
   startDatetime: Date,
@@ -26,7 +104,7 @@ function generateRecurringDates(
   return results;
 }
 
-export async function canAccessEvent(eventId: number, req: Request): Promise<boolean> {
+export async function canAccessEvent(eventId: number, eventType: EventFormat, req: Request): Promise<boolean> {
   const session = (req as any).session;
   if (!session?.userId) return false;
   const role: string = session.role ?? "";
@@ -35,7 +113,13 @@ export async function canAccessEvent(eventId: number, req: Request): Promise<boo
     const [assignment] = await db
       .select()
       .from(eventAssignmentsTable)
-      .where(and(eq(eventAssignmentsTable.userId, Number(session.userId)), eq(eventAssignmentsTable.eventId, eventId)));
+      .where(
+        and(
+          eq(eventAssignmentsTable.userId, Number(session.userId)),
+          eq(eventAssignmentsTable.eventId, eventId),
+          eq(eventAssignmentsTable.eventType, eventType),
+        ),
+      );
     return !!assignment;
   }
   return false;
@@ -43,8 +127,12 @@ export async function canAccessEvent(eventId: number, req: Request): Promise<boo
 
 router.get("/summary", async (_req, res) => {
   const now = new Date();
-  const allEvents = await db.select().from(eventsTable);
-  const totalUpcoming = allEvents.filter((e) => new Date(e.startDatetime) > now && e.status !== "ended" && e.status !== "cancelled").length;
+  const rotating = (await db.select().from(eventsRotatingTable)).map(normalizeRotating);
+  const fixed = (await db.select().from(eventsFixedTable)).map(normalizeFixed);
+  const allEvents = [...rotating, ...fixed];
+  const totalUpcoming = allEvents.filter(
+    (e) => new Date(e.startDatetime) > now && e.status !== "ended" && e.status !== "cancelled",
+  ).length;
   const openForSignup = allEvents.filter(
     (e) =>
       e.status === "upcoming" &&
@@ -54,9 +142,19 @@ router.get("/summary", async (_req, res) => {
   return res.json({ totalUpcoming, openForSignup, totalEvents: allEvents.length });
 });
 
-router.get("/", async (req, res) => {
+// Per-format list. Each format has its own independent listing; there is no
+// merged/aggregated events feed.
+router.get("/:eventType", async (req, res) => {
+  const eventType = parseEventType(req.params.eventType);
+  if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+
   const { upcoming, search } = req.query as Record<string, string>;
-  let rows = await db.select().from(eventsTable).orderBy(eventsTable.startDatetime);
+  let rows: NormalizedEvent[];
+  if (eventType === "rotating") {
+    rows = (await db.select().from(eventsRotatingTable).orderBy(eventsRotatingTable.startDatetime)).map(normalizeRotating);
+  } else {
+    rows = (await db.select().from(eventsFixedTable).orderBy(eventsFixedTable.startDatetime)).map(normalizeFixed);
+  }
 
   if (upcoming === "true") {
     const now = new Date();
@@ -76,46 +174,64 @@ router.get("/", async (req, res) => {
   const counts = await db
     .select({ eventId: registrationsTable.eventId, confirmedCount: count() })
     .from(registrationsTable)
-    .where(eq(registrationsTable.status, "confirmed"))
+    .where(and(eq(registrationsTable.status, "confirmed"), eq(registrationsTable.eventType, eventType)))
     .groupBy(registrationsTable.eventId);
   const countMap = Object.fromEntries(counts.map((c) => [c.eventId, c.confirmedCount]));
 
-  return res.json(rows.map((r) => {
-    const confirmedCount = countMap[r.id] ?? 0;
-    const confirmedTeams = r.teamFormat === "fixed_partner" ? Math.floor(confirmedCount / 2) : null;
-    const maxTeams = r.teamFormat === "fixed_partner" ? Math.floor(r.maxParticipants / 2) : null;
-    return { ...r, confirmedCount, confirmedTeams, maxTeams };
-  }));
+  return res.json(
+    rows.map((r) => {
+      const confirmedCount = countMap[r.id] ?? 0;
+      const confirmedTeams = r.teamFormat === "fixed_partner" ? Math.floor(confirmedCount / 2) : null;
+      const maxTeams = r.maxTeams;
+      return { ...r, confirmedCount, confirmedTeams, maxTeams };
+    }),
+  );
 });
 
-router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
-  const {
-    name, description, eventDescription, startDatetime, endDatetime, locationName, locationAddress,
-    teamFormat, ratingTypeRequired, ratingConfig, minParticipants, maxParticipants, waitlistEnabled,
-    requireApproval, signupStartDatetime, signupEndDatetime, recurrence,
-    courtFeeEnabled, memberFee, nonMemberFee, contactEmail,
-  } = req.body;
-
-  const baseEvent = {
-    name, description: description ?? null, eventDescription: eventDescription ?? null, locationName, locationAddress,
-    teamFormat, ratingTypeRequired, ratingConfig: ratingConfig ?? null,
-    minParticipants, maxParticipants,
-    waitlistEnabled, requireApproval: requireApproval ?? "none", status: "upcoming" as const,
-    courtFeeEnabled: courtFeeEnabled ?? false,
-    memberFee: typeof memberFee === "number" ? memberFee : 0,
-    nonMemberFee: typeof nonMemberFee === "number" ? nonMemberFee : 0,
-    contactEmail: contactEmail ?? null,
+function buildCommonBase(body: any) {
+  return {
+    name: body.name,
+    description: body.description ?? null,
+    eventDescription: body.eventDescription ?? null,
+    locationName: body.locationName,
+    locationAddress: body.locationAddress ?? "",
+    ratingTypeRequired: body.ratingTypeRequired ?? "none",
+    ratingConfig: body.ratingConfig ?? null,
+    waitlistEnabled: body.waitlistEnabled ?? true,
+    requireApproval: body.requireApproval ?? "none",
+    status: "upcoming" as const,
+    courtFeeEnabled: body.courtFeeEnabled ?? false,
+    memberFee: typeof body.memberFee === "number" ? body.memberFee : 0,
+    nonMemberFee: typeof body.nonMemberFee === "number" ? body.nonMemberFee : 0,
+    contactEmail: body.contactEmail ?? null,
   };
+}
+
+router.post("/:eventType", requireAuth, requireRole("admin", "event_organizer"), async (req, res) => {
+  const eventType = parseEventType(req.params.eventType as string);
+  if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+
+  const body = req.body;
+  const { startDatetime, endDatetime, signupStartDatetime, signupEndDatetime, recurrence } = body;
+  const common = buildCommonBase(body);
+
+  // Capacity fields are format-specific: rotating tracks participants, fixed
+  // tracks teams.
+  const capacity =
+    eventType === "rotating"
+      ? { minParticipants: body.minParticipants ?? 4, maxParticipants: body.maxParticipants ?? 16 }
+      : { minTeams: body.minTeams ?? 2, maxTeams: body.maxTeams ?? 8 };
+  const baseEvent: any = { ...common, ...capacity };
+
+  const startList: Date[] = [new Date(startDatetime)];
+  let seriesId: string | null = null;
+  let duration = new Date(endDatetime).getTime() - new Date(startDatetime).getTime();
+  let signupStartOffset = new Date(startDatetime).getTime() - new Date(signupStartDatetime).getTime();
+  let signupEndOffset = new Date(startDatetime).getTime() - new Date(signupEndDatetime).getTime();
 
   if (recurrence) {
-    const seriesId = randomUUID();
-    const startMs = new Date(startDatetime).getTime();
-    const duration = new Date(endDatetime).getTime() - startMs;
-    const signupStartOffset = startMs - new Date(signupStartDatetime).getTime();
-    const signupEndOffset = startMs - new Date(signupEndDatetime).getTime();
-
+    seriesId = randomUUID();
     let additionalStarts: Date[] = [];
-
     if (Array.isArray(recurrence.dates) && recurrence.dates.length > 0) {
       additionalStarts = recurrence.dates.map((d: string) => new Date(d));
     } else if (recurrence.frequency && recurrence.occurrences > 1) {
@@ -127,204 +243,272 @@ router.post("/", requireAuth, requireRole("admin", "event_organizer"), async (re
       );
       additionalStarts = allDates.slice(1).map(({ start }) => start);
     }
-
-    const allStarts = [new Date(startDatetime), ...additionalStarts];
-
-    const events = await db
-      .insert(eventsTable)
-      .values(
-        allStarts.map((start) => ({
-          ...baseEvent,
-          seriesId,
-          startDatetime: start,
-          endDatetime: new Date(start.getTime() + duration),
-          signupStartDatetime: new Date(start.getTime() - signupStartOffset),
-          signupEndDatetime: new Date(start.getTime() - signupEndOffset),
-        })),
-      )
-      .returning();
-    return res.status(201).json(events);
+    startList.push(...additionalStarts);
   }
 
-  const [event] = await db
-    .insert(eventsTable)
-    .values({
-      ...baseEvent,
-      startDatetime: new Date(startDatetime),
-      endDatetime: new Date(endDatetime),
-      signupStartDatetime: new Date(signupStartDatetime),
-      signupEndDatetime: new Date(signupEndDatetime),
-    })
-    .returning();
+  const values = startList.map((start) => ({
+    ...baseEvent,
+    seriesId,
+    startDatetime: start,
+    endDatetime: new Date(start.getTime() + duration),
+    signupStartDatetime: new Date(start.getTime() - signupStartOffset),
+    signupEndDatetime: new Date(start.getTime() - signupEndOffset),
+  }));
 
-  return res.status(201).json([event]);
+  if (eventType === "rotating") {
+    const created = await db.insert(eventsRotatingTable).values(values).returning();
+    return res.status(201).json(created.map(normalizeRotating));
+  }
+  const created = await db.insert(eventsFixedTable).values(values).returning();
+  return res.status(201).json(created.map(normalizeFixed));
 });
 
-router.get("/:id", async (req, res) => {
-  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, Number(req.params.id)));
+router.get("/:eventType/:id", async (req, res) => {
+  const eventType = parseEventType(req.params.eventType);
+  if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+  const event = await getNormalizedEvent(eventType, Number(req.params.id));
   if (!event) return res.status(404).json({ error: "Event not found" });
   return res.json(event);
 });
 
-router.patch("/:id", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
+router.patch(
+  "/:eventType/:id",
+  requireAuth,
+  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  async (req: Request<{ eventType: string; id: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, eventType, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+
+    const existing = await getNormalizedEvent(eventType, eventId);
+    if (!existing) return res.status(404).json({ error: "Event not found" });
+
+    const b = req.body;
+    const updates: any = {};
+    if (b.name !== undefined) updates.name = b.name;
+    if (b.description !== undefined) updates.description = b.description;
+    if (b.eventDescription !== undefined) updates.eventDescription = b.eventDescription;
+    if (b.locationName !== undefined) updates.locationName = b.locationName;
+    if (b.locationAddress !== undefined) updates.locationAddress = b.locationAddress;
+    if (b.ratingTypeRequired !== undefined) updates.ratingTypeRequired = b.ratingTypeRequired;
+    if (b.ratingConfig !== undefined) updates.ratingConfig = b.ratingConfig;
+    if (b.waitlistEnabled !== undefined) updates.waitlistEnabled = b.waitlistEnabled;
+    if (b.requireApproval !== undefined) updates.requireApproval = b.requireApproval;
+    if (b.status !== undefined) updates.status = b.status;
+    if (b.courtFeeEnabled !== undefined) updates.courtFeeEnabled = b.courtFeeEnabled;
+    if (b.memberFee !== undefined) updates.memberFee = b.memberFee;
+    if (b.nonMemberFee !== undefined) updates.nonMemberFee = b.nonMemberFee;
+    if (b.contactEmail !== undefined) updates.contactEmail = b.contactEmail;
+    if (b.startDatetime !== undefined) updates.startDatetime = new Date(b.startDatetime);
+    if (b.endDatetime !== undefined) updates.endDatetime = new Date(b.endDatetime);
+    if (b.signupStartDatetime !== undefined) updates.signupStartDatetime = new Date(b.signupStartDatetime);
+    if (b.signupEndDatetime !== undefined) updates.signupEndDatetime = new Date(b.signupEndDatetime);
+
+    if (eventType === "rotating") {
+      if (b.minParticipants !== undefined) updates.minParticipants = b.minParticipants;
+      if (b.maxParticipants !== undefined) updates.maxParticipants = b.maxParticipants;
+      const [updated] = await db
+        .update(eventsRotatingTable)
+        .set(updates)
+        .where(eq(eventsRotatingTable.id, eventId))
+        .returning();
+      return res.json(normalizeRotating(updated));
+    }
+    if (b.minTeams !== undefined) updates.minTeams = b.minTeams;
+    if (b.maxTeams !== undefined) updates.maxTeams = b.maxTeams;
+    const [updated] = await db.update(eventsFixedTable).set(updates).where(eq(eventsFixedTable.id, eventId)).returning();
+    return res.json(normalizeFixed(updated));
+  },
+);
+
+router.delete(
+  "/:eventType/:id",
+  requireAuth,
+  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  async (req: Request<{ eventType: string; id: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, eventType, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+
+    const table = eventType === "rotating" ? eventsRotatingTable : eventsFixedTable;
+    const [deleted] = await db.delete(table).where(eq(table.id, eventId)).returning();
+    if (!deleted) return res.status(404).json({ error: "Event not found" });
+
+    // No cross-table FK exists, so cascade dependent rows at the application
+    // level scoped to this event's format.
+    await db
+      .delete(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, eventType)));
+    await db
+      .delete(eventAssignmentsTable)
+      .where(and(eq(eventAssignmentsTable.eventId, eventId), eq(eventAssignmentsTable.eventType, eventType)));
+    return res.status(204).send();
+  },
+);
+
+router.post(
+  "/:eventType/:id/clone",
+  requireAuth,
+  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  async (req: Request<{ eventType: string; id: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, eventType, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+    const { name } = req.body ?? {};
+
+    if (eventType === "rotating") {
+      const [source] = await db.select().from(eventsRotatingTable).where(eq(eventsRotatingTable.id, eventId));
+      if (!source) return res.status(404).json({ error: "Source event not found" });
+      const { id: _id, createdAt: _c, seriesId: _s, ...rest } = source;
+      const [cloned] = await db
+        .insert(eventsRotatingTable)
+        .values({ ...rest, name: name ?? `${source.name} (Copy)`, status: "upcoming" })
+        .returning();
+      return res.status(201).json(normalizeRotating(cloned));
+    }
+    const [source] = await db.select().from(eventsFixedTable).where(eq(eventsFixedTable.id, eventId));
+    if (!source) return res.status(404).json({ error: "Source event not found" });
+    const { id: _id, createdAt: _c, seriesId: _s, ...rest } = source;
+    const [cloned] = await db
+      .insert(eventsFixedTable)
+      .values({ ...rest, name: name ?? `${source.name} (Copy)`, status: "upcoming" })
+      .returning();
+    return res.status(201).json(normalizeFixed(cloned));
+  },
+);
+
+router.post(
+  "/:eventType/:id/close",
+  requireAuth,
+  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  async (req: Request<{ eventType: string; id: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, eventType, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+    const table = eventType === "rotating" ? eventsRotatingTable : eventsFixedTable;
+    const [updated] = await db.update(table).set({ status: "closed" }).where(eq(table.id, eventId)).returning();
+    if (!updated) return res.status(404).json({ error: "Event not found" });
+    return res.json(eventType === "rotating" ? normalizeRotating(updated as any) : normalizeFixed(updated as any));
+  },
+);
+
+router.get("/:eventType/:id/roster-summary", async (req, res) => {
+  const eventType = parseEventType(req.params.eventType);
+  if (!eventType) return res.status(404).json({ error: "Unknown event format" });
   const eventId = Number(req.params.id);
-  if (!await canAccessEvent(eventId, req)) {
-    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
-  }
-
-  const [existing] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
-  if (!existing) return res.status(404).json({ error: "Event not found" });
-
-  const updates: any = {};
-  if (req.body.name !== undefined) updates.name = req.body.name;
-  if (req.body.description !== undefined) updates.description = req.body.description;
-  if (req.body.eventDescription !== undefined) updates.eventDescription = req.body.eventDescription;
-  if (req.body.locationName !== undefined) updates.locationName = req.body.locationName;
-  if (req.body.locationAddress !== undefined) updates.locationAddress = req.body.locationAddress;
-  if (req.body.teamFormat !== undefined) updates.teamFormat = req.body.teamFormat;
-  if (req.body.ratingTypeRequired !== undefined) updates.ratingTypeRequired = req.body.ratingTypeRequired;
-  if (req.body.ratingConfig !== undefined) updates.ratingConfig = req.body.ratingConfig;
-  if (req.body.minParticipants !== undefined) updates.minParticipants = req.body.minParticipants;
-  if (req.body.maxParticipants !== undefined) updates.maxParticipants = req.body.maxParticipants;
-  if (req.body.waitlistEnabled !== undefined) updates.waitlistEnabled = req.body.waitlistEnabled;
-  if (req.body.requireApproval !== undefined) updates.requireApproval = req.body.requireApproval;
-  if (req.body.status !== undefined) updates.status = req.body.status;
-  if (req.body.courtFeeEnabled !== undefined) updates.courtFeeEnabled = req.body.courtFeeEnabled;
-  if (req.body.memberFee !== undefined) updates.memberFee = req.body.memberFee;
-  if (req.body.nonMemberFee !== undefined) updates.nonMemberFee = req.body.nonMemberFee;
-  if (req.body.contactEmail !== undefined) updates.contactEmail = req.body.contactEmail;
-  if (req.body.startDatetime !== undefined) updates.startDatetime = new Date(req.body.startDatetime);
-  if (req.body.endDatetime !== undefined) updates.endDatetime = new Date(req.body.endDatetime);
-  if (req.body.signupStartDatetime !== undefined) updates.signupStartDatetime = new Date(req.body.signupStartDatetime);
-  if (req.body.signupEndDatetime !== undefined) updates.signupEndDatetime = new Date(req.body.signupEndDatetime);
-
-  const [updated] = await db.update(eventsTable).set(updates).where(eq(eventsTable.id, eventId)).returning();
-  return res.json(updated);
-});
-
-router.delete("/:id", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
-  const eventId = Number(req.params.id);
-  if (!await canAccessEvent(eventId, req)) {
-    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
-  }
-
-  const [deleted] = await db.delete(eventsTable).where(eq(eventsTable.id, eventId)).returning();
-  if (!deleted) return res.status(404).json({ error: "Event not found" });
-  return res.status(204).send();
-});
-
-router.post("/:id/clone", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
-  const eventId = Number(req.params.id);
-  if (!await canAccessEvent(eventId, req)) {
-    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
-  }
-
-  const [source] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
-  if (!source) return res.status(404).json({ error: "Source event not found" });
-
-  const { name } = req.body ?? {};
-  const { id: _id, createdAt: _c, seriesId: _s, ...rest } = source;
-  const [cloned] = await db
-    .insert(eventsTable)
-    .values({
-      ...rest,
-      name: name ?? `${source.name} (Copy)`,
-      status: "upcoming",
-    })
-    .returning();
-  return res.status(201).json(cloned);
-});
-
-router.post("/:id/close", requireAuth, requireRole("admin", "event_organizer", "event_captain", "court_leader"), async (req: Request<{ id: string }>, res: Response) => {
-  const eventId = Number(req.params.id);
-  if (!await canAccessEvent(eventId, req)) {
-    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
-  }
-
-  const [updated] = await db
-    .update(eventsTable)
-    .set({ status: "closed" })
-    .where(eq(eventsTable.id, eventId))
-    .returning();
-  if (!updated) return res.status(404).json({ error: "Event not found" });
-  return res.json(updated);
-});
-
-router.get("/:id/roster-summary", async (req, res) => {
-  const eventId = Number(req.params.id);
-  const [event] = await db.select().from(eventsTable).where(eq(eventsTable.id, eventId));
+  const event = await getNormalizedEvent(eventType, eventId);
   if (!event) return res.status(404).json({ error: "Event not found" });
 
-  const regs = await db.select().from(registrationsTable).where(eq(registrationsTable.eventId, eventId));
+  const regs = await db
+    .select()
+    .from(registrationsTable)
+    .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, eventType)));
   const confirmed = regs.filter((r) => r.status === "confirmed").length;
   const waitlisted = regs.filter((r) => r.status === "waitlisted").length;
   const pendingApproval = regs.filter((r) => r.status === "pending_approval").length;
 
-  const maxTeams = event.teamFormat === "fixed_partner" ? Math.floor(event.maxParticipants / 2) : null;
-  const confirmedTeams = event.teamFormat === "fixed_partner" ? Math.floor(confirmed / 2) : null;
-  const waitlistedTeams = event.teamFormat === "fixed_partner" ? Math.floor(waitlisted / 2) : null;
-  const pendingTeams = event.teamFormat === "fixed_partner" ? Math.floor(pendingApproval / 2) : null;
+  const isFixed = event.teamFormat === "fixed_partner";
   return res.json({
     confirmed,
     waitlisted,
     pendingApproval,
     total: confirmed + waitlisted + pendingApproval,
     maxParticipants: event.maxParticipants,
-    maxTeams,
-    confirmedTeams,
-    waitlistedTeams,
-    pendingTeams,
+    maxTeams: isFixed ? Math.floor(event.maxParticipants / 2) : null,
+    confirmedTeams: isFixed ? Math.floor(confirmed / 2) : null,
+    waitlistedTeams: isFixed ? Math.floor(waitlisted / 2) : null,
+    pendingTeams: isFixed ? Math.floor(pendingApproval / 2) : null,
   });
 });
 
-router.get("/:id/assignments", requireAuth, requireRole("admin", "event_organizer"), async (req: Request<{ id: string }>, res: Response) => {
-  const eventId = Number(req.params.id);
-  const assignments = await db
-    .select({
-      userId: eventAssignmentsTable.userId,
-      eventId: eventAssignmentsTable.eventId,
-      assignedAt: eventAssignmentsTable.assignedAt,
-      userName: usersTable.name,
-      userUsername: usersTable.username,
-      userRole: usersTable.role,
-    })
-    .from(eventAssignmentsTable)
-    .innerJoin(usersTable, eq(usersTable.id, eventAssignmentsTable.userId))
-    .where(eq(eventAssignmentsTable.eventId, eventId));
-  return res.json(assignments);
-});
+router.get(
+  "/:eventType/:id/assignments",
+  requireAuth,
+  requireRole("admin", "event_organizer"),
+  async (req: Request<{ eventType: string; id: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    const assignments = await db
+      .select({
+        userId: eventAssignmentsTable.userId,
+        eventId: eventAssignmentsTable.eventId,
+        eventType: eventAssignmentsTable.eventType,
+        assignedAt: eventAssignmentsTable.assignedAt,
+        userName: usersTable.name,
+        userUsername: usersTable.username,
+        userRole: usersTable.role,
+      })
+      .from(eventAssignmentsTable)
+      .innerJoin(usersTable, eq(usersTable.id, eventAssignmentsTable.userId))
+      .where(and(eq(eventAssignmentsTable.eventId, eventId), eq(eventAssignmentsTable.eventType, eventType)));
+    return res.json(assignments);
+  },
+);
 
-router.post("/:id/assignments", requireAuth, requireRole("admin", "event_organizer"), async (req: Request<{ id: string }>, res: Response) => {
-  const eventId = Number(req.params.id);
-  const { userId } = req.body;
-  if (!userId) return res.status(400).json({ error: "userId is required" });
+router.post(
+  "/:eventType/:id/assignments",
+  requireAuth,
+  requireRole("admin", "event_organizer"),
+  async (req: Request<{ eventType: string; id: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: "userId is required" });
 
-  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, Number(userId)));
-  if (!user) return res.status(404).json({ error: "User not found" });
-  if (user.role !== "event_captain" && user.role !== "court_leader") {
-    return res.status(400).json({ error: "Only event_captain or court_leader users can be assigned to events" });
-  }
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, Number(userId)));
+    if (!user) return res.status(404).json({ error: "User not found" });
+    if (user.role !== "event_captain" && user.role !== "court_leader") {
+      return res.status(400).json({ error: "Only event_captain or court_leader users can be assigned to events" });
+    }
 
-  const [assignment] = await db
-    .insert(eventAssignmentsTable)
-    .values({ userId: Number(userId), eventId })
-    .onConflictDoNothing()
-    .returning();
+    const [assignment] = await db
+      .insert(eventAssignmentsTable)
+      .values({ userId: Number(userId), eventId, eventType })
+      .onConflictDoNothing()
+      .returning();
 
-  return res.status(201).json(assignment ?? { userId: Number(userId), eventId, note: "already assigned" });
-});
+    return res.status(201).json(assignment ?? { userId: Number(userId), eventId, eventType, note: "already assigned" });
+  },
+);
 
-router.delete("/:id/assignments/:userId", requireAuth, requireRole("admin", "event_organizer"), async (req: Request<{ id: string; userId: string }>, res: Response) => {
-  const eventId = Number(req.params.id);
-  const userId = Number(req.params.userId);
+router.delete(
+  "/:eventType/:id/assignments/:userId",
+  requireAuth,
+  requireRole("admin", "event_organizer"),
+  async (req: Request<{ eventType: string; id: string; userId: string }>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+    const userId = Number(req.params.userId);
 
-  const [deleted] = await db
-    .delete(eventAssignmentsTable)
-    .where(and(eq(eventAssignmentsTable.eventId, eventId), eq(eventAssignmentsTable.userId, userId)))
-    .returning();
+    const [deleted] = await db
+      .delete(eventAssignmentsTable)
+      .where(
+        and(
+          eq(eventAssignmentsTable.eventId, eventId),
+          eq(eventAssignmentsTable.eventType, eventType),
+          eq(eventAssignmentsTable.userId, userId),
+        ),
+      )
+      .returning();
 
-  if (!deleted) return res.status(404).json({ error: "Assignment not found" });
-  return res.status(204).send();
-});
+    if (!deleted) return res.status(404).json({ error: "Assignment not found" });
+    return res.status(204).send();
+  },
+);
 
 export default router;

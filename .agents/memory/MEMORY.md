@@ -1,1 +1,3 @@
 - [Replit proxy auth cookies](replit-auth-cookies.md) — three conditions required for session cookies to survive Replit's iframe proxy
+- [api-server stale dist](api-server-stale-dist.md) — restart api-server workflow after backend/schema edits; it bundles once and doesn't watch
+- [orval path+query collision](orval-path-query-collision.md) — an op with both a path param and query params breaks api-zod codegen (TS2308); drop the query params

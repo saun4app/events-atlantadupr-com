@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
+import { useLocation, useParams } from "wouter";
 import {
   useListEvents, useCreateEvent, useGetSettings,
   getListEventsQueryKey, getGetEventsSummaryQueryKey,
@@ -7,6 +7,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { AdminNav } from "@/components/admin-nav";
 import { EventsNav } from "@/components/events-nav";
+import NotFound from "@/pages/not-found";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { DateTimeInput } from "@/components/date-time-input";
 import { Button } from "@/components/ui/button";
@@ -98,13 +99,16 @@ export default function AdminEventNew() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { eventType: rawEventType } = useParams<{ eventType: string }>();
+  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
+  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
     if (!isLoading && isAuthenticated && !canAccessAdmin) setLocation("/");
   }, [isLoading, isAuthenticated, canAccessAdmin]);
 
-  const { data: allEvents } = useListEvents({}, { query: { queryKey: getListEventsQueryKey({}) } });
+  const { data: allEvents } = useListEvents(eventType, { query: { enabled: validEventType, queryKey: getListEventsQueryKey(eventType) } });
   const { data: settings } = useGetSettings();
 
   const defaultsApplied = useRef(false);
@@ -113,7 +117,6 @@ export default function AdminEventNew() {
   const endEdited = useRef(false);
 
   const [form, setForm] = useState({
-    teamFormat: "rotating" as "rotating" | "fixed_partner",
     name: "",
     description: "",
     eventDescription: "",
@@ -166,8 +169,8 @@ export default function AdminEventNew() {
       setDescriptionGeneration(g => g + 1);
       setForm(f => ({
         ...f,
-        minParticipants: settings.minParticipants,
-        maxParticipants: settings.maxParticipants,
+        minParticipants: eventType === "fixed_partner" ? settings.minTeams : settings.minParticipants,
+        maxParticipants: eventType === "fixed_partner" ? settings.maxTeams : settings.maxParticipants,
         description: settings.guidelinesAndRules || "",
         signupStartDatetime: nowInTz,
         ratingTypeRequired: defaultType,
@@ -214,25 +217,6 @@ export default function AdminEventNew() {
     setRatingConfig(getDefaultRatingConfig(type, rrc));
   }
 
-  function handleFormatChange(newFormat: "rotating" | "fixed_partner") {
-    const oldFormat = form.teamFormat;
-    setForm(f => {
-      const next = { ...f, teamFormat: newFormat };
-      if (settings) {
-        const oldMin = oldFormat === "rotating" ? settings.minParticipants : settings.minTeams;
-        const oldMax = oldFormat === "rotating" ? settings.maxParticipants : settings.maxTeams;
-        const newMin = newFormat === "rotating" ? settings.minParticipants : settings.minTeams;
-        const newMax = newFormat === "rotating" ? settings.maxParticipants : settings.maxTeams;
-        if (f.minParticipants === oldMin) next.minParticipants = newMin;
-        if (f.maxParticipants === oldMax) next.maxParticipants = newMax;
-        if (!descriptionEdited.current && f.description === "" && settings.guidelinesAndRules) {
-          next.description = settings.guidelinesAndRules;
-        }
-      }
-      return next;
-    });
-  }
-
   function handleClone(eventIdStr: string) {
     setCloneFrom(eventIdStr);
     if (eventIdStr === "none" || !allEvents) {
@@ -251,7 +235,6 @@ export default function AdminEventNew() {
     signupEndEdited.current = false;
     endEdited.current = false;
     setForm({
-      teamFormat: ev.teamFormat as "rotating" | "fixed_partner",
       name: ev.name + " (Copy)",
       description: ev.description ?? "",
       eventDescription: ev.eventDescription ?? "",
@@ -260,8 +243,8 @@ export default function AdminEventNew() {
       locationName: ev.locationName,
       locationAddress: ev.locationAddress ?? "",
       ratingTypeRequired: ev.ratingTypeRequired,
-      minParticipants: ev.minParticipants,
-      maxParticipants: ev.maxParticipants,
+      minParticipants: (eventType === "fixed_partner" ? ev.minTeams : ev.minParticipants) ?? 0,
+      maxParticipants: (eventType === "fixed_partner" ? ev.maxTeams : ev.maxParticipants) ?? 0,
       waitlistEnabled: ev.waitlistEnabled,
       requireApproval: (ev.requireApproval as any) || "none",
       signupStartDatetime: "",
@@ -301,7 +284,7 @@ export default function AdminEventNew() {
     } catch { return null; }
   }
 
-  const isFixed = form.teamFormat === "fixed_partner";
+  const isFixed = eventType === "fixed_partner";
   const minLabel = isFixed ? "Min Teams" : "Min Participants";
   const maxLabel = isFixed ? "Max Teams" : "Max Participants";
 
@@ -319,11 +302,8 @@ export default function AdminEventNew() {
       endDatetime: new Date(form.endDatetime).toISOString(),
       locationName: form.locationName,
       locationAddress: form.locationAddress || null,
-      teamFormat: form.teamFormat,
       ratingTypeRequired: form.ratingTypeRequired,
       ratingConfig: form.ratingTypeRequired !== "none" ? ratingConfig : null,
-      minParticipants: Number(form.minParticipants),
-      maxParticipants: Number(form.maxParticipants),
       waitlistEnabled: form.waitlistEnabled,
       requireApproval: form.requireApproval,
       signupStartDatetime: new Date(form.signupStartDatetime).toISOString(),
@@ -334,27 +314,39 @@ export default function AdminEventNew() {
       contactEmail: form.contactEmail || null,
     };
 
+    if (isFixed) {
+      payload.minTeams = Number(form.minParticipants);
+      payload.maxTeams = Number(form.maxParticipants);
+    } else {
+      payload.minParticipants = Number(form.minParticipants);
+      payload.maxParticipants = Number(form.maxParticipants);
+    }
+
     if (recurrenceEnabled && selectedDates.size > 0) {
       payload.recurrence = { dates: [...selectedDates].sort() };
     }
 
     try {
-      await createEvent.mutateAsync({ data: payload });
-      queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
+      await createEvent.mutateAsync({ eventType, data: payload });
+      queryClient.invalidateQueries({ queryKey: getListEventsQueryKey(eventType) });
       queryClient.invalidateQueries({ queryKey: getGetEventsSummaryQueryKey() });
       toast({ title: "Event created!" });
-      setLocation("/admin/events");
+      setLocation(`/admin/events/${eventType}`);
     } catch {
       toast({ title: "Failed to create event", variant: "destructive" });
     }
   }
 
+  if (!validEventType) {
+    return <NotFound />;
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
-      <EventsNav />
+      <EventsNav eventType={eventType} />
       <main className="max-w-2xl mx-auto px-4 sm:px-6 py-6">
-        <Link href="/admin/events" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+        <Link href={`/admin/events/${eventType}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ChevronLeft className="w-4 h-4" />
           Back to Events
         </Link>
@@ -377,18 +369,6 @@ export default function AdminEventNew() {
           {/* Event Details */}
           <div className="bg-card border border-card-border rounded-lg p-5 space-y-4">
             <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
-
-            {/* Team Format */}
-            <div className="space-y-1.5">
-              <Label>Team Format *</Label>
-              <Select value={form.teamFormat} onValueChange={v => handleFormatChange(v as "rotating" | "fixed_partner")}>
-                <SelectTrigger data-testid="select-format-type"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rotating">Rotating Partners</SelectItem>
-                  <SelectItem value="fixed_partner">Fixed-Partner</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
             {/* Event Name combobox */}
             <div className="space-y-1.5">
@@ -452,7 +432,7 @@ export default function AdminEventNew() {
                 </button>
               </div>
               <RichTextEditor
-                key={`${form.teamFormat}-${descriptionGeneration}`}
+                key={`${eventType}-${descriptionGeneration}`}
                 data-testid="input-event-guidelines" value={form.description}
                 onChange={v => { descriptionEdited.current = true; setField("description", v); }}
                 placeholder="Add rules, requirements, waivers, and other guidelines that participants should know..."
@@ -730,7 +710,7 @@ export default function AdminEventNew() {
             <Button type="submit" data-testid="button-submit-event" disabled={createEvent.isPending} className="flex-1">
               {createEvent.isPending ? "Creating..." : "Create Event"}
             </Button>
-            <Link href="/admin/events"><Button type="button" variant="outline">Cancel</Button></Link>
+            <Link href={`/admin/events/${eventType}`}><Button type="button" variant="outline">Cancel</Button></Link>
           </div>
         </form>
       </main>

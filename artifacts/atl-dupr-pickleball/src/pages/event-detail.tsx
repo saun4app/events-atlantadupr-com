@@ -6,6 +6,7 @@ import {
   getGetEventQueryKey, getGetEventRosterSummaryQueryKey, getListRegistrationsQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import NotFound from "@/pages/not-found";
 import { PublicNav } from "@/components/public-nav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -150,19 +151,21 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
 }
 
 export default function EventDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { eventType: rawEventType, id } = useParams<{ eventType: string; id: string }>();
+  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
+  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
   const eventId = Number(id);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: event, isLoading: evLoading } = useGetEvent(eventId, {
-    query: { enabled: !!eventId, queryKey: getGetEventQueryKey(eventId) }
+  const { data: event, isLoading: evLoading } = useGetEvent(eventType, eventId, {
+    query: { enabled: !!eventId && validEventType, queryKey: getGetEventQueryKey(eventType, eventId) }
   });
-  const { data: rosterSummary } = useGetEventRosterSummary(eventId, {
-    query: { enabled: !!eventId, queryKey: getGetEventRosterSummaryQueryKey(eventId) }
+  const { data: rosterSummary } = useGetEventRosterSummary(eventType, eventId, {
+    query: { enabled: !!eventId && validEventType, queryKey: getGetEventRosterSummaryQueryKey(eventType, eventId) }
   });
-  const { data: registrations, isLoading: regLoading } = useListRegistrations(eventId, {
-    query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventId) }
+  const { data: registrations, isLoading: regLoading } = useListRegistrations(eventType, eventId, {
+    query: { enabled: !!eventId && validEventType, queryKey: getListRegistrationsQueryKey(eventType, eventId) }
   });
   const { data: settings } = useGetSettings();
   const createReg = useCreateRegistration();
@@ -201,6 +204,10 @@ export default function EventDetail() {
 
   const skillLevels: SkillLevel[] = (settings as any)?.ratingRequirementsConfig?.selfSkill?.levels ?? [];
   const joinInstructions: string = (settings as any)?.joinInstructions ?? "";
+
+  if (!validEventType) {
+    return <NotFound />;
+  }
 
   if (settings?.maintenanceMode) {
     return (
@@ -256,7 +263,7 @@ export default function EventDetail() {
       return;
     }
     requestCode.mutate(
-      { id: eventId, data: { email: email.trim() } },
+      { eventType, id: eventId, data: { email: email.trim() } },
       {
         onSuccess: (res) => {
           if (!res?.sent) {
@@ -288,7 +295,7 @@ export default function EventDetail() {
   function handleResendCode() {
     if (cooldown > 0) return;
     requestCode.mutate(
-      { id: eventId, data: { email: email.trim() } },
+      { eventType, id: eventId, data: { email: email.trim() } },
       {
         onSuccess: (res) => {
           if (!res?.sent) {
@@ -344,6 +351,7 @@ export default function EventDetail() {
     }
     createReg.mutate(
       {
+        eventType,
         id: eventId,
         data: {
           email: email.trim(),
@@ -357,8 +365,8 @@ export default function EventDetail() {
           toast({ title: "Registration submitted!", description: "You are on the roster." });
           resetRegistrationForm();
           if (event?.requireApproval !== "none") setShowApprovalNotice(true);
-          queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
-          queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
+          queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventType, eventId) });
+          queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventType, eventId) });
         },
         onError: (err: any) => {
           const status = err?.status;
@@ -379,7 +387,7 @@ export default function EventDetail() {
   function handleCancelSendCode(e: React.FormEvent) {
     e.preventDefault();
     requestCode.mutate(
-      { id: eventId, data: { email: cancelEmail.trim() } },
+      { eventType, id: eventId, data: { email: cancelEmail.trim() } },
       {
         onSuccess: (res) => {
           if (!res?.sent) {
@@ -408,7 +416,7 @@ export default function EventDetail() {
   function handleCancelResendCode() {
     if (cancelCooldown > 0) return;
     requestCode.mutate(
-      { id: eventId, data: { email: cancelEmail.trim() } },
+      { eventType, id: eventId, data: { email: cancelEmail.trim() } },
       {
         onSuccess: (res) => {
           if (!res?.sent) {
@@ -436,6 +444,7 @@ export default function EventDetail() {
     e.preventDefault();
     cancelReg.mutate(
       {
+        eventType,
         id: eventId,
         data: {
           email: cancelEmail.trim(),
@@ -450,8 +459,8 @@ export default function EventDetail() {
           setCancelCodeSent(false);
           setCancelCooldown(0);
           setShowCancelForm(false);
-          queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
-          queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
+          queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventType, eventId) });
+          queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventType, eventId) });
         },
         onError: (err: any) => {
           const msg: string = err?.data?.error || err?.message || "Cancellation failed. Please try again.";

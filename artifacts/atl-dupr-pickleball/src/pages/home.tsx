@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "wouter";
 import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
 import { PublicNav } from "@/components/public-nav";
@@ -5,13 +6,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign } from "lucide-react";
 import { format } from "date-fns";
 
+type EventType = "rotating" | "fixed_partner";
+
 function teamFormat(t: string) {
   return t === "fixed_partner" ? "Fixed-Partner" : "Rotating Partners";
 }
 
 function EventCard({ event }: { event: any }) {
   return (
-    <Link href={`/events/${event.id}`} data-testid={`card-event-${event.id}`}>
+    <Link href={`/events/${event.teamFormat}/${event.id}`} data-testid={`card-event-${event.id}`}>
       <div className="bg-card border border-card-border rounded-lg p-5 hover:shadow-md transition-all cursor-pointer hover:border-primary/40 group">
         <div className="flex items-start justify-between gap-3 mb-3">
           <h2 className="font-semibold text-foreground text-base leading-snug group-hover:text-primary transition-colors">
@@ -61,15 +64,33 @@ function EventCard({ event }: { event: any }) {
   );
 }
 
+function isUpcoming(e: any): boolean {
+  if (e.status === "completed" || e.status === "cancelled") return false;
+  if (!e.endDatetime) return true;
+  return new Date(e.endDatetime).getTime() >= Date.now();
+}
+
 export default function Home() {
-  const { data: events, isLoading } = useListEvents(
-    { upcoming: true },
-    { query: { queryKey: getListEventsQueryKey({ upcoming: true }) } }
-  );
+  const [tab, setTab] = useState<EventType>("rotating");
+
+  const { data: rotatingEvents, isLoading: rotLoading } = useListEvents("rotating", {
+    query: { queryKey: getListEventsQueryKey("rotating") }
+  });
+  const { data: fixedEvents, isLoading: fixedLoading } = useListEvents("fixed_partner", {
+    query: { queryKey: getListEventsQueryKey("fixed_partner") }
+  });
   const { data: summary } = useGetEventsSummary({
     query: { queryKey: getGetEventsSummaryQueryKey() }
   });
   const { data: settings } = useGetSettings();
+
+  const isLoading = tab === "rotating" ? rotLoading : fixedLoading;
+  const events = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
+
+  const formatTabs: { value: EventType; label: string }[] = [
+    { value: "rotating", label: "Rotating Partners" },
+    { value: "fixed_partner", label: "Fixed-Partner" },
+  ];
 
   if (settings?.maintenanceMode) {
     return (
@@ -98,6 +119,26 @@ export default function Home() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+        <div className="flex items-center gap-1 mb-6 border-b border-border">
+          {formatTabs.map(t => {
+            const active = tab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                data-testid={`tab-${t.value}`}
+                onClick={() => setTab(t.value)}
+                className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
         {isLoading ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (

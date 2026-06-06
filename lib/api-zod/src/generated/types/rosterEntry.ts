@@ -5,11 +5,13 @@
  * Atlanta DUPR Pickleball Events API
  * OpenAPI spec version: 0.1.0
  */
+import type { RosterEntryEventType } from './rosterEntryEventType';
 import type { RosterEntryStatus } from './rosterEntryStatus';
 
 export interface RosterEntry {
   id: number;
   eventId: number;
+  eventType: RosterEntryEventType;
   memberDuprId: string;
   /** @nullable */
   partnerDuprId?: string | null;

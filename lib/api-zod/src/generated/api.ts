@@ -156,11 +156,10 @@ export const GetEventsSummaryResponse = zod.object({
 
 
 /**
- * @summary List events
+ * @summary List events of a format
  */
-export const ListEventsQueryParams = zod.object({
-  "upcoming": zod.coerce.boolean().optional().describe('Filter to only upcoming events'),
-  "search": zod.coerce.string().optional().describe('Search by event name or location')
+export const ListEventsParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner'])
 })
 
 export const ListEventsResponseItem = zod.object({
@@ -177,7 +176,9 @@ export const ListEventsResponseItem = zod.object({
   "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
+  "minTeams": zod.number().nullish(),
   "maxTeams": zod.number().nullish(),
+  "confirmedCount": zod.number().nullish(),
   "confirmedTeams": zod.number().nullish(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only']),
@@ -187,6 +188,8 @@ export const ListEventsResponseItem = zod.object({
   "courtFeeEnabled": zod.boolean(),
   "memberFee": zod.number(),
   "nonMemberFee": zod.number(),
+  "contactEmail": zod.string().nullish(),
+  "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date()
 })
 export const ListEventsResponse = zod.array(ListEventsResponseItem)
@@ -195,6 +198,10 @@ export const ListEventsResponse = zod.array(ListEventsResponseItem)
 /**
  * @summary Create a new event (Admin/Organizer)
  */
+export const CreateEventParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner'])
+})
+
 export const createEventBodyRecurrenceOccurrencesMin = 2;
 export const createEventBodyRecurrenceOccurrencesMax = 52;
 
@@ -208,10 +215,11 @@ export const CreateEventBody = zod.object({
   "endDatetime": zod.coerce.date(),
   "locationName": zod.string(),
   "locationAddress": zod.string(),
-  "teamFormat": zod.enum(['fixed_partner', 'rotating']),
   "ratingTypeRequired": zod.string(),
-  "minParticipants": zod.number(),
-  "maxParticipants": zod.number(),
+  "minParticipants": zod.number().optional(),
+  "maxParticipants": zod.number().optional(),
+  "minTeams": zod.number().optional(),
+  "maxTeams": zod.number().optional(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only']),
   "signupStartDatetime": zod.coerce.date(),
@@ -219,18 +227,21 @@ export const CreateEventBody = zod.object({
   "courtFeeEnabled": zod.boolean().optional(),
   "memberFee": zod.number().optional(),
   "nonMemberFee": zod.number().optional(),
+  "contactEmail": zod.string().nullish(),
+  "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "recurrence": zod.object({
   "frequency": zod.enum(['daily', 'weekly', 'monthly']).optional(),
   "occurrences": zod.number().min(createEventBodyRecurrenceOccurrencesMin).max(createEventBodyRecurrenceOccurrencesMax).optional(),
   "dates": zod.array(zod.coerce.date()).optional().describe('Explicit ISO datetimes for additional occurrences (after the start event)')
 }).optional()
-})
+}).describe('Format-agnostic event creation payload. The event format is determined by the path parameter (eventType). Provide minParticipants\/maxParticipants for rotating events, or minTeams\/maxTeams for fixed_partner events.')
 
 
 /**
  * @summary Get event details
  */
 export const GetEventParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -248,7 +259,9 @@ export const GetEventResponse = zod.object({
   "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
+  "minTeams": zod.number().nullish(),
   "maxTeams": zod.number().nullish(),
+  "confirmedCount": zod.number().nullish(),
   "confirmedTeams": zod.number().nullish(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only']),
@@ -258,6 +271,8 @@ export const GetEventResponse = zod.object({
   "courtFeeEnabled": zod.boolean(),
   "memberFee": zod.number(),
   "nonMemberFee": zod.number(),
+  "contactEmail": zod.string().nullish(),
+  "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -266,6 +281,7 @@ export const GetEventResponse = zod.object({
  * @summary Update an event (Admin/Organizer)
  */
 export const UpdateEventParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -277,10 +293,11 @@ export const UpdateEventBody = zod.object({
   "endDatetime": zod.coerce.date().optional(),
   "locationName": zod.string().optional(),
   "locationAddress": zod.string().optional(),
-  "teamFormat": zod.enum(['fixed_partner', 'rotating']).optional(),
   "ratingTypeRequired": zod.string().optional(),
   "minParticipants": zod.number().optional(),
   "maxParticipants": zod.number().optional(),
+  "minTeams": zod.number().optional(),
+  "maxTeams": zod.number().optional(),
   "waitlistEnabled": zod.boolean().optional(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only']).optional(),
   "signupStartDatetime": zod.coerce.date().optional(),
@@ -288,7 +305,9 @@ export const UpdateEventBody = zod.object({
   "status": zod.enum(['upcoming', 'closed', 'ended', 'cancelled']).optional(),
   "courtFeeEnabled": zod.boolean().optional(),
   "memberFee": zod.number().optional(),
-  "nonMemberFee": zod.number().optional()
+  "nonMemberFee": zod.number().optional(),
+  "contactEmail": zod.string().nullish(),
+  "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish()
 })
 
 export const UpdateEventResponse = zod.object({
@@ -305,7 +324,9 @@ export const UpdateEventResponse = zod.object({
   "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
+  "minTeams": zod.number().nullish(),
   "maxTeams": zod.number().nullish(),
+  "confirmedCount": zod.number().nullish(),
   "confirmedTeams": zod.number().nullish(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only']),
@@ -315,6 +336,8 @@ export const UpdateEventResponse = zod.object({
   "courtFeeEnabled": zod.boolean(),
   "memberFee": zod.number(),
   "nonMemberFee": zod.number(),
+  "contactEmail": zod.string().nullish(),
+  "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -323,6 +346,7 @@ export const UpdateEventResponse = zod.object({
  * @summary Delete an event (Admin/Organizer)
  */
 export const DeleteEventParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -331,6 +355,7 @@ export const DeleteEventParams = zod.object({
  * @summary Clone an event as a new draft (Admin/Organizer)
  */
 export const CloneEventParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -343,6 +368,7 @@ export const CloneEventBody = zod.object({
  * @summary Close registration for an event (end it)
  */
 export const CloseEventParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -360,7 +386,9 @@ export const CloseEventResponse = zod.object({
   "ratingTypeRequired": zod.string(),
   "minParticipants": zod.number(),
   "maxParticipants": zod.number(),
+  "minTeams": zod.number().nullish(),
   "maxTeams": zod.number().nullish(),
+  "confirmedCount": zod.number().nullish(),
   "confirmedTeams": zod.number().nullish(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only']),
@@ -370,6 +398,8 @@ export const CloseEventResponse = zod.object({
   "courtFeeEnabled": zod.boolean(),
   "memberFee": zod.number(),
   "nonMemberFee": zod.number(),
+  "contactEmail": zod.string().nullish(),
+  "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date()
 })
 
@@ -378,6 +408,7 @@ export const CloseEventResponse = zod.object({
  * @summary Get confirmed/waitlisted/pending counts for an event
  */
 export const GetEventRosterSummaryParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -398,12 +429,14 @@ export const GetEventRosterSummaryResponse = zod.object({
  * @summary List all registrations for an event
  */
 export const ListRegistrationsParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
 export const ListRegistrationsResponseItem = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
@@ -427,6 +460,7 @@ export const ListRegistrationsResponse = zod.array(ListRegistrationsResponseItem
  * @summary Register for an event using DUPR ID
  */
 export const CreateRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -444,6 +478,7 @@ export const CreateRegistrationBody = zod.object({
  * @summary Request an email verification code for public self-registration
  */
 export const RequestRegistrationCodeParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -462,6 +497,7 @@ export const RequestRegistrationCodeResponse = zod.object({
  * @summary Get a single registration
  */
 export const GetRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number(),
   "regId": zod.coerce.number()
 })
@@ -469,6 +505,7 @@ export const GetRegistrationParams = zod.object({
 export const GetRegistrationResponse = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
@@ -491,6 +528,7 @@ export const GetRegistrationResponse = zod.object({
  * @summary Update a registration (Admin/Organizer)
  */
 export const UpdateRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number(),
   "regId": zod.coerce.number()
 })
@@ -507,6 +545,7 @@ export const UpdateRegistrationBody = zod.object({
 export const UpdateRegistrationResponse = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
@@ -529,6 +568,7 @@ export const UpdateRegistrationResponse = zod.object({
  * @summary Remove a registration (Admin/Organizer)
  */
 export const DeleteRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number(),
   "regId": zod.coerce.number()
 })
@@ -538,6 +578,7 @@ export const DeleteRegistrationParams = zod.object({
  * @summary Approve a pending registration
  */
 export const ApproveRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number(),
   "regId": zod.coerce.number()
 })
@@ -545,6 +586,7 @@ export const ApproveRegistrationParams = zod.object({
 export const ApproveRegistrationResponse = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
@@ -567,6 +609,7 @@ export const ApproveRegistrationResponse = zod.object({
  * @summary Reject a pending registration
  */
 export const RejectRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number(),
   "regId": zod.coerce.number()
 })
@@ -574,6 +617,7 @@ export const RejectRegistrationParams = zod.object({
 export const RejectRegistrationResponse = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
@@ -596,6 +640,7 @@ export const RejectRegistrationResponse = zod.object({
  * @summary Promote a waitlisted registration to confirmed
  */
 export const PromoteFromWaitlistParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number(),
   "regId": zod.coerce.number()
 })
@@ -603,6 +648,7 @@ export const PromoteFromWaitlistParams = zod.object({
 export const PromoteFromWaitlistResponse = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
@@ -625,6 +671,7 @@ export const PromoteFromWaitlistResponse = zod.object({
  * @summary Cancel a registration by participant (self-cancel)
  */
 export const CancelRegistrationParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "id": zod.coerce.number()
 })
 
@@ -636,6 +683,7 @@ export const CancelRegistrationBody = zod.object({
 export const CancelRegistrationResponse = zod.object({
   "id": zod.number(),
   "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),

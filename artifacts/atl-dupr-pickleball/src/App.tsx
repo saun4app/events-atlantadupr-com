@@ -1,6 +1,5 @@
 import React from 'react';
-import { useEffect } from "react";
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,29 +16,24 @@ import AdminEventDetail from "@/pages/admin/events-detail";
 import AdminMembers from "@/pages/admin/members";
 import AdminUsers from "@/pages/admin/users";
 import AdminSettings from "@/pages/admin/settings";
-import AdminEventSetup from "@/pages/admin/event-setup";
 
 const queryClient = new QueryClient();
-
-function AdminRedirect() {
-  const [, setLocation] = useLocation();
-  useEffect(() => {
-    setLocation("/admin/events");
-  }, [setLocation]);
-  return null;
-}
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
-      <Route path="/events/:id" component={EventDetail} />
+      <Route path="/events/:eventType/:id" component={EventDetail} />
       <Route path="/login" component={Login} />
-      <Route path="/admin" component={AdminRedirect} />
-      <Route path="/admin/events" component={AdminEvents} />
-      <Route path="/admin/events/new" component={AdminEventNew} />
-      <Route path="/admin/events/setup" component={AdminEventSetup} />
-      <Route path="/admin/events/:id" component={AdminEventDetail} />
+      <Route path="/admin">
+        <Redirect to="/admin/events/rotating" />
+      </Route>
+      <Route path="/admin/events">
+        <Redirect to="/admin/events/rotating" />
+      </Route>
+      <Route path="/admin/events/:eventType/new" component={AdminEventNew} />
+      <Route path="/admin/events/:eventType" component={AdminEvents} />
+      <Route path="/admin/events/:eventType/:id" component={AdminEventDetail} />
       <Route path="/admin/members" component={AdminMembers} />
       <Route path="/admin/users" component={AdminUsers} />
       <Route path="/admin/settings" component={AdminSettings} />

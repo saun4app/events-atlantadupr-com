@@ -5,6 +5,6 @@ import registrationsRouter from "./registrations.js";
 const router: IRouter = Router();
 
 router.use("/", eventsRouter);
-router.use("/:id/registrations", registrationsRouter);
+router.use("/:eventType/:id/registrations", registrationsRouter);
 
 export default router;

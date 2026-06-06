@@ -1,7 +1,7 @@
 /**
  * create-sample-event.ts
  *
- * One-time script: creates a "Saturday Morning Round Robin" event at
+ * One-time script: creates a "Saturday Morning Round Robin" rotating event at
  * Chastain Park and registers six existing members (5 confirmed + 1 waitlisted).
  *
  * Run: pnpm --filter @workspace/db tsx scripts/create-sample-event.ts
@@ -11,15 +11,20 @@
  */
 
 import { db } from "../lib/db/src/index.js";
-import { eventsTable, registrationsTable, membersTable } from "../lib/db/src/schema/index.js";
+import {
+  eventsRotatingTable,
+  registrationsTable,
+  membersTable,
+  type RegistrantSnapshot,
+} from "../lib/db/src/schema/index.js";
 import { eq, and } from "drizzle-orm";
 
 async function main() {
   // Check if event already exists
   const existing = await db
     .select()
-    .from(eventsTable)
-    .where(eq(eventsTable.name, "Saturday Morning Round Robin"));
+    .from(eventsRotatingTable)
+    .where(eq(eventsRotatingTable.name, "Saturday Morning Round Robin"));
 
   let eventId: number;
 
@@ -28,7 +33,7 @@ async function main() {
     console.log(`Event already exists (id=${eventId}), skipping creation.`);
   } else {
     const [event] = await db
-      .insert(eventsTable)
+      .insert(eventsRotatingTable)
       .values({
         name: "Saturday Morning Round Robin",
         description:
@@ -37,7 +42,6 @@ async function main() {
         endDatetime: new Date("2026-06-20T16:00:00Z"),
         locationName: "Chastain Park Tennis Center",
         locationAddress: "315 West Wieuca Rd NW, Atlanta, GA 30342",
-        teamFormat: "rotating" as const,
         ratingTypeRequired: "dupr" as const,
         minParticipants: 8,
         maxParticipants: 20,
@@ -73,13 +77,15 @@ async function main() {
   ];
 
   for (let i = 0; i < members.length; i++) {
-    const duprId = members[i].duprId;
+    const member = members[i];
+    const duprId = member.duprId;
     const existing = await db
       .select()
       .from(registrationsTable)
       .where(
         and(
           eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, "rotating"),
           eq(registrationsTable.memberDuprId, duprId),
         ),
       );
@@ -89,12 +95,23 @@ async function main() {
       continue;
     }
 
+    const playerSnapshot: RegistrantSnapshot = {
+      playerName: member.playerName,
+      doubleRating: member.doubleRating ?? null,
+      singleRating: member.singleRating ?? null,
+      selfRating: null,
+      email: member.email ?? null,
+      phone: member.phone ?? null,
+    };
+
     await db.insert(registrationsTable).values({
       eventId,
+      eventType: "rotating",
       memberDuprId: duprId,
+      playerSnapshot,
       status: statuses[i],
     });
-    console.log(`  Registered ${members[i].playerName} (${duprId}) as ${statuses[i]}`);
+    console.log(`  Registered ${member.playerName} (${duprId}) as ${statuses[i]}`);
   }
 
   console.log("Done.");

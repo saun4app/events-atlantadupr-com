@@ -14,10 +14,10 @@ export function AdminNav() {
   const [open, setOpen] = useState(false);
 
   const links = [
-    { href: "/admin/events", label: "Manage Events", icon: Calendar, roles: ["admin", "event_organizer", "event_captain", "court_leader"] },
-    { href: "/admin/members", label: "Manage Members", icon: Users, roles: ["admin"] },
-    { href: "/admin/users", label: "Manage Users", icon: Shield, roles: ["admin"] },
-    { href: "/admin/settings", label: "Settings", icon: Settings, roles: ["admin"] },
+    { href: "/admin/events/rotating", match: "/admin/events", label: "Manage Events", icon: Calendar, roles: ["admin", "event_organizer", "event_captain", "court_leader"] },
+    { href: "/admin/members", match: "/admin/members", label: "Manage Members", icon: Users, roles: ["admin"] },
+    { href: "/admin/users", match: "/admin/users", label: "Manage Users", icon: Shield, roles: ["admin"] },
+    { href: "/admin/settings", match: "/admin/settings", label: "Settings", icon: Settings, roles: ["admin"] },
   ].filter(l => l.roles.includes(user?.role ?? ""));
 
   function handleLogout() {
@@ -41,7 +41,7 @@ export function AdminNav() {
             <nav className="hidden md:flex items-center gap-1">
               {links.map(l => {
                 const Icon = l.icon;
-                const active = location.startsWith(l.href);
+                const active = location.startsWith(l.match);
                 return (
                   <Link key={l.href} href={l.href}>
                     <span
@@ -92,7 +92,7 @@ export function AdminNav() {
         <div className="md:hidden border-t border-border bg-white px-4 py-2 space-y-1">
           {links.map(l => {
             const Icon = l.icon;
-            const active = location.startsWith(l.href);
+            const active = location.startsWith(l.match);
             return (
               <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>
                 <span

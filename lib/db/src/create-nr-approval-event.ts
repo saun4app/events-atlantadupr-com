@@ -6,16 +6,18 @@
  */
 
 import { db } from "./index.js";
-import { eventsTable, registrationsTable, membersTable } from "./schema/index.js";
+import { eventsRotatingTable, registrationsTable, membersTable } from "./schema/index.js";
 import { eq, and } from "drizzle-orm";
+
+const EVENT_TYPE = "rotating" as const;
 
 async function main() {
   const eventName = "NR Approval Test \u2014 Mixed Roster";
 
   const existing = await db
     .select()
-    .from(eventsTable)
-    .where(eq(eventsTable.name, eventName));
+    .from(eventsRotatingTable)
+    .where(eq(eventsRotatingTable.name, eventName));
 
   let eventId: number;
 
@@ -24,7 +26,7 @@ async function main() {
     console.log(`Event already exists (id=${eventId}), skipping creation.`);
   } else {
     const [event] = await db
-      .insert(eventsTable)
+      .insert(eventsRotatingTable)
       .values({
         name: eventName,
         description:
@@ -33,7 +35,6 @@ async function main() {
         endDatetime: new Date("2026-06-28T20:00:00Z"),
         locationName: "Freedom Park",
         locationAddress: "800 Freedom Pkwy NE, Atlanta, GA 30307",
-        teamFormat: "rotating" as const,
         ratingTypeRequired: "none" as const,
         minParticipants: 4,
         maxParticipants: 16,
@@ -84,6 +85,7 @@ async function main() {
       .where(
         and(
           eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, EVENT_TYPE),
           eq(registrationsTable.memberDuprId, member.duprId),
         ),
       );
@@ -95,6 +97,7 @@ async function main() {
 
     await db.insert(registrationsTable).values({
       eventId,
+      eventType: EVENT_TYPE,
       memberDuprId: member.duprId,
       status: "pending_approval",
     });
@@ -108,6 +111,7 @@ async function main() {
       .where(
         and(
           eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, EVENT_TYPE),
           eq(registrationsTable.memberDuprId, member.duprId),
         ),
       );
@@ -119,6 +123,7 @@ async function main() {
 
     await db.insert(registrationsTable).values({
       eventId,
+      eventType: EVENT_TYPE,
       memberDuprId: member.duprId,
       status: "confirmed",
     });

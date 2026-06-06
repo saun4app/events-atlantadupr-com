@@ -149,6 +149,11 @@ export const EventStatus = {
   cancelled: 'cancelled',
 } as const;
 
+/**
+ * @nullable
+ */
+export type EventRatingConfig = { [key: string]: unknown } | null;
+
 export interface Event {
   id: number;
   /** @nullable */
@@ -167,7 +172,11 @@ export interface Event {
   minParticipants: number;
   maxParticipants: number;
   /** @nullable */
+  minTeams?: number | null;
+  /** @nullable */
   maxTeams?: number | null;
+  /** @nullable */
+  confirmedCount?: number | null;
   /** @nullable */
   confirmedTeams?: number | null;
   waitlistEnabled: boolean;
@@ -178,6 +187,10 @@ export interface Event {
   courtFeeEnabled: boolean;
   memberFee: number;
   nonMemberFee: number;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  ratingConfig?: EventRatingConfig;
   createdAt: string;
 }
 
@@ -206,14 +219,6 @@ export interface RecurrenceInput {
   dates?: string[];
 }
 
-export type EventInputTeamFormat = typeof EventInputTeamFormat[keyof typeof EventInputTeamFormat];
-
-
-export const EventInputTeamFormat = {
-  fixed_partner: 'fixed_partner',
-  rotating: 'rotating',
-} as const;
-
 export type EventInputRequireApproval = typeof EventInputRequireApproval[keyof typeof EventInputRequireApproval];
 
 
@@ -223,6 +228,14 @@ export const EventInputRequireApproval = {
   nr_only: 'nr_only',
 } as const;
 
+/**
+ * @nullable
+ */
+export type EventInputRatingConfig = { [key: string]: unknown } | null;
+
+/**
+ * Format-agnostic event creation payload. The event format is determined by the path parameter (eventType). Provide minParticipants/maxParticipants for rotating events, or minTeams/maxTeams for fixed_partner events.
+ */
 export interface EventInput {
   name: string;
   /** @nullable */
@@ -233,10 +246,11 @@ export interface EventInput {
   endDatetime: string;
   locationName: string;
   locationAddress: string;
-  teamFormat: EventInputTeamFormat;
   ratingTypeRequired: string;
-  minParticipants: number;
-  maxParticipants: number;
+  minParticipants?: number;
+  maxParticipants?: number;
+  minTeams?: number;
+  maxTeams?: number;
   waitlistEnabled: boolean;
   requireApproval: EventInputRequireApproval;
   signupStartDatetime: string;
@@ -244,16 +258,12 @@ export interface EventInput {
   courtFeeEnabled?: boolean;
   memberFee?: number;
   nonMemberFee?: number;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  ratingConfig?: EventInputRatingConfig;
   recurrence?: RecurrenceInput;
 }
-
-export type EventUpdateTeamFormat = typeof EventUpdateTeamFormat[keyof typeof EventUpdateTeamFormat];
-
-
-export const EventUpdateTeamFormat = {
-  fixed_partner: 'fixed_partner',
-  rotating: 'rotating',
-} as const;
 
 export type EventUpdateRequireApproval = typeof EventUpdateRequireApproval[keyof typeof EventUpdateRequireApproval];
 
@@ -274,6 +284,11 @@ export const EventUpdateStatus = {
   cancelled: 'cancelled',
 } as const;
 
+/**
+ * @nullable
+ */
+export type EventUpdateRatingConfig = { [key: string]: unknown } | null;
+
 export interface EventUpdate {
   name?: string;
   /** @nullable */
@@ -284,10 +299,11 @@ export interface EventUpdate {
   endDatetime?: string;
   locationName?: string;
   locationAddress?: string;
-  teamFormat?: EventUpdateTeamFormat;
   ratingTypeRequired?: string;
   minParticipants?: number;
   maxParticipants?: number;
+  minTeams?: number;
+  maxTeams?: number;
   waitlistEnabled?: boolean;
   requireApproval?: EventUpdateRequireApproval;
   signupStartDatetime?: string;
@@ -296,6 +312,10 @@ export interface EventUpdate {
   courtFeeEnabled?: boolean;
   memberFee?: number;
   nonMemberFee?: number;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  ratingConfig?: EventUpdateRatingConfig;
 }
 
 export interface EventsSummary {
@@ -320,6 +340,14 @@ export interface RosterSummary {
   pendingTeams?: number | null;
 }
 
+export type RosterEntryEventType = typeof RosterEntryEventType[keyof typeof RosterEntryEventType];
+
+
+export const RosterEntryEventType = {
+  rotating: 'rotating',
+  fixed_partner: 'fixed_partner',
+} as const;
+
 export type RosterEntryStatus = typeof RosterEntryStatus[keyof typeof RosterEntryStatus];
 
 
@@ -334,6 +362,7 @@ export const RosterEntryStatus = {
 export interface RosterEntry {
   id: number;
   eventId: number;
+  eventType: RosterEntryEventType;
   memberDuprId: string;
   /** @nullable */
   partnerDuprId?: string | null;
@@ -527,15 +556,4 @@ export const ListMembersSortDir = {
   asc: 'asc',
   desc: 'desc',
 } as const;
-
-export type ListEventsParams = {
-/**
- * Filter to only upcoming events
- */
-upcoming?: boolean;
-/**
- * Search by event name or location
- */
-search?: string;
-};
 

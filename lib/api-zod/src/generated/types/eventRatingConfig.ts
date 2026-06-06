@@ -6,13 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 
-export type ListEventsParams = {
 /**
- * Filter to only upcoming events
+ * @nullable
  */
-upcoming?: boolean;
-/**
- * Search by event name or location
- */
-search?: string;
-};
+export type EventRatingConfig = { [key: string]: unknown } | null;

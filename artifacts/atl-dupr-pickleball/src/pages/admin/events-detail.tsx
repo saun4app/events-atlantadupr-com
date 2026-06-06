@@ -7,6 +7,7 @@ import {
   getListEventsQueryKey, getGetEventsSummaryQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
+import NotFound from "@/pages/not-found";
 import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -103,7 +104,9 @@ function toLocalInput(dt: string | null | undefined): string {
 }
 
 export default function AdminEventDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { eventType: rawEventType, id } = useParams<{ eventType: string; id: string }>();
+  const validEventType = rawEventType === "rotating" || rawEventType === "fixed_partner";
+  const eventType = (validEventType ? rawEventType : "rotating") as "rotating" | "fixed_partner";
   const eventId = Number(id);
   const { isAuthenticated, isLoading, user, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
@@ -115,11 +118,11 @@ export default function AdminEventDetail() {
     if (!isLoading && isAuthenticated && !canAccessAdmin) setLocation("/");
   }, [isLoading, isAuthenticated, canAccessAdmin]);
 
-  const { data: event, isLoading: evLoading } = useGetEvent(eventId, {
-    query: { enabled: !!eventId, queryKey: getGetEventQueryKey(eventId) }
+  const { data: event, isLoading: evLoading } = useGetEvent(eventType, eventId, {
+    query: { enabled: !!eventId && validEventType, queryKey: getGetEventQueryKey(eventType, eventId) }
   });
-  const { data: registrations, isLoading: regLoading } = useListRegistrations(eventId, {
-    query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventId) }
+  const { data: registrations, isLoading: regLoading } = useListRegistrations(eventType, eventId, {
+    query: { enabled: !!eventId && validEventType, queryKey: getListRegistrationsQueryKey(eventType, eventId) }
   });
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
@@ -182,13 +185,13 @@ export default function AdminEventDetail() {
   ];
 
   function invalidate() {
-    queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventId) });
-    queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventId) });
+    queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventType, eventId) });
+    queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventType, eventId) });
   }
 
   function invalidateEvent() {
-    queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(eventId) });
-    queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
+    queryClient.invalidateQueries({ queryKey: getGetEventQueryKey(eventType, eventId) });
+    queryClient.invalidateQueries({ queryKey: getListEventsQueryKey(eventType) });
   }
 
   function sortRegs(regs: any[], key: string) {
@@ -243,10 +246,9 @@ export default function AdminEventDetail() {
       endDatetime: toLocalInput(event.endDatetime),
       locationName: event.locationName ?? "",
       locationAddress: event.locationAddress ?? "",
-      teamFormat: event.teamFormat ?? "rotating",
       ratingTypeRequired: event.ratingTypeRequired ?? "none",
-      minParticipants: String(event.minParticipants ?? ""),
-      maxParticipants: String(event.maxParticipants ?? ""),
+      minParticipants: String((event.teamFormat === "fixed_partner" ? event.minTeams : event.minParticipants) ?? ""),
+      maxParticipants: String((event.teamFormat === "fixed_partner" ? event.maxTeams : event.maxParticipants) ?? ""),
       waitlistEnabled: event.waitlistEnabled ?? false,
       requireApproval: (event.requireApproval as any) || "none",
       signupStartDatetime: toLocalInput(event.signupStartDatetime),
@@ -275,11 +277,11 @@ export default function AdminEventDetail() {
   }
 
   function handleDeleteEvent() {
-    deleteEvent.mutate({ id: eventId }, {
+    deleteEvent.mutate({ eventType, id: eventId }, {
       onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: getListEventsQueryKey({}) });
+        queryClient.invalidateQueries({ queryKey: getListEventsQueryKey(eventType) });
         queryClient.invalidateQueries({ queryKey: getGetEventsSummaryQueryKey() });
-        setLocation("/admin/events");
+        setLocation(`/admin/events/${eventType}`);
       },
       onError: () => toast({ title: "Delete failed", variant: "destructive" }),
     });
@@ -288,6 +290,7 @@ export default function AdminEventDetail() {
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
     updateEvent.mutate({
+      eventType,
       id: eventId,
       data: {
         name: editForm.name || undefined,
@@ -297,11 +300,17 @@ export default function AdminEventDetail() {
         endDatetime: editForm.endDatetime ? new Date(editForm.endDatetime).toISOString() : undefined,
         locationName: editForm.locationName || undefined,
         locationAddress: editForm.locationAddress || undefined,
-        teamFormat: editForm.teamFormat || undefined,
         ratingTypeRequired: editForm.ratingTypeRequired || undefined,
         ratingConfig: editForm.ratingTypeRequired !== "none" ? editRatingConfig : null,
-        minParticipants: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
-        maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
+        ...(eventType === "fixed_partner"
+          ? {
+              minTeams: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
+              maxTeams: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
+            }
+          : {
+              minParticipants: editForm.minParticipants ? Number(editForm.minParticipants) : undefined,
+              maxParticipants: editForm.maxParticipants ? Number(editForm.maxParticipants) : undefined,
+            }),
         waitlistEnabled: editForm.waitlistEnabled,
         requireApproval: editForm.requireApproval,
         signupStartDatetime: editForm.signupStartDatetime ? new Date(editForm.signupStartDatetime).toISOString() : undefined,
@@ -318,9 +327,9 @@ export default function AdminEventDetail() {
     });
   }
 
-  function handleMoveToWaitlist(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleCancelReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleConfirmReg(regId: number) { updateReg.mutate({ id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleMoveToWaitlist(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleCancelReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleConfirmReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -334,7 +343,7 @@ export default function AdminEventDetail() {
     const notFound: string[] = [];
     for (const email of emails) {
       try {
-        await createReg.mutateAsync({ id: eventId, data: { email, partnerEmail: event?.teamFormat === "fixed_partner" ? addPartnerEmail.trim().toLowerCase() || null : null } });
+        await createReg.mutateAsync({ eventType, id: eventId, data: { email, partnerEmail: event?.teamFormat === "fixed_partner" ? addPartnerEmail.trim().toLowerCase() || null : null } });
         succeeded++;
       } catch (err: any) {
         const msg = err?.data?.error || "";
@@ -530,11 +539,13 @@ export default function AdminEventDetail() {
     }
   };
 
+  if (!validEventType) return <NotFound />;
+
   return (
     <div className="min-h-screen bg-background">
       <AdminNav />
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-        <Link href="/admin/events" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+        <Link href={`/admin/events/${eventType}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
           <ChevronLeft className="w-4 h-4" /> All Events
         </Link>
 
@@ -562,7 +573,7 @@ export default function AdminEventDetail() {
                   <Button data-testid="button-edit-event" variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
                     <Pencil className="w-3.5 h-3.5" /> Edit
                   </Button>
-                  <Select value={event.status} onValueChange={(v) => updateEvent.mutate({ id: eventId, data: { status: v as any } }, { onSuccess: () => { toast({ title: "Status updated" }); invalidateEvent(); } })}>
+                  <Select value={event.status} onValueChange={(v) => updateEvent.mutate({ eventType, id: eventId, data: { status: v as any } }, { onSuccess: () => { toast({ title: "Status updated" }); invalidateEvent(); } })}>
                     <SelectTrigger data-testid="select-event-status" className="w-36"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="upcoming">Upcoming</SelectItem>
@@ -579,7 +590,7 @@ export default function AdminEventDetail() {
                 {waitlisted.length > 0 && <span><strong className="text-yellow-600">{waitlisted.length}</strong> waitlisted</span>}
                 {rejected.length > 0 && <span><strong className="text-destructive">{rejected.length}</strong> rejected</span>}
                 {cancelled.length > 0 && <span><strong className="text-muted-foreground">{cancelled.length}</strong> cancelled</span>}
-                <span className="text-muted-foreground">/ {event.maxParticipants} max</span>
+                <span className="text-muted-foreground">/ {eventType === "fixed_partner" ? `${event.maxTeams} max teams` : `${event.maxParticipants} max`}</span>
               </div>
               {(event as any).contactEmail && (
                 <div className="mt-3 flex items-center gap-1.5 text-sm">
@@ -783,7 +794,7 @@ export default function AdminEventDetail() {
                                 const n = (parsed === null || !isNaN(parsed)) ? parsed : null;
                                 if (n !== storedRating) {
                                   updateReg.mutate(
-                                    { id: eventId, regId: reg.id, data: { assignedRating: n } },
+                                    { eventType, id: eventId, regId: reg.id, data: { assignedRating: n } },
                                     {
                                       onSuccess: () => { invalidate(); setEditingRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; }); },
                                       onError: () => toast({ title: "Failed to update rating", variant: "destructive" }),
@@ -826,7 +837,7 @@ export default function AdminEventDetail() {
                                               return;
                                             }
                                             updateReg.mutate(
-                                              { id: eventId, regId: reg.id, data: { selfRating: parsed } },
+                                              { eventType, id: eventId, regId: reg.id, data: { selfRating: parsed } },
                                               {
                                                 onSuccess: () => { invalidate(); setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; }); },
                                                 onError: () => toast({ title: "Failed to update self-rating", variant: "destructive" }),
@@ -886,7 +897,7 @@ export default function AdminEventDetail() {
                                         className="w-4 h-4 accent-primary cursor-pointer"
                                         checked={!!reg.isNew}
                                         onChange={e => updateReg.mutate(
-                                          { id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
+                                          { eventType, id: eventId, regId: reg.id, data: { isNew: e.target.checked } },
                                           { onSuccess: invalidate, onError: () => toast({ title: "Failed to update", variant: "destructive" }) }
                                         )}
                                       />
@@ -936,7 +947,7 @@ export default function AdminEventDetail() {
                                             </DropdownMenuItem>
                                           )}
                                           {reg.status !== "pending_approval" && (
-                                            <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                            <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ eventType, id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
                                               <Clock className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
                                             </DropdownMenuItem>
                                           )}
@@ -946,7 +957,7 @@ export default function AdminEventDetail() {
                                             </DropdownMenuItem>
                                           )}
                                           {reg.status !== "rejected" && (
-                                            <DropdownMenuItem data-testid={`action-move-to-rejected-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "rejected" } as any }, { onSuccess: () => { toast({ title: "Moved to rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                            <DropdownMenuItem data-testid={`action-move-to-rejected-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ eventType, id: eventId, regId: reg.id, data: { status: "rejected" } as any }, { onSuccess: () => { toast({ title: "Moved to rejected" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
                                               <XCircle className="w-3.5 h-3.5 text-destructive" /> Move to Rejected
                                             </DropdownMenuItem>
                                           )}
@@ -964,7 +975,7 @@ export default function AdminEventDetail() {
                                                   data-testid={`action-role-${role.replace(/\s+/g, "-").toLowerCase()}-${reg.id}`}
                                                   className="gap-2"
                                                   onClick={() => updateReg.mutate(
-                                                    { id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === role ? null : role } },
+                                                    { eventType, id: eventId, regId: reg.id, data: { eventRole: reg.eventRole === role ? null : role } },
                                                     { onSuccess: invalidate, onError: () => toast({ title: "Failed to update role", variant: "destructive" }) }
                                                   )}
                                                 >
@@ -1070,7 +1081,7 @@ export default function AdminEventDetail() {
                                           <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
                                             <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
+                                          <DropdownMenuItem data-testid={`action-move-to-pending-${reg.id}`} className="gap-2" onClick={() => updateReg.mutate({ eventType, id: eventId, regId: reg.id, data: { status: "pending_approval" } as any }, { onSuccess: () => { toast({ title: "Moved to pending approval" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) })}>
                                             <Clock className="w-3.5 h-3.5 text-blue-600" /> Move to Pending Approval
                                           </DropdownMenuItem>
                                           <DropdownMenuItem data-testid={`action-move-to-waitlist-${reg.id}`} className="gap-2" onClick={() => handleMoveToWaitlist(reg.id)}>
@@ -1173,16 +1184,6 @@ export default function AdminEventDetail() {
                 <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Event Details</h2>
 
                 <div className="space-y-1.5">
-                  <Label>Team Format</Label>
-                  <Select value={editForm.teamFormat ?? "rotating"} onValueChange={v => setEditForm((f: any) => ({ ...f, teamFormat: v }))}>
-                    <SelectTrigger data-testid="select-edit-format"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rotating">Rotating Partners</SelectItem>
-                      <SelectItem value="fixed_partner">Fixed-Partner</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-1.5">
                   <Label htmlFor="edit-name">Event Name *</Label>
                   <Input id="edit-name" value={editForm.name ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, name: e.target.value }))} required />
                 </div>
@@ -1253,11 +1254,11 @@ export default function AdminEventDetail() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-min">Min Participants</Label>
+                    <Label htmlFor="edit-min">{eventType === "fixed_partner" ? "Min Teams" : "Min Participants"}</Label>
                     <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="edit-max">Max Participants *</Label>
+                    <Label htmlFor="edit-max">{eventType === "fixed_partner" ? "Max Teams *" : "Max Participants *"}</Label>
                     <Input id="edit-max" type="number" min={1} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, maxParticipants: e.target.value }))} required />
                   </div>
                 </div>

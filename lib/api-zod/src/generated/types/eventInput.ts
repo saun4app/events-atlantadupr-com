@@ -5,10 +5,13 @@
  * Atlanta DUPR Pickleball Events API
  * OpenAPI spec version: 0.1.0
  */
+import type { EventInputRatingConfig } from './eventInputRatingConfig';
 import type { EventInputRequireApproval } from './eventInputRequireApproval';
-import type { EventInputTeamFormat } from './eventInputTeamFormat';
 import type { RecurrenceInput } from './recurrenceInput';
 
+/**
+ * Format-agnostic event creation payload. The event format is determined by the path parameter (eventType). Provide minParticipants/maxParticipants for rotating events, or minTeams/maxTeams for fixed_partner events.
+ */
 export interface EventInput {
   name: string;
   /** @nullable */
@@ -19,10 +22,11 @@ export interface EventInput {
   endDatetime: Date;
   locationName: string;
   locationAddress: string;
-  teamFormat: EventInputTeamFormat;
   ratingTypeRequired: string;
-  minParticipants: number;
-  maxParticipants: number;
+  minParticipants?: number;
+  maxParticipants?: number;
+  minTeams?: number;
+  maxTeams?: number;
   waitlistEnabled: boolean;
   requireApproval: EventInputRequireApproval;
   signupStartDatetime: Date;
@@ -30,5 +34,9 @@ export interface EventInput {
   courtFeeEnabled?: boolean;
   memberFee?: number;
   nonMemberFee?: number;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  ratingConfig?: EventInputRatingConfig;
   recurrence?: RecurrenceInput;
 }

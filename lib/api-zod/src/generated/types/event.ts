@@ -5,6 +5,7 @@
  * Atlanta DUPR Pickleball Events API
  * OpenAPI spec version: 0.1.0
  */
+import type { EventRatingConfig } from './eventRatingConfig';
 import type { EventRequireApproval } from './eventRequireApproval';
 import type { EventStatus } from './eventStatus';
 import type { EventTeamFormat } from './eventTeamFormat';
@@ -27,7 +28,11 @@ export interface Event {
   minParticipants: number;
   maxParticipants: number;
   /** @nullable */
+  minTeams?: number | null;
+  /** @nullable */
   maxTeams?: number | null;
+  /** @nullable */
+  confirmedCount?: number | null;
   /** @nullable */
   confirmedTeams?: number | null;
   waitlistEnabled: boolean;
@@ -38,5 +43,9 @@ export interface Event {
   courtFeeEnabled: boolean;
   memberFee: number;
   nonMemberFee: number;
+  /** @nullable */
+  contactEmail?: string | null;
+  /** @nullable */
+  ratingConfig?: EventRatingConfig;
   createdAt: Date;
 }

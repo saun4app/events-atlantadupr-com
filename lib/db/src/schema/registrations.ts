@@ -1,19 +1,30 @@
-import { pgTable, serial, integer, text, timestamp, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, timestamp, doublePrecision, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
-import { eventsTable } from "./events";
-import { membersTable } from "./members";
 import { usersTable } from "./users";
+
+export interface RegistrantSnapshot {
+  playerName: string;
+  doubleRating: string | null;
+  singleRating: string | null;
+  selfRating: string | null;
+  email: string | null;
+  phone: string | null;
+}
+
+export interface PartnerSnapshot {
+  partnerName: string | null;
+  partnerDoubleRating: string | null;
+}
 
 export const registrationsTable = pgTable("atl_dupr_signups", {
   id: serial("id").primaryKey(),
-  eventId: integer("event_id")
-    .notNull()
-    .references(() => eventsTable.id, { onDelete: "cascade" }),
-  memberDuprId: text("member_dupr_id")
-    .notNull()
-    .references(() => membersTable.duprId),
+  eventId: integer("event_id").notNull(),
+  eventType: text("event_type", { enum: ["rotating", "fixed_partner"] }).notNull().default("rotating"),
+  memberDuprId: text("member_dupr_id").notNull(),
   partnerDuprId: text("partner_dupr_id"),
+  playerSnapshot: jsonb("player_snapshot").$type<RegistrantSnapshot>(),
+  partnerSnapshot: jsonb("partner_snapshot").$type<PartnerSnapshot>(),
   status: text("status", {
     enum: ["confirmed", "waitlisted", "pending_approval", "rejected", "cancelled"],
   })

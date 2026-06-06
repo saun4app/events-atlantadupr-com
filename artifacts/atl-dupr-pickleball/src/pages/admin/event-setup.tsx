@@ -1,15 +1,11 @@
 import { useState, useEffect, useRef } from "react";
-import { useLocation } from "wouter";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetSettings, useUpdateSettings, getGetSettingsQueryKey } from "@workspace/api-client-react";
-import { AdminNav } from "@/components/admin-nav";
-import { EventsNav } from "@/components/events-nav";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
 import {
   SlidersHorizontal, Plus, Trash2, Pencil, MapPin, DollarSign,
@@ -46,15 +42,7 @@ function genId() {
 type LocationDialog = { open: false } | { open: true; mode: "add" } | { open: true; mode: "edit"; index: number; data: DefaultLocation };
 
 export default function AdminEventSetup() {
-  const { isAuthenticated, isLoading, user } = useAuth();
-  const [, setLocation] = useLocation();
   const { toast } = useToast();
-
-  const allowedRoles = ["admin", "event_organizer", "event_captain", "court_leader"];
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) setLocation("/login");
-    if (!isLoading && isAuthenticated && !allowedRoles.includes(user?.role ?? "")) setLocation("/admin/events");
-  }, [isLoading, isAuthenticated, user]);
 
   const { data: settings, isLoading: settingsLoading } = useGetSettings();
   const updateSettings = useUpdateSettings();
@@ -300,15 +288,7 @@ export default function AdminEventSetup() {
   const rrc = form.ratingRequirementsConfig;
 
   return (
-    <div className="min-h-screen bg-background">
-      <AdminNav />
-      <EventsNav />
-      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-6">
-        <div className="mb-6">
-          <h1 className="text-xl font-bold text-foreground">Event Setup</h1>
-          <p className="text-muted-foreground text-sm mt-0.5">Configure event defaults, locations, roles, and rating requirements</p>
-        </div>
-
+    <div className="space-y-8">
         {settingsLoading ? (
           <div className="space-y-4">{[1,2,3,4].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
         ) : (
@@ -771,7 +751,6 @@ export default function AdminEventSetup() {
             </div>
           </form>
         )}
-      </main>
 
       {/* ── Location dialog ─────────────────────────────────── */}
       <Dialog open={locationDialog.open} onOpenChange={open => !open && closeLocationDialog()}>

@@ -30,7 +30,6 @@ import type {
   EventUpdate,
   EventsSummary,
   HealthStatus,
-  ListEventsParams,
   ListMembersParams,
   LoginInput,
   Member,
@@ -946,27 +945,20 @@ export function useGetEventsSummary<TData = Awaited<ReturnType<typeof getEventsS
 
 
 
-export const getListEventsUrl = (params?: ListEventsParams,) => {
-  const normalizedParams = new URLSearchParams();
+export const getListEventsUrl = (eventType: 'rotating' | 'fixed_partner',) => {
 
-  Object.entries(params || {}).forEach(([key, value]) => {
 
-    if (value !== undefined) {
-      normalizedParams.append(key, value === null ? 'null' : value.toString())
-    }
-  });
 
-  const stringifiedParams = normalizedParams.toString();
 
-  return stringifiedParams.length > 0 ? `/api/events?${stringifiedParams}` : `/api/events`
+  return `/api/events/${eventType}`
 }
 
 /**
- * @summary List events
+ * @summary List events of a format
  */
-export const listEvents = async (params?: ListEventsParams, options?: RequestInit): Promise<Event[]> => {
+export const listEvents = async (eventType: 'rotating' | 'fixed_partner', options?: RequestInit): Promise<Event[]> => {
 
-  return customFetch<Event[]>(getListEventsUrl(params),
+  return customFetch<Event[]>(getListEventsUrl(eventType),
   {
     ...options,
     method: 'GET'
@@ -979,29 +971,29 @@ export const listEvents = async (params?: ListEventsParams, options?: RequestIni
 
 
 
-export const getListEventsQueryKey = (params?: ListEventsParams,) => {
+export const getListEventsQueryKey = (eventType: 'rotating' | 'fixed_partner',) => {
     return [
-    `/api/events`, ...(params ? [params] : [])
+    `/api/events/${eventType}`
     ] as const;
     }
 
 
-export const getListEventsQueryOptions = <TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(params?: ListEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListEventsQueryOptions = <TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(eventType: 'rotating' | 'fixed_partner', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListEventsQueryKey(params);
+  const queryKey =  queryOptions?.queryKey ?? getListEventsQueryKey(eventType);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEvents>>> = ({ signal }) => listEvents(params, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEvents>>> = ({ signal }) => listEvents(eventType, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(eventType), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type ListEventsQueryResult = NonNullable<Awaited<ReturnType<typeof listEvents>>>
@@ -1009,15 +1001,15 @@ export type ListEventsQueryError = ErrorType<unknown>
 
 
 /**
- * @summary List events
+ * @summary List events of a format
  */
 
 export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TError = ErrorType<unknown>>(
- params?: ListEventsParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ eventType: 'rotating' | 'fixed_partner', options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEvents>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListEventsQueryOptions(params,options)
+  const queryOptions = getListEventsQueryOptions(eventType,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1030,20 +1022,21 @@ export function useListEvents<TData = Awaited<ReturnType<typeof listEvents>>, TE
 
 
 
-export const getCreateEventUrl = () => {
+export const getCreateEventUrl = (eventType: 'rotating' | 'fixed_partner',) => {
 
 
 
 
-  return `/api/events`
+  return `/api/events/${eventType}`
 }
 
 /**
  * @summary Create a new event (Admin/Organizer)
  */
-export const createEvent = async (eventInput: EventInput, options?: RequestInit): Promise<Event[]> => {
+export const createEvent = async (eventType: 'rotating' | 'fixed_partner',
+    eventInput: EventInput, options?: RequestInit): Promise<Event[]> => {
 
-  return customFetch<Event[]>(getCreateEventUrl(),
+  return customFetch<Event[]>(getCreateEventUrl(eventType),
   {
     ...options,
     method: 'POST',
@@ -1057,8 +1050,8 @@ export const createEvent = async (eventInput: EventInput, options?: RequestInit)
 
 
 export const getCreateEventMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{data: BodyType<EventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{data: BodyType<EventInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventInput>}, TContext> => {
 
 const mutationKey = ['createEvent'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1070,10 +1063,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEvent>>, {data: BodyType<EventInput>}> = (props) => {
-          const {data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createEvent>>, {eventType: 'rotating' | 'fixed_partner';data: BodyType<EventInput>}> = (props) => {
+          const {eventType,data} = props ?? {};
 
-          return  createEvent(data,requestOptions)
+          return  createEvent(eventType,data,requestOptions)
         }
 
 
@@ -1091,30 +1084,32 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Create a new event (Admin/Organizer)
  */
 export const useCreateEvent = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{data: BodyType<EventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createEvent>>,
         TError,
-        {data: BodyType<EventInput>},
+        {eventType: 'rotating' | 'fixed_partner';data: BodyType<EventInput>},
         TContext
       > => {
       return useMutation(getCreateEventMutationOptions(options));
     }
 
-export const getGetEventUrl = (id: number,) => {
+export const getGetEventUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}`
+  return `/api/events/${eventType}/${id}`
 }
 
 /**
  * @summary Get event details
  */
-export const getEvent = async (id: number, options?: RequestInit): Promise<Event> => {
+export const getEvent = async (eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: RequestInit): Promise<Event> => {
 
-  return customFetch<Event>(getGetEventUrl(id),
+  return customFetch<Event>(getGetEventUrl(eventType,id),
   {
     ...options,
     method: 'GET'
@@ -1127,29 +1122,31 @@ export const getEvent = async (id: number, options?: RequestInit): Promise<Event
 
 
 
-export const getGetEventQueryKey = (id: number,) => {
+export const getGetEventQueryKey = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
     return [
-    `/api/events/${id}`
+    `/api/events/${eventType}/${id}`
     ] as const;
     }
 
 
-export const getGetEventQueryOptions = <TData = Awaited<ReturnType<typeof getEvent>>, TError = ErrorType<void>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEvent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetEventQueryOptions = <TData = Awaited<ReturnType<typeof getEvent>>, TError = ErrorType<void>>(eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEvent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetEventQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetEventQueryKey(eventType,id);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEvent>>> = ({ signal }) => getEvent(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEvent>>> = ({ signal }) => getEvent(eventType,id, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEvent>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(eventType && id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEvent>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetEventQueryResult = NonNullable<Awaited<ReturnType<typeof getEvent>>>
@@ -1161,11 +1158,12 @@ export type GetEventQueryError = ErrorType<void>
  */
 
 export function useGetEvent<TData = Awaited<ReturnType<typeof getEvent>>, TError = ErrorType<void>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEvent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEvent>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetEventQueryOptions(id,options)
+  const queryOptions = getGetEventQueryOptions(eventType,id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1178,21 +1176,23 @@ export function useGetEvent<TData = Awaited<ReturnType<typeof getEvent>>, TError
 
 
 
-export const getUpdateEventUrl = (id: number,) => {
+export const getUpdateEventUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}`
+  return `/api/events/${eventType}/${id}`
 }
 
 /**
  * @summary Update an event (Admin/Organizer)
  */
-export const updateEvent = async (id: number,
+export const updateEvent = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     eventUpdate: EventUpdate, options?: RequestInit): Promise<Event> => {
 
-  return customFetch<Event>(getUpdateEventUrl(id),
+  return customFetch<Event>(getUpdateEventUrl(eventType,id),
   {
     ...options,
     method: 'PATCH',
@@ -1206,8 +1206,8 @@ export const updateEvent = async (id: number,
 
 
 export const getUpdateEventMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{id: number;data: BodyType<EventUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{id: number;data: BodyType<EventUpdate>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventUpdate>}, TContext> => {
 
 const mutationKey = ['updateEvent'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1219,10 +1219,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEvent>>, {id: number;data: BodyType<EventUpdate>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateEvent>>, {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventUpdate>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
 
-          return  updateEvent(id,data,requestOptions)
+          return  updateEvent(eventType,id,data,requestOptions)
         }
 
 
@@ -1240,30 +1240,32 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Update an event (Admin/Organizer)
  */
 export const useUpdateEvent = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{id: number;data: BodyType<EventUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateEvent>>,
         TError,
-        {id: number;data: BodyType<EventUpdate>},
+        {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventUpdate>},
         TContext
       > => {
       return useMutation(getUpdateEventMutationOptions(options));
     }
 
-export const getDeleteEventUrl = (id: number,) => {
+export const getDeleteEventUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}`
+  return `/api/events/${eventType}/${id}`
 }
 
 /**
  * @summary Delete an event (Admin/Organizer)
  */
-export const deleteEvent = async (id: number, options?: RequestInit): Promise<void> => {
+export const deleteEvent = async (eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: RequestInit): Promise<void> => {
 
-  return customFetch<void>(getDeleteEventUrl(id),
+  return customFetch<void>(getDeleteEventUrl(eventType,id),
   {
     ...options,
     method: 'DELETE'
@@ -1276,8 +1278,8 @@ export const deleteEvent = async (id: number, options?: RequestInit): Promise<vo
 
 
 export const getDeleteEventMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext> => {
 
 const mutationKey = ['deleteEvent'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1289,10 +1291,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEvent>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteEvent>>, {eventType: 'rotating' | 'fixed_partner';id: number}> = (props) => {
+          const {eventType,id} = props ?? {};
 
-          return  deleteEvent(id,requestOptions)
+          return  deleteEvent(eventType,id,requestOptions)
         }
 
 
@@ -1310,31 +1312,33 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Delete an event (Admin/Organizer)
  */
 export const useDeleteEvent = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteEvent>>,
         TError,
-        {id: number},
+        {eventType: 'rotating' | 'fixed_partner';id: number},
         TContext
       > => {
       return useMutation(getDeleteEventMutationOptions(options));
     }
 
-export const getCloneEventUrl = (id: number,) => {
+export const getCloneEventUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/clone`
+  return `/api/events/${eventType}/${id}/clone`
 }
 
 /**
  * @summary Clone an event as a new draft (Admin/Organizer)
  */
-export const cloneEvent = async (id: number,
+export const cloneEvent = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     eventCloneInput?: EventCloneInput, options?: RequestInit): Promise<Event> => {
 
-  return customFetch<Event>(getCloneEventUrl(id),
+  return customFetch<Event>(getCloneEventUrl(eventType,id),
   {
     ...options,
     method: 'POST',
@@ -1348,8 +1352,8 @@ export const cloneEvent = async (id: number,
 
 
 export const getCloneEventMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{id: number;data?: BodyType<EventCloneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{id: number;data?: BodyType<EventCloneInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data?: BodyType<EventCloneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data?: BodyType<EventCloneInput>}, TContext> => {
 
 const mutationKey = ['cloneEvent'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1361,10 +1365,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cloneEvent>>, {id: number;data?: BodyType<EventCloneInput>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cloneEvent>>, {eventType: 'rotating' | 'fixed_partner';id: number;data?: BodyType<EventCloneInput>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
 
-          return  cloneEvent(id,data,requestOptions)
+          return  cloneEvent(eventType,id,data,requestOptions)
         }
 
 
@@ -1382,30 +1386,32 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Clone an event as a new draft (Admin/Organizer)
  */
 export const useCloneEvent = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{id: number;data?: BodyType<EventCloneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data?: BodyType<EventCloneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof cloneEvent>>,
         TError,
-        {id: number;data?: BodyType<EventCloneInput>},
+        {eventType: 'rotating' | 'fixed_partner';id: number;data?: BodyType<EventCloneInput>},
         TContext
       > => {
       return useMutation(getCloneEventMutationOptions(options));
     }
 
-export const getCloseEventUrl = (id: number,) => {
+export const getCloseEventUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/close`
+  return `/api/events/${eventType}/${id}/close`
 }
 
 /**
  * @summary Close registration for an event (end it)
  */
-export const closeEvent = async (id: number, options?: RequestInit): Promise<Event> => {
+export const closeEvent = async (eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: RequestInit): Promise<Event> => {
 
-  return customFetch<Event>(getCloseEventUrl(id),
+  return customFetch<Event>(getCloseEventUrl(eventType,id),
   {
     ...options,
     method: 'POST'
@@ -1418,8 +1424,8 @@ export const closeEvent = async (id: number, options?: RequestInit): Promise<Eve
 
 
 export const getCloseEventMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeEvent>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof closeEvent>>, TError,{id: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof closeEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext> => {
 
 const mutationKey = ['closeEvent'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1431,10 +1437,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closeEvent>>, {id: number}> = (props) => {
-          const {id} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof closeEvent>>, {eventType: 'rotating' | 'fixed_partner';id: number}> = (props) => {
+          const {eventType,id} = props ?? {};
 
-          return  closeEvent(id,requestOptions)
+          return  closeEvent(eventType,id,requestOptions)
         }
 
 
@@ -1452,30 +1458,32 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Close registration for an event (end it)
  */
 export const useCloseEvent = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeEvent>>, TError,{id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof closeEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof closeEvent>>,
         TError,
-        {id: number},
+        {eventType: 'rotating' | 'fixed_partner';id: number},
         TContext
       > => {
       return useMutation(getCloseEventMutationOptions(options));
     }
 
-export const getGetEventRosterSummaryUrl = (id: number,) => {
+export const getGetEventRosterSummaryUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/roster-summary`
+  return `/api/events/${eventType}/${id}/roster-summary`
 }
 
 /**
  * @summary Get confirmed/waitlisted/pending counts for an event
  */
-export const getEventRosterSummary = async (id: number, options?: RequestInit): Promise<RosterSummary> => {
+export const getEventRosterSummary = async (eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: RequestInit): Promise<RosterSummary> => {
 
-  return customFetch<RosterSummary>(getGetEventRosterSummaryUrl(id),
+  return customFetch<RosterSummary>(getGetEventRosterSummaryUrl(eventType,id),
   {
     ...options,
     method: 'GET'
@@ -1488,29 +1496,31 @@ export const getEventRosterSummary = async (id: number, options?: RequestInit): 
 
 
 
-export const getGetEventRosterSummaryQueryKey = (id: number,) => {
+export const getGetEventRosterSummaryQueryKey = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
     return [
-    `/api/events/${id}/roster-summary`
+    `/api/events/${eventType}/${id}/roster-summary`
     ] as const;
     }
 
 
-export const getGetEventRosterSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getEventRosterSummary>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEventRosterSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getGetEventRosterSummaryQueryOptions = <TData = Awaited<ReturnType<typeof getEventRosterSummary>>, TError = ErrorType<unknown>>(eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEventRosterSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetEventRosterSummaryQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getGetEventRosterSummaryQueryKey(eventType,id);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEventRosterSummary>>> = ({ signal }) => getEventRosterSummary(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getEventRosterSummary>>> = ({ signal }) => getEventRosterSummary(eventType,id, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEventRosterSummary>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(eventType && id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getEventRosterSummary>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetEventRosterSummaryQueryResult = NonNullable<Awaited<ReturnType<typeof getEventRosterSummary>>>
@@ -1522,11 +1532,12 @@ export type GetEventRosterSummaryQueryError = ErrorType<unknown>
  */
 
 export function useGetEventRosterSummary<TData = Awaited<ReturnType<typeof getEventRosterSummary>>, TError = ErrorType<unknown>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEventRosterSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getEventRosterSummary>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetEventRosterSummaryQueryOptions(id,options)
+  const queryOptions = getGetEventRosterSummaryQueryOptions(eventType,id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1539,20 +1550,22 @@ export function useGetEventRosterSummary<TData = Awaited<ReturnType<typeof getEv
 
 
 
-export const getListRegistrationsUrl = (id: number,) => {
+export const getListRegistrationsUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations`
+  return `/api/events/${eventType}/${id}/registrations`
 }
 
 /**
  * @summary List all registrations for an event
  */
-export const listRegistrations = async (id: number, options?: RequestInit): Promise<RosterEntry[]> => {
+export const listRegistrations = async (eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: RequestInit): Promise<RosterEntry[]> => {
 
-  return customFetch<RosterEntry[]>(getListRegistrationsUrl(id),
+  return customFetch<RosterEntry[]>(getListRegistrationsUrl(eventType,id),
   {
     ...options,
     method: 'GET'
@@ -1565,29 +1578,31 @@ export const listRegistrations = async (id: number, options?: RequestInit): Prom
 
 
 
-export const getListRegistrationsQueryKey = (id: number,) => {
+export const getListRegistrationsQueryKey = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
     return [
-    `/api/events/${id}/registrations`
+    `/api/events/${eventType}/${id}/registrations`
     ] as const;
     }
 
 
-export const getListRegistrationsQueryOptions = <TData = Awaited<ReturnType<typeof listRegistrations>>, TError = ErrorType<unknown>>(id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRegistrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+export const getListRegistrationsQueryOptions = <TData = Awaited<ReturnType<typeof listRegistrations>>, TError = ErrorType<unknown>>(eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRegistrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getListRegistrationsQueryKey(id);
+  const queryKey =  queryOptions?.queryKey ?? getListRegistrationsQueryKey(eventType,id);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRegistrations>>> = ({ signal }) => listRegistrations(id, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listRegistrations>>> = ({ signal }) => listRegistrations(eventType,id, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: !!(id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRegistrations>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(eventType && id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listRegistrations>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type ListRegistrationsQueryResult = NonNullable<Awaited<ReturnType<typeof listRegistrations>>>
@@ -1599,11 +1614,12 @@ export type ListRegistrationsQueryError = ErrorType<unknown>
  */
 
 export function useListRegistrations<TData = Awaited<ReturnType<typeof listRegistrations>>, TError = ErrorType<unknown>>(
- id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRegistrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+ eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listRegistrations>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getListRegistrationsQueryOptions(id,options)
+  const queryOptions = getListRegistrationsQueryOptions(eventType,id,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1616,21 +1632,23 @@ export function useListRegistrations<TData = Awaited<ReturnType<typeof listRegis
 
 
 
-export const getCreateRegistrationUrl = (id: number,) => {
+export const getCreateRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations`
+  return `/api/events/${eventType}/${id}/registrations`
 }
 
 /**
  * @summary Register for an event using DUPR ID
  */
-export const createRegistration = async (id: number,
+export const createRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     registrationInput: RegistrationInput, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getCreateRegistrationUrl(id),
+  return customFetch<RosterEntry>(getCreateRegistrationUrl(eventType,id),
   {
     ...options,
     method: 'POST',
@@ -1644,8 +1662,8 @@ export const createRegistration = async (id: number,
 
 
 export const getCreateRegistrationMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRegistration>>, TError,{id: number;data: BodyType<RegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof createRegistration>>, TError,{id: number;data: BodyType<RegistrationInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RegistrationInput>}, TContext> => {
 
 const mutationKey = ['createRegistration'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1657,10 +1675,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRegistration>>, {id: number;data: BodyType<RegistrationInput>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createRegistration>>, {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RegistrationInput>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
 
-          return  createRegistration(id,data,requestOptions)
+          return  createRegistration(eventType,id,data,requestOptions)
         }
 
 
@@ -1678,31 +1696,33 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Register for an event using DUPR ID
  */
 export const useCreateRegistration = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRegistration>>, TError,{id: number;data: BodyType<RegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof createRegistration>>,
         TError,
-        {id: number;data: BodyType<RegistrationInput>},
+        {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RegistrationInput>},
         TContext
       > => {
       return useMutation(getCreateRegistrationMutationOptions(options));
     }
 
-export const getRequestRegistrationCodeUrl = (id: number,) => {
+export const getRequestRegistrationCodeUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/request-code`
+  return `/api/events/${eventType}/${id}/registrations/request-code`
 }
 
 /**
  * @summary Request an email verification code for public self-registration
  */
-export const requestRegistrationCode = async (id: number,
+export const requestRegistrationCode = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     requestCodeInput: RequestCodeInput, options?: RequestInit): Promise<RequestCodeResult> => {
 
-  return customFetch<RequestCodeResult>(getRequestRegistrationCodeUrl(id),
+  return customFetch<RequestCodeResult>(getRequestRegistrationCodeUrl(eventType,id),
   {
     ...options,
     method: 'POST',
@@ -1716,8 +1736,8 @@ export const requestRegistrationCode = async (id: number,
 
 
 export const getRequestRegistrationCodeMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{id: number;data: BodyType<RequestCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{id: number;data: BodyType<RequestCodeInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RequestCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RequestCodeInput>}, TContext> => {
 
 const mutationKey = ['requestRegistrationCode'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1729,10 +1749,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestRegistrationCode>>, {id: number;data: BodyType<RequestCodeInput>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof requestRegistrationCode>>, {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RequestCodeInput>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
 
-          return  requestRegistrationCode(id,data,requestOptions)
+          return  requestRegistrationCode(eventType,id,data,requestOptions)
         }
 
 
@@ -1750,32 +1770,34 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Request an email verification code for public self-registration
  */
 export const useRequestRegistrationCode = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{id: number;data: BodyType<RequestCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof requestRegistrationCode>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RequestCodeInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof requestRegistrationCode>>,
         TError,
-        {id: number;data: BodyType<RequestCodeInput>},
+        {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<RequestCodeInput>},
         TContext
       > => {
       return useMutation(getRequestRegistrationCodeMutationOptions(options));
     }
 
-export const getGetRegistrationUrl = (id: number,
+export const getGetRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/${regId}`
+  return `/api/events/${eventType}/${id}/registrations/${regId}`
 }
 
 /**
  * @summary Get a single registration
  */
-export const getRegistration = async (id: number,
+export const getRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getGetRegistrationUrl(id,regId),
+  return customFetch<RosterEntry>(getGetRegistrationUrl(eventType,id,regId),
   {
     ...options,
     method: 'GET'
@@ -1788,31 +1810,33 @@ export const getRegistration = async (id: number,
 
 
 
-export const getGetRegistrationQueryKey = (id: number,
+export const getGetRegistrationQueryKey = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
     return [
-    `/api/events/${id}/registrations/${regId}`
+    `/api/events/${eventType}/${id}/registrations/${regId}`
     ] as const;
     }
 
 
-export const getGetRegistrationQueryOptions = <TData = Awaited<ReturnType<typeof getRegistration>>, TError = ErrorType<void>>(id: number,
+export const getGetRegistrationQueryOptions = <TData = Awaited<ReturnType<typeof getRegistration>>, TError = ErrorType<void>>(eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRegistration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 ) => {
 
 const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  const queryKey =  queryOptions?.queryKey ?? getGetRegistrationQueryKey(id,regId);
+  const queryKey =  queryOptions?.queryKey ?? getGetRegistrationQueryKey(eventType,id,regId);
 
 
 
-    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRegistration>>> = ({ signal }) => getRegistration(id,regId, { signal, ...requestOptions });
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getRegistration>>> = ({ signal }) => getRegistration(eventType,id,regId, { signal, ...requestOptions });
 
 
 
 
 
-   return  { queryKey, queryFn, enabled: !!(id && regId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRegistration>>, TError, TData> & { queryKey: QueryKey }
+   return  { queryKey, queryFn, enabled: !!(eventType && id && regId), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getRegistration>>, TError, TData> & { queryKey: QueryKey }
 }
 
 export type GetRegistrationQueryResult = NonNullable<Awaited<ReturnType<typeof getRegistration>>>
@@ -1824,12 +1848,13 @@ export type GetRegistrationQueryError = ErrorType<void>
  */
 
 export function useGetRegistration<TData = Awaited<ReturnType<typeof getRegistration>>, TError = ErrorType<void>>(
- id: number,
+ eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getRegistration>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
 
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
-  const queryOptions = getGetRegistrationQueryOptions(id,regId,options)
+  const queryOptions = getGetRegistrationQueryOptions(eventType,id,regId,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 
@@ -1842,23 +1867,25 @@ export function useGetRegistration<TData = Awaited<ReturnType<typeof getRegistra
 
 
 
-export const getUpdateRegistrationUrl = (id: number,
+export const getUpdateRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/${regId}`
+  return `/api/events/${eventType}/${id}/registrations/${regId}`
 }
 
 /**
  * @summary Update a registration (Admin/Organizer)
  */
-export const updateRegistration = async (id: number,
+export const updateRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,
     registrationUpdate: RegistrationUpdate, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getUpdateRegistrationUrl(id,regId),
+  return customFetch<RosterEntry>(getUpdateRegistrationUrl(eventType,id,regId),
   {
     ...options,
     method: 'PATCH',
@@ -1872,8 +1899,8 @@ export const updateRegistration = async (id: number,
 
 
 export const getUpdateRegistrationMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRegistration>>, TError,{id: number;regId: number;data: BodyType<RegistrationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof updateRegistration>>, TError,{id: number;regId: number;data: BodyType<RegistrationUpdate>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number;data: BodyType<RegistrationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof updateRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number;data: BodyType<RegistrationUpdate>}, TContext> => {
 
 const mutationKey = ['updateRegistration'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1885,10 +1912,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRegistration>>, {id: number;regId: number;data: BodyType<RegistrationUpdate>}> = (props) => {
-          const {id,regId,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof updateRegistration>>, {eventType: 'rotating' | 'fixed_partner';id: number;regId: number;data: BodyType<RegistrationUpdate>}> = (props) => {
+          const {eventType,id,regId,data} = props ?? {};
 
-          return  updateRegistration(id,regId,data,requestOptions)
+          return  updateRegistration(eventType,id,regId,data,requestOptions)
         }
 
 
@@ -1906,32 +1933,34 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Update a registration (Admin/Organizer)
  */
 export const useUpdateRegistration = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRegistration>>, TError,{id: number;regId: number;data: BodyType<RegistrationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number;data: BodyType<RegistrationUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof updateRegistration>>,
         TError,
-        {id: number;regId: number;data: BodyType<RegistrationUpdate>},
+        {eventType: 'rotating' | 'fixed_partner';id: number;regId: number;data: BodyType<RegistrationUpdate>},
         TContext
       > => {
       return useMutation(getUpdateRegistrationMutationOptions(options));
     }
 
-export const getDeleteRegistrationUrl = (id: number,
+export const getDeleteRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/${regId}`
+  return `/api/events/${eventType}/${id}/registrations/${regId}`
 }
 
 /**
  * @summary Remove a registration (Admin/Organizer)
  */
-export const deleteRegistration = async (id: number,
+export const deleteRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: RequestInit): Promise<void> => {
 
-  return customFetch<void>(getDeleteRegistrationUrl(id,regId),
+  return customFetch<void>(getDeleteRegistrationUrl(eventType,id,regId),
   {
     ...options,
     method: 'DELETE'
@@ -1944,8 +1973,8 @@ export const deleteRegistration = async (id: number,
 
 
 export const getDeleteRegistrationMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRegistration>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof deleteRegistration>>, TError,{id: number;regId: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof deleteRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext> => {
 
 const mutationKey = ['deleteRegistration'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -1957,10 +1986,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRegistration>>, {id: number;regId: number}> = (props) => {
-          const {id,regId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof deleteRegistration>>, {eventType: 'rotating' | 'fixed_partner';id: number;regId: number}> = (props) => {
+          const {eventType,id,regId} = props ?? {};
 
-          return  deleteRegistration(id,regId,requestOptions)
+          return  deleteRegistration(eventType,id,regId,requestOptions)
         }
 
 
@@ -1978,32 +2007,34 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Remove a registration (Admin/Organizer)
  */
 export const useDeleteRegistration = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRegistration>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof deleteRegistration>>,
         TError,
-        {id: number;regId: number},
+        {eventType: 'rotating' | 'fixed_partner';id: number;regId: number},
         TContext
       > => {
       return useMutation(getDeleteRegistrationMutationOptions(options));
     }
 
-export const getApproveRegistrationUrl = (id: number,
+export const getApproveRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/${regId}/approve`
+  return `/api/events/${eventType}/${id}/registrations/${regId}/approve`
 }
 
 /**
  * @summary Approve a pending registration
  */
-export const approveRegistration = async (id: number,
+export const approveRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getApproveRegistrationUrl(id,regId),
+  return customFetch<RosterEntry>(getApproveRegistrationUrl(eventType,id,regId),
   {
     ...options,
     method: 'POST'
@@ -2016,8 +2047,8 @@ export const approveRegistration = async (id: number,
 
 
 export const getApproveRegistrationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRegistration>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof approveRegistration>>, TError,{id: number;regId: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof approveRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext> => {
 
 const mutationKey = ['approveRegistration'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2029,10 +2060,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveRegistration>>, {id: number;regId: number}> = (props) => {
-          const {id,regId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof approveRegistration>>, {eventType: 'rotating' | 'fixed_partner';id: number;regId: number}> = (props) => {
+          const {eventType,id,regId} = props ?? {};
 
-          return  approveRegistration(id,regId,requestOptions)
+          return  approveRegistration(eventType,id,regId,requestOptions)
         }
 
 
@@ -2050,32 +2081,34 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Approve a pending registration
  */
 export const useApproveRegistration = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRegistration>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof approveRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof approveRegistration>>,
         TError,
-        {id: number;regId: number},
+        {eventType: 'rotating' | 'fixed_partner';id: number;regId: number},
         TContext
       > => {
       return useMutation(getApproveRegistrationMutationOptions(options));
     }
 
-export const getRejectRegistrationUrl = (id: number,
+export const getRejectRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/${regId}/reject`
+  return `/api/events/${eventType}/${id}/registrations/${regId}/reject`
 }
 
 /**
  * @summary Reject a pending registration
  */
-export const rejectRegistration = async (id: number,
+export const rejectRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getRejectRegistrationUrl(id,regId),
+  return customFetch<RosterEntry>(getRejectRegistrationUrl(eventType,id,regId),
   {
     ...options,
     method: 'POST'
@@ -2088,8 +2121,8 @@ export const rejectRegistration = async (id: number,
 
 
 export const getRejectRegistrationMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRegistration>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof rejectRegistration>>, TError,{id: number;regId: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof rejectRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext> => {
 
 const mutationKey = ['rejectRegistration'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2101,10 +2134,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRegistration>>, {id: number;regId: number}> = (props) => {
-          const {id,regId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof rejectRegistration>>, {eventType: 'rotating' | 'fixed_partner';id: number;regId: number}> = (props) => {
+          const {eventType,id,regId} = props ?? {};
 
-          return  rejectRegistration(id,regId,requestOptions)
+          return  rejectRegistration(eventType,id,regId,requestOptions)
         }
 
 
@@ -2122,32 +2155,34 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Reject a pending registration
  */
 export const useRejectRegistration = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRegistration>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof rejectRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof rejectRegistration>>,
         TError,
-        {id: number;regId: number},
+        {eventType: 'rotating' | 'fixed_partner';id: number;regId: number},
         TContext
       > => {
       return useMutation(getRejectRegistrationMutationOptions(options));
     }
 
-export const getPromoteFromWaitlistUrl = (id: number,
+export const getPromoteFromWaitlistUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/${regId}/promote`
+  return `/api/events/${eventType}/${id}/registrations/${regId}/promote`
 }
 
 /**
  * @summary Promote a waitlisted registration to confirmed
  */
-export const promoteFromWaitlist = async (id: number,
+export const promoteFromWaitlist = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     regId: number, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getPromoteFromWaitlistUrl(id,regId),
+  return customFetch<RosterEntry>(getPromoteFromWaitlistUrl(eventType,id,regId),
   {
     ...options,
     method: 'POST'
@@ -2160,8 +2195,8 @@ export const promoteFromWaitlist = async (id: number,
 
 
 export const getPromoteFromWaitlistMutationOptions = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof promoteFromWaitlist>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof promoteFromWaitlist>>, TError,{id: number;regId: number}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof promoteFromWaitlist>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof promoteFromWaitlist>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext> => {
 
 const mutationKey = ['promoteFromWaitlist'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2173,10 +2208,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof promoteFromWaitlist>>, {id: number;regId: number}> = (props) => {
-          const {id,regId} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof promoteFromWaitlist>>, {eventType: 'rotating' | 'fixed_partner';id: number;regId: number}> = (props) => {
+          const {eventType,id,regId} = props ?? {};
 
-          return  promoteFromWaitlist(id,regId,requestOptions)
+          return  promoteFromWaitlist(eventType,id,regId,requestOptions)
         }
 
 
@@ -2194,31 +2229,33 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Promote a waitlisted registration to confirmed
  */
 export const usePromoteFromWaitlist = <TError = ErrorType<unknown>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof promoteFromWaitlist>>, TError,{id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof promoteFromWaitlist>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;regId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof promoteFromWaitlist>>,
         TError,
-        {id: number;regId: number},
+        {eventType: 'rotating' | 'fixed_partner';id: number;regId: number},
         TContext
       > => {
       return useMutation(getPromoteFromWaitlistMutationOptions(options));
     }
 
-export const getCancelRegistrationUrl = (id: number,) => {
+export const getCancelRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
 
 
 
 
-  return `/api/events/${id}/registrations/cancel`
+  return `/api/events/${eventType}/${id}/registrations/cancel`
 }
 
 /**
  * @summary Cancel a registration by participant (self-cancel)
  */
-export const cancelRegistration = async (id: number,
+export const cancelRegistration = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
     cancelRegistrationInput: CancelRegistrationInput, options?: RequestInit): Promise<RosterEntry> => {
 
-  return customFetch<RosterEntry>(getCancelRegistrationUrl(id),
+  return customFetch<RosterEntry>(getCancelRegistrationUrl(eventType,id),
   {
     ...options,
     method: 'POST',
@@ -2232,8 +2269,8 @@ export const cancelRegistration = async (id: number,
 
 
 export const getCancelRegistrationMutationOptions = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{id: number;data: BodyType<CancelRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
-): UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{id: number;data: BodyType<CancelRegistrationInput>}, TContext> => {
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<CancelRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<CancelRegistrationInput>}, TContext> => {
 
 const mutationKey = ['cancelRegistration'];
 const {mutation: mutationOptions, request: requestOptions} = options ?
@@ -2245,10 +2282,10 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
 
 
 
-      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelRegistration>>, {id: number;data: BodyType<CancelRegistrationInput>}> = (props) => {
-          const {id,data} = props ?? {};
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof cancelRegistration>>, {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<CancelRegistrationInput>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
 
-          return  cancelRegistration(id,data,requestOptions)
+          return  cancelRegistration(eventType,id,data,requestOptions)
         }
 
 
@@ -2266,11 +2303,11 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
  * @summary Cancel a registration by participant (self-cancel)
  */
 export const useCancelRegistration = <TError = ErrorType<void>,
-    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{id: number;data: BodyType<CancelRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cancelRegistration>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<CancelRegistrationInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
  ): UseMutationResult<
         Awaited<ReturnType<typeof cancelRegistration>>,
         TError,
-        {id: number;data: BodyType<CancelRegistrationInput>},
+        {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<CancelRegistrationInput>},
         TContext
       > => {
       return useMutation(getCancelRegistrationMutationOptions(options));
