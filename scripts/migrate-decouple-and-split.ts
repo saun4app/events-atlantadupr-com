@@ -210,7 +210,11 @@ async function splitEvents() {
     ON CONFLICT (id) DO NOTHING
   `);
 
-  // Fixed-partner events: old participant capacity maps onto team capacity.
+  // Fixed-partner events: in the OLD unified model every event stored
+  // participant counts, and fixed-partner team capacity was DERIVED as
+  // floor(participants / 2) (a team is 2 players). The new fixed table stores
+  // team counts directly, so convert participants -> teams here. Copying the
+  // raw participant counts would double effective team capacity.
   const fixRes = await db.execute(sql`
     INSERT INTO atl_dupr_events_fixed (
       id, series_id, name, description, event_description, start_datetime, end_datetime,
@@ -222,7 +226,9 @@ async function splitEvents() {
     SELECT
       id, series_id, name, description, event_description, start_datetime, end_datetime,
       location_name, location_address, rating_type_required, rating_config,
-      min_participants, max_participants, waitlist_enabled, require_approval,
+      GREATEST(FLOOR(min_participants::numeric / 2)::int, 1),
+      GREATEST(FLOOR(max_participants::numeric / 2)::int, 1),
+      waitlist_enabled, require_approval,
       signup_start_datetime, signup_end_datetime, status, court_fee_enabled,
       member_fee, non_member_fee, contact_email, created_at
     FROM atl_dupr_events old
