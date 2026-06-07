@@ -748,7 +748,7 @@ export default function AdminEventDetailRotating() {
                                 disabled={bulkSetAssigned.isPending}
                                 onClick={() => bulkSetAssigned.mutate()}
                               >
-                                Set All to DUPR
+                                Set Assigned to DUPR
                               </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
