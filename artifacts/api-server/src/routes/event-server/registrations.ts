@@ -45,7 +45,7 @@ function regScope(eventId: number, eventType: EventFormat) {
   return and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, eventType));
 }
 
-function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false) {
+function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false, eventType?: EventFormat) {
   const snap = reg.playerSnapshot;
   const partnerSnap = reg.partnerSnapshot;
   const partnerName = partnerSnap?.partnerName ?? null;
@@ -61,7 +61,7 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
     partnerDuprId: reg.partnerDuprId ?? null,
     status: reg.status,
     eventRole: reg.eventRole ?? null,
-    isNew: reg.isNew === "true",
+    ...(eventType !== "fixed_partner" ? { isNew: reg.isNew === "true" } : {}),
     ...(includeAdminFields ? { assignedRating: reg.assignedRating ?? null } : {}),
     registeredAt: reg.registeredAt,
     approvedAt: reg.approvedAt ?? null,
@@ -95,7 +95,7 @@ router.get("/", async (req: Request<EventParams>, res: Response) => {
   const eventId = Number(req.params.id);
   const includeAdminFields = await canIncludeAdminFields(eventId, eventType, req);
   const regs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
-  const entries = regs.map((r) => buildRosterEntry(r, includeAdminFields));
+  const entries = regs.map((r) => buildRosterEntry(r, includeAdminFields, eventType));
   return res.json(entries);
 });
 
@@ -363,7 +363,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     recordSuccess(email.toLowerCase(), "reg:submit:email");
   }
 
-  const entry = buildRosterEntry(reg, false);
+  const entry = buildRosterEntry(reg, false, eventType);
   return res.status(201).json(entry);
 });
 
@@ -376,7 +376,7 @@ router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
     .from(registrationsTable)
     .where(and(eq(registrationsTable.id, Number(req.params.regId)), regScope(eventId, eventType)));
   if (!reg) return res.status(404).json({ error: "Registration not found" });
-  return res.json(buildRosterEntry(reg, await canIncludeAdminFields(eventId, eventType, req)));
+  return res.json(buildRosterEntry(reg, await canIncludeAdminFields(eventId, eventType, req), eventType));
 });
 
 router.patch(
@@ -412,7 +412,7 @@ router.patch(
       }
     }
     if (req.body.eventRole !== undefined) updates.eventRole = req.body.eventRole ?? null;
-    if (req.body.isNew !== undefined) updates.isNew = req.body.isNew ? "true" : "false";
+    if (eventType !== "fixed_partner" && req.body.isNew !== undefined) updates.isNew = req.body.isNew ? "true" : "false";
     if (req.body.assignedRating !== undefined) {
       const ar = req.body.assignedRating;
       updates.assignedRating = ar !== null && isFinite(Number(ar)) ? Number(ar) : null;
@@ -466,7 +466,7 @@ router.patch(
       updatedReg = updated;
     }
 
-    return res.json(buildRosterEntry(updatedReg, true));
+    return res.json(buildRosterEntry(updatedReg, true, eventType));
   },
 );
 
@@ -532,7 +532,7 @@ router.post(
       .where(eq(registrationsTable.id, Number(req.params.regId)))
       .returning();
 
-    return res.json(buildRosterEntry(updated, true));
+    return res.json(buildRosterEntry(updated, true, eventType));
   },
 );
 
@@ -560,7 +560,7 @@ router.post(
       .where(eq(registrationsTable.id, Number(req.params.regId)))
       .returning();
 
-    return res.json(buildRosterEntry(updated, true));
+    return res.json(buildRosterEntry(updated, true, eventType));
   },
 );
 
@@ -597,7 +597,7 @@ router.post(
       .where(eq(registrationsTable.id, Number(req.params.regId)))
       .returning();
 
-    return res.json(buildRosterEntry(updated, true));
+    return res.json(buildRosterEntry(updated, true, eventType));
   },
 );
 
@@ -646,7 +646,7 @@ router.post("/cancel", async (req: Request<EventParams>, res: Response) => {
 
   await consumeCode(email);
 
-  return res.json(buildRosterEntry(updated, false));
+  return res.json(buildRosterEntry(updated, false, eventType));
 });
 
 export default router;
