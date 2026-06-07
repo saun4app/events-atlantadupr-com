@@ -475,7 +475,8 @@ export default function AdminEventDetailFixed() {
     const cols: { label: string; get: (r: any) => string }[] = [];
     if (col("name")) cols.push({ label: "Name", get: r => r.playerName ?? "" });
     if (col("duprId")) cols.push({ label: "DUPR ID", get: r => r.memberDuprId ?? "" });
-    if (col("dupr")) cols.push({ label: "DUPR Double", get: r => r.doubleRating || "NR" });
+    if (col("dupr")) cols.push({ label: "DUPR", get: r => r.doubleRating || "NR" });
+    if (col("selfRating")) cols.push({ label: "Self-Rate", get: r => r.selfRating != null ? String(r.selfRating) : "" });
     if (col("assigned")) cols.push({ label: "Assigned", get: r => {
       const p = parseFloat(r.doubleRating);
       const sr = r.assignedRating != null ? r.assignedRating : (r.doubleRating && isFinite(p) ? p : null);
@@ -525,7 +526,9 @@ export default function AdminEventDetailFixed() {
       });
       const blob = doc.output("blob");
       const url = URL.createObjectURL(blob);
-      window.open(url, "_blank");
+      const a = document.createElement("a");
+      a.href = url; a.download = `registrations-${safeName}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 60000);
     }
   };
@@ -647,7 +650,7 @@ export default function AdminEventDetailFixed() {
               {[
                 { key: "name", label: "Name" },
                 { key: "duprId", label: "DUPR ID" },
-                { key: "dupr", label: "DUPR Double" },
+                { key: "dupr", label: "DUPR" },
                 { key: "selfRating", label: "Self-Rate" },
                 { key: "assigned", label: "Assigned" },
                 { key: "email", label: "Email" },
@@ -759,7 +762,7 @@ export default function AdminEventDetailFixed() {
                               <th className="text-left px-5 py-2.5 font-medium text-muted-foreground w-10">#</th>
                               {col("name") && <SortHeader label="Name" col="name" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "name")} />}
                               {col("duprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">DUPR ID</th>}
-                              {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
+                              {col("dupr") && <SortHeader label="DUPR" col="dupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "dupr")} />}
                               {col("selfRating") && <SortHeader label="Self-Rate" col="selfRating" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "selfRating")} />}
                               {col("assigned") && <SortHeader label="Assigned" col="assigned" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "assigned")} />}
                               {col("email") && <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />}
@@ -1023,7 +1026,7 @@ export default function AdminEventDetailFixed() {
                               <th className="text-left px-5 py-2 font-medium text-muted-foreground w-10">#</th>
                               {col("name") && <SortHeader label="Name" col="name" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "name")} />}
                               {col("duprId") && <th className="text-left px-5 py-2 font-medium text-muted-foreground">DUPR ID</th>}
-                              {col("dupr") && <SortHeader label="DUPR Double" col="dupr" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "dupr")} />}
+                              {col("dupr") && <SortHeader label="DUPR" col="dupr" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "dupr")} />}
                               {col("email") && <SortHeader label="Email" col="email" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "email")} />}
                               {col("signedUp") && <SortHeader label="Signed Up" col="signedUp" activeCol={sortState["Rejected"]?.col} dir={sortState["Rejected"]?.dir} onSort={() => toggleSort("Rejected", "signedUp")} />}
                               <th className="text-right px-5 py-2 font-medium text-muted-foreground">Actions</th>
