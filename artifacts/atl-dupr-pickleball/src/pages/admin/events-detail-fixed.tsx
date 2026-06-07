@@ -73,6 +73,7 @@ function StatusBadge({ status }: { status: string }) {
     pending_approval: { label: "Pending", className: "bg-blue-100 text-blue-700 border-blue-200 border" },
     rejected: { label: "Rejected", className: "bg-destructive/10 text-destructive border-destructive/20 border" },
     cancelled: { label: "Canceled", className: "bg-muted text-muted-foreground border border-border" },
+    no_show: { label: "No-show", className: "bg-orange-100 text-orange-700 border-orange-200 border" },
   };
   const s = map[status] ?? { label: status, className: "" };
   return <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${s.className}`}>{s.label}</span>;
@@ -181,7 +182,7 @@ export default function AdminEventDetailFixed() {
   const [sortState, setSortState] = useState<Record<string, { col: string; dir: "asc" | "desc" }>>({});
   const [pageNums, setPageNums] = useState<Record<string, number>>({});
   const [pageSizes, setPageSizes] = useState<Record<string, number>>({});
-  const getPageSize = (key: string) => pageSizes[key] ?? 25;
+  const getPageSize = (key: string) => pageSizes[key] ?? 75;
   const [editingRatings, setEditingRatings] = useState<Record<number, string>>({});
   const [editingSelfRatings, setEditingSelfRatings] = useState<Record<number, string>>({});
   const [showRemoved, setShowRemoved] = useState(false);
@@ -209,7 +210,7 @@ export default function AdminEventDetailFixed() {
   function sortRegs(regs: any[], key: string) {
     const s = sortState[key];
     if (!s) return regs;
-    const statusOrder: Record<string, number> = { confirmed: 0, pending_approval: 1, waitlisted: 2, rejected: 3, cancelled: 4 };
+    const statusOrder: Record<string, number> = { confirmed: 0, pending_approval: 1, waitlisted: 2, rejected: 3, cancelled: 4, no_show: 5 };
     return [...regs].sort((a, b) => {
       let av: any, bv: any;
       if (s.col === "name") { av = (a.playerName ?? "").toLowerCase(); bv = (b.playerName ?? "").toLowerCase(); }
@@ -335,6 +336,7 @@ export default function AdminEventDetailFixed() {
 
   function handleMoveToWaitlist(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleCancelReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleNoShowReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "no_show" } as any }, { onSuccess: () => { toast({ title: "Moved to no-show" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleConfirmReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -383,6 +385,7 @@ export default function AdminEventDetailFixed() {
   const pending = registrations?.filter(r => r.status === "pending_approval") ?? [];
   const rejected = registrations?.filter(r => r.status === "rejected") ?? [];
   const cancelled = registrations?.filter(r => r.status === "cancelled") ?? [];
+  const no_show = registrations?.filter(r => r.status === "no_show") ?? [];
 
   const confirmedEmails = Array.from(new Set(confirmed.map(r => (r as any).playerEmail as string | undefined).filter((e): e is string => !!e)));
   const confirmedPhones = Array.from(new Set(confirmed.map(r => (r as any).playerPhone as string | undefined).filter((p): p is string => !!p)));
@@ -598,6 +601,7 @@ export default function AdminEventDetailFixed() {
                 {waitlisted.length > 0 && <span><strong className="text-yellow-600">{waitlisted.length}</strong> waitlisted</span>}
                 {rejected.length > 0 && <span><strong className="text-destructive">{rejected.length}</strong> rejected</span>}
                 {cancelled.length > 0 && <span><strong className="text-muted-foreground">{cancelled.length}</strong> cancelled</span>}
+                {no_show.length > 0 && <span><strong className="text-orange-600">{no_show.length}</strong> no-show</span>}
                 <span className="text-muted-foreground">/ {event.maxTeams} max teams</span>
               </div>
               {(event as any).contactEmail && (
@@ -702,6 +706,7 @@ export default function AdminEventDetailFixed() {
                   { label: "Pending Approval", regs: pending, color: "text-blue-600", empty: "No pending approvals." },
                   { label: "Waitlisted", regs: waitlisted, color: "text-yellow-600", empty: "Waitlist is empty." },
                   { label: "Canceled", regs: cancelled, color: "text-muted-foreground", empty: "No canceled registrations." },
+                  { label: "No-show", regs: no_show, color: "text-orange-600", empty: "No no-show registrations." },
                 ].map(section => {
                   const key = section.label;
                   const sorted = sortRegs(section.regs, key);
@@ -974,6 +979,11 @@ export default function AdminEventDetailFixed() {
                                               <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Canceled
                                             </DropdownMenuItem>
                                           )}
+                                          {reg.status !== "no_show" && (
+                                            <DropdownMenuItem data-testid={`action-move-to-no-show-${reg.id}`} className="gap-2" onClick={() => handleNoShowReg(reg.id)}>
+                                              <XCircle className="w-3.5 h-3.5 text-orange-500" /> Move to No-show
+                                            </DropdownMenuItem>
+                                          )}
                                           {eventRolesList.length > 0 && (
                                             <>
                                               <DropdownMenuSeparator />
@@ -1097,6 +1107,9 @@ export default function AdminEventDetailFixed() {
                                           </DropdownMenuItem>
                                           <DropdownMenuItem data-testid={`action-move-to-cancelled-${reg.id}`} className="gap-2" onClick={() => handleCancelReg(reg.id)}>
                                             <XCircle className="w-3.5 h-3.5 text-muted-foreground" /> Move to Canceled
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem data-testid={`action-move-to-no-show-${reg.id}`} className="gap-2" onClick={() => handleNoShowReg(reg.id)}>
+                                            <XCircle className="w-3.5 h-3.5 text-orange-500" /> Move to No-show
                                           </DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>

@@ -1263,7 +1263,7 @@ components:
           type: ["string", "null"]
         status:
           type: string
-          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled]
+          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled, no_show]
         registeredAt:
           type: string
           format: date-time
@@ -1286,6 +1286,8 @@ components:
         partnerName:
           type: ["string", "null"]
         partnerDoubleRating:
+          type: ["string", "null"]
+        partnerSelfRating:
           type: ["string", "null"]
         teamRating:
           type: ["string", "null"]
@@ -1343,7 +1345,7 @@ components:
       properties:
         status:
           type: string
-          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled]
+          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled, no_show]
         partnerDuprId:
           type: ["string", "null"]
         assignedRating:

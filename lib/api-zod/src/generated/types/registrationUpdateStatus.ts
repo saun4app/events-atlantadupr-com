@@ -15,4 +15,5 @@ export const RegistrationUpdateStatus = {
   pending_approval: 'pending_approval',
   rejected: 'rejected',
   cancelled: 'cancelled',
+  no_show: 'no_show',
 } as const;

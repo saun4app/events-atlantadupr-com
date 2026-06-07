@@ -357,6 +357,7 @@ export const RosterEntryStatus = {
   pending_approval: 'pending_approval',
   rejected: 'rejected',
   cancelled: 'cancelled',
+  no_show: 'no_show',
 } as const;
 
 export interface RosterEntry {
@@ -387,6 +388,8 @@ export interface RosterEntry {
   partnerName?: string | null;
   /** @nullable */
   partnerDoubleRating?: string | null;
+  /** @nullable */
+  partnerSelfRating?: string | null;
   /** @nullable */
   teamRating?: string | null;
 }
@@ -437,6 +440,7 @@ export const RegistrationUpdateStatus = {
   pending_approval: 'pending_approval',
   rejected: 'rejected',
   cancelled: 'cancelled',
+  no_show: 'no_show',
 } as const;
 
 export interface RegistrationUpdate {

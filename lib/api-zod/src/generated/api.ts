@@ -439,7 +439,7 @@ export const ListRegistrationsResponseItem = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -451,6 +451,7 @@ export const ListRegistrationsResponseItem = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 export const ListRegistrationsResponse = zod.array(ListRegistrationsResponseItem)
@@ -508,7 +509,7 @@ export const GetRegistrationResponse = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -520,6 +521,7 @@ export const GetRegistrationResponse = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 
@@ -534,7 +536,7 @@ export const UpdateRegistrationParams = zod.object({
 })
 
 export const UpdateRegistrationBody = zod.object({
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']).optional(),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']).optional(),
   "partnerDuprId": zod.string().nullish(),
   "assignedRating": zod.number().nullish(),
   "selfRating": zod.string().nullish().describe('Self-assessed rating (2.0-5.0) for NR (non-rated) players. Updates the member\'s self-rating.'),
@@ -548,7 +550,7 @@ export const UpdateRegistrationResponse = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -560,6 +562,7 @@ export const UpdateRegistrationResponse = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 
@@ -589,7 +592,7 @@ export const ApproveRegistrationResponse = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -601,6 +604,7 @@ export const ApproveRegistrationResponse = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 
@@ -620,7 +624,7 @@ export const RejectRegistrationResponse = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -632,6 +636,7 @@ export const RejectRegistrationResponse = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 
@@ -651,7 +656,7 @@ export const PromoteFromWaitlistResponse = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -663,6 +668,7 @@ export const PromoteFromWaitlistResponse = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 
@@ -686,7 +692,7 @@ export const CancelRegistrationResponse = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
   "memberDuprId": zod.string(),
   "partnerDuprId": zod.string().nullish(),
-  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled']),
+  "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']),
   "registeredAt": zod.coerce.date(),
   "approvedAt": zod.string().nullish(),
   "approvedBy": zod.number().nullish(),
@@ -698,6 +704,7 @@ export const CancelRegistrationResponse = zod.object({
   "selfRating": zod.string().nullish(),
   "partnerName": zod.string().nullish(),
   "partnerDoubleRating": zod.string().nullish(),
+  "partnerSelfRating": zod.string().nullish(),
   "teamRating": zod.string().nullish()
 })
 

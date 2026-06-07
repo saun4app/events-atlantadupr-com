@@ -15,6 +15,7 @@ export interface RegistrantSnapshot {
 export interface PartnerSnapshot {
   partnerName: string | null;
   partnerDoubleRating: string | null;
+  partnerSelfRating?: string | null;
 }
 
 export const registrationsTable = pgTable("atl_dupr_signups", {
@@ -26,7 +27,7 @@ export const registrationsTable = pgTable("atl_dupr_signups", {
   playerSnapshot: jsonb("player_snapshot").$type<RegistrantSnapshot>(),
   partnerSnapshot: jsonb("partner_snapshot").$type<PartnerSnapshot>(),
   status: text("status", {
-    enum: ["confirmed", "waitlisted", "pending_approval", "rejected", "cancelled"],
+    enum: ["confirmed", "waitlisted", "pending_approval", "rejected", "cancelled", "no_show"],
   })
     .notNull()
     .default("confirmed"),
