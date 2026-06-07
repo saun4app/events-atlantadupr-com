@@ -370,6 +370,41 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   return res.status(201).json(entry);
 });
 
+// Bulk-initialize assignedRating = DUPR for all registrations where assignedRating is null
+router.post(
+  "/bulk-set-assigned-ratings",
+  requireAuth,
+  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  async (req: Request<EventParams>, res: Response) => {
+    const eventType = parseEventType(req.params.eventType);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+
+    const regs = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(regScope(eventId, eventType), sql`${registrationsTable.assignedRating} IS NULL`));
+
+    let updated = 0;
+    for (const reg of regs) {
+      const snap = reg.playerSnapshot as any;
+      const dupr = snap?.doubleRating;
+      if (dupr && dupr !== "NR") {
+        const rating = parseFloat(dupr);
+        if (!isNaN(rating)) {
+          await db
+            .update(registrationsTable)
+            .set({ assignedRating: rating })
+            .where(eq(registrationsTable.id, reg.id));
+          updated++;
+        }
+      }
+    }
+
+    return res.json({ updated });
+  },
+);
+
 router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
   const eventType = parseEventType(req.params.eventType);
   if (!eventType) return res.status(404).json({ error: "Unknown event format" });

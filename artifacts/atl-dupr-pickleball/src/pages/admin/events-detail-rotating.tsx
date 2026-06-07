@@ -6,7 +6,7 @@ import {
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
   getListEventsQueryKey, getGetEventsSummaryQueryKey
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useMutation } from "@tanstack/react-query";
 import NotFound from "@/pages/not-found";
 import { AdminNav } from "@/components/admin-nav";
 import { Button } from "@/components/ui/button";
@@ -133,6 +133,22 @@ export default function AdminEventDetailRotating() {
   const deleteEvent = useDeleteEvent();
   const updateReg = useUpdateRegistration();
   const createReg = useCreateRegistration();
+  const bulkSetAssigned = useMutation({
+    mutationFn: async () => {
+      const token = localStorage.getItem("authToken");
+      const res = await fetch(`/api/events/${eventType}/${eventId}/registrations/bulk-set-assigned-ratings`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (!res.ok) throw new Error("Failed to set assigned ratings");
+      return res.json() as Promise<{ updated: number }>;
+    },
+    onSuccess: (data) => {
+      toast({ title: `Set ${data.updated} assigned rating${data.updated === 1 ? "" : "s"} to DUPR` });
+      invalidate();
+    },
+    onError: () => toast({ title: "Failed to set assigned ratings", variant: "destructive" }),
+  });
   const [showDeleteEventDialog, setShowDeleteEventDialog] = useState(false);
   const [addEmails, setAddEmails] = useState("");
   const [addPartnerEmail, setAddPartnerEmail] = useState("");
@@ -724,6 +740,16 @@ export default function AdminEventDetailRotating() {
                                   </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 px-2 text-xs gap-1"
+                                data-testid="button-set-all-to-dupr"
+                                disabled={bulkSetAssigned.isPending}
+                                onClick={() => bulkSetAssigned.mutate()}
+                              >
+                                Set All to DUPR
+                              </Button>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                   <Button size="sm" variant="outline" className="h-7 px-2 text-xs gap-1" data-testid="button-export">
