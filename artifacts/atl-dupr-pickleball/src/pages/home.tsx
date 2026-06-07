@@ -1,9 +1,10 @@
 import { useState } from "react";
+import React from "react";
 import { Link } from "wouter";
 import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
 import { PublicNav } from "@/components/public-nav";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign } from "lucide-react";
+import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign, Shuffle, Link2 } from "lucide-react";
 import { format } from "date-fns";
 
 type EventType = "rotating" | "fixed_partner";
@@ -87,9 +88,9 @@ export default function Home() {
   const isLoading = tab === "rotating" ? rotLoading : fixedLoading;
   const events = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
 
-  const formatTabs: { value: EventType; label: string }[] = [
-    { value: "rotating", label: "Rotating Partners" },
-    { value: "fixed_partner", label: "Fixed-Partner" },
+  const formatTabs: { value: EventType; label: string; icon: React.ElementType }[] = [
+    { value: "rotating", label: "Rotating Partners", icon: Shuffle },
+    { value: "fixed_partner", label: "Fixed-Partner", icon: Link2 },
   ];
 
   if (settings?.maintenanceMode) {
@@ -122,18 +123,20 @@ export default function Home() {
         <div className="flex items-center gap-1 mb-6 border-b border-border">
           {formatTabs.map(t => {
             const active = tab === t.value;
+            const Icon = t.icon;
             return (
               <button
                 key={t.value}
                 type="button"
                 data-testid={`tab-${t.value}`}
                 onClick={() => setTab(t.value)}
-                className={`px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
                   active
                     ? "border-primary text-primary"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 }`}
               >
+                <Icon className="w-4 h-4" />
                 {t.label}
               </button>
             );
