@@ -99,14 +99,14 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
             <th className="text-left px-5 py-3">
               <SortHeader label="Name" activeKey="playerName" sort={sort} onSort={toggleSort} />
             </th>
+            <th className="text-left px-5 py-3">
+              <SortHeader label="DUPR Rating" activeKey="doubleRating" sort={sort} onSort={toggleSort} />
+            </th>
             {isFixed && (
               <th className="text-left px-5 py-3">
                 <SortHeader label="Partner" activeKey="partnerName" sort={sort} onSort={toggleSort} />
               </th>
             )}
-            <th className="text-left px-5 py-3">
-              <SortHeader label="DUPR Rating" activeKey="doubleRating" sort={sort} onSort={toggleSort} />
-            </th>
             {isFixed && (
               <th className="text-left px-5 py-3">
                 <SortHeader label="Partner DUPR" activeKey="partnerDoubleRating" sort={sort} onSort={toggleSort} />
@@ -124,14 +124,14 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
             <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
               <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
               <td className="px-5 py-3 font-medium">{formatNameInitials(reg.playerName)}</td>
-              {isFixed && (
-                <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
-              )}
               <td className="px-5 py-3">
                 <span data-testid={`text-rating-${reg.id}`} className="font-mono">
                   {reg.doubleRating || "NR"}
                 </span>
               </td>
+              {isFixed && (
+                <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>
+              )}
               {isFixed && (
                 <td className="px-5 py-3 font-mono">
                   {reg.partnerDoubleRating || "NR"}
