@@ -335,7 +335,7 @@ export abstract class BaseEventController {
       pendingApproval,
       total: confirmed + waitlisted + pendingApproval,
       maxParticipants: event.maxParticipants,
-      maxTeams: this.computeTeams(event.maxParticipants),
+      maxTeams: event.maxTeams ?? this.computeTeams(event.maxParticipants),
       confirmedTeams: this.computeTeams(confirmed),
       waitlistedTeams: this.computeTeams(waitlisted),
       pendingTeams: this.computeTeams(pendingApproval),
@@ -397,7 +397,7 @@ class FixedEventController extends BaseEventController {
   }
 
   protected computeTeams(n: number): number | null {
-    return Math.floor(n / 2);
+    return n; // each fixed-partner registration = 1 team (player + partner in one row)
   }
 }
 
