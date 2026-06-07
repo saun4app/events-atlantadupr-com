@@ -582,15 +582,9 @@ export default function AdminEventDetailRotating() {
                   <Button data-testid="button-edit-event" variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
                     <Pencil className="w-3.5 h-3.5" /> Edit
                   </Button>
-                  <Select value={event.status} onValueChange={(v) => updateEvent.mutate({ eventType, id: eventId, data: { status: v as any } }, { onSuccess: () => { toast({ title: "Status updated" }); invalidateEvent(); } })}>
-                    <SelectTrigger data-testid="select-event-status" className="w-36"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="upcoming">Upcoming</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
-                      <SelectItem value="ended">Ended</SelectItem>
-                      <SelectItem value="cancelled">Canceled</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <Badge variant={event.status === "cancelled" ? "destructive" : event.status === "ended" ? "secondary" : "default"} className="capitalize">
+                    {event.status}
+                  </Badge>
                 </div>
               </div>
               <div className="mt-4 pt-4 border-t border-border flex gap-4 text-sm">
@@ -1433,6 +1427,7 @@ export default function AdminEventDetailRotating() {
                       <SelectItem value="upcoming">Upcoming</SelectItem>
                       <SelectItem value="closed">Closed</SelectItem>
                       <SelectItem value="ended">Ended</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
