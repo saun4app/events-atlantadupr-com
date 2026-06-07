@@ -143,7 +143,7 @@ export default function AdminEventDetailFixed() {
         const stored = localStorage.getItem("admin_event_detail_columns");
         if (stored) return new Set(JSON.parse(stored));
       } catch {}
-      return new Set(["name", "duprId", "dupr", "selfRating", "assigned", "email", "phone", "partner", "partnerDupr", "teamRating", "status", "role", "signedUp"]);
+      return new Set(["name", "duprId", "dupr", "selfRating", "assigned", "email", "phone", "partner", "partnerDuprId", "partnerDupr", "partnerSelfRating", "teamRating", "status", "role", "signedUp"]);
     }
   );
   const toggleCol = (k: string) => setVisibleCols(prev => {
@@ -153,10 +153,7 @@ export default function AdminEventDetailFixed() {
     return next;
   });
   const col = (k: string) => visibleCols.has(k);
-  const visibleColCount = 2 + Array.from(visibleCols).filter(k => {
-    if (k === "partner" || k === "partnerDupr" || k === "teamRating") return event?.teamFormat === "fixed_partner";
-    return true;
-  }).length;
+  const visibleColCount = 2 + visibleCols.size;
 
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [editForm, setEditForm] = useState<Record<string, any>>({});
@@ -210,7 +207,9 @@ export default function AdminEventDetailFixed() {
       else if (s.col === "status") { av = statusOrder[a.status] ?? 99; bv = statusOrder[b.status] ?? 99; }
       else if (s.col === "role") { av = (a.eventRole ?? "").toLowerCase(); bv = (b.eventRole ?? "").toLowerCase(); }
       else if (s.col === "partner") { av = (a.partnerName ?? "").toLowerCase(); bv = (b.partnerName ?? "").toLowerCase(); }
+      else if (s.col === "partnerDuprId") { av = (a.partnerDuprId ?? "").toLowerCase(); bv = (b.partnerDuprId ?? "").toLowerCase(); }
       else if (s.col === "partnerDupr") { av = parseFloat(a.partnerDoubleRating); bv = parseFloat(b.partnerDoubleRating); }
+      else if (s.col === "partnerSelfRating") { av = parseFloat(a.partnerSelfRating) || 0; bv = parseFloat(b.partnerSelfRating) || 0; }
       else if (s.col === "teamRating") { av = parseFloat(a.teamRating); bv = parseFloat(b.teamRating); }
       else if (s.col === "email") { av = ((a as any).playerEmail ?? "").toLowerCase(); bv = ((b as any).playerEmail ?? "").toLowerCase(); }
       else if (s.col === "phone") { av = ((a as any).playerPhone ?? "").toLowerCase(); bv = ((b as any).playerPhone ?? "").toLowerCase(); }
@@ -485,7 +484,9 @@ export default function AdminEventDetailFixed() {
     if (col("email")) cols.push({ label: "Email", get: r => r.playerEmail ?? "" });
     if (col("phone")) cols.push({ label: "Phone", get: r => r.playerPhone ?? "" });
     if (col("partner")) cols.push({ label: "Partner", get: r => r.partnerName ?? "" });
+    if (col("partnerDuprId")) cols.push({ label: "Partner DUPR ID", get: r => r.partnerDuprId ?? "" });
     if (col("partnerDupr")) cols.push({ label: "Partner DUPR", get: r => r.partnerDoubleRating || "NR" });
+    if (col("partnerSelfRating")) cols.push({ label: "Partner Self-Rate", get: r => r.partnerSelfRating != null ? String(r.partnerSelfRating) : "" });
     if (col("teamRating")) cols.push({ label: "Team Rating", get: r => r.teamRating || "NR" });
     if (col("status")) cols.push({ label: "Status", get: r => r.status ?? "" });
     if (col("role")) cols.push({ label: "Role", get: r => r.eventRole ?? "" });
@@ -652,7 +653,9 @@ export default function AdminEventDetailFixed() {
                 { key: "email", label: "Email" },
                 { key: "phone", label: "Phone" },
                 { key: "partner", label: "Partner" },
+                { key: "partnerDuprId", label: "Partner DUPR ID" },
                 { key: "partnerDupr", label: "Partner DUPR" },
+                { key: "partnerSelfRating", label: "Partner Self-Rate" },
                 { key: "teamRating", label: "Team Rating" },
                 { key: "status", label: "Status" },
                 { key: "role", label: "Role" },
@@ -762,7 +765,9 @@ export default function AdminEventDetailFixed() {
                               {col("email") && <SortHeader label="Email" col="email" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "email")} />}
                               {col("phone") && <SortHeader label="Phone" col="phone" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "phone")} />}
                               {col("partner") && <SortHeader label="Partner" col="partner" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partner")} />}
+                              {col("partnerDuprId") && <th className="text-left px-5 py-2.5 font-medium text-muted-foreground">Partner DUPR ID</th>}
                               {col("partnerDupr") && <SortHeader label="Partner DUPR" col="partnerDupr" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partnerDupr")} />}
+                              {col("partnerSelfRating") && <SortHeader label="Partner Self-Rate" col="partnerSelfRating" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "partnerSelfRating")} />}
                               {col("teamRating") && <SortHeader label="Team Rating" col="teamRating" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "teamRating")} />}
                               {col("status") && <SortHeader label="Status" col="status" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "status")} />}
                               {col("role") && <SortHeader label="Role" col="role" activeCol={sortCol} dir={sortDir} onSort={() => toggleSort(key, "role")} />}
@@ -884,7 +889,9 @@ export default function AdminEventDetailFixed() {
                                     </td>
                                   )}
                                   {col("partner") && <td className="px-5 py-3 text-muted-foreground">{reg.partnerName || "—"}</td>}
+                                  {col("partnerDuprId") && <td className="px-5 py-3 font-mono text-xs text-muted-foreground">{reg.partnerDuprId || "—"}</td>}
                                   {col("partnerDupr") && <td className="px-5 py-3 font-mono">{reg.partnerDoubleRating || "NR"}</td>}
+                                  {col("partnerSelfRating") && <td className="px-5 py-3 font-mono text-xs">{(reg as any).partnerSelfRating != null ? (reg as any).partnerSelfRating : "—"}</td>}
                                   {col("teamRating") && <td className="px-5 py-3 font-mono">{reg.teamRating || "NR"}</td>}
                                   {col("status") && <td className="px-5 py-3"><StatusBadge status={reg.status} /></td>}
                                   {col("role") && (

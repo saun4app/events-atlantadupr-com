@@ -50,6 +50,7 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
   const partnerSnap = reg.partnerSnapshot;
   const partnerName = partnerSnap?.partnerName ?? null;
   const partnerDoubleRating = partnerSnap?.partnerDoubleRating ?? null;
+  const partnerSelfRating = partnerSnap?.partnerSelfRating ?? null;
   const myRating = parseFloat(snap?.doubleRating ?? "NR");
   const partnerRating = parseFloat(partnerDoubleRating ?? "NR");
   const teamRating = !isNaN(myRating) && !isNaN(partnerRating) ? ((myRating + partnerRating) / 2).toFixed(2) : null;
@@ -74,6 +75,7 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
     selfRating: snap?.selfRating ?? null,
     partnerName,
     partnerDoubleRating,
+    partnerSelfRating,
     teamRating,
     ...(includeAdminFields ? { playerEmail: snap?.email ?? null, playerPhone: snap?.phone ?? null } : {}),
   };
@@ -335,6 +337,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     ? {
         partnerName: partnerMember?.playerName ?? resolvedPartnerDuprId,
         partnerDoubleRating: partnerMember?.doubleRating ?? null,
+        partnerSelfRating: partnerMember?.selfRating ?? null,
       }
     : null;
 
@@ -406,6 +409,7 @@ router.patch(
         updates.partnerSnapshot = {
           partnerName: partner?.playerName ?? req.body.partnerDuprId,
           partnerDoubleRating: partner?.doubleRating ?? null,
+          partnerSelfRating: partner?.selfRating ?? null,
         };
       } else {
         updates.partnerSnapshot = null;
