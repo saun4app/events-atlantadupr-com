@@ -38,7 +38,8 @@ async function seed() {
       { key: "national", label: "National Rating Required" },
       { key: "none", label: "All Levels (No Rating Required)" },
     ],
-    contactPersons: [{ name: "Admin User", email: "admin@atldupr.com" }],
+    contactPersons: [{ name: "Support", email: "saun@atlantadupr.com" }],
+    eventContactEmails: ["saun@atlantadupr.com"],
     defaultLocations: [
       { id: "loc-1", name: "Chastain Park Tennis Center", address: "315 West Wieuca Rd NW, Atlanta, GA 30342", memberFee: 5, nonMemberFee: 10, courtFeeEnabled: true },
       { id: "loc-2", name: "Blackburn Park", address: "3493 Ashford Dunwoody Rd NE, Atlanta, GA 30319", memberFee: 0, nonMemberFee: 0, courtFeeEnabled: false },
