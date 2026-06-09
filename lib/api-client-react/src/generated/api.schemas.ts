@@ -72,44 +72,44 @@ export interface UserUpdate {
 
 export interface Member {
   duprId: string;
-  playerName: string;
+  name: string;
   /** @nullable */
-  doubleRating?: string | null;
+  doubles?: string | null;
   /** @nullable */
-  doubleReliability?: number | null;
+  doublesReliability?: number | null;
   /** @nullable */
-  singleRating?: string | null;
+  singles?: string | null;
   /** @nullable */
-  singleReliability?: number | null;
+  singlesReliability?: number | null;
   /** @nullable */
   selfRating?: string | null;
 }
 
 export interface MemberInput {
   duprId: string;
-  playerName: string;
+  name: string;
   /** @nullable */
-  doubleRating?: string | null;
+  doubles?: string | null;
   /** @nullable */
-  doubleReliability?: number | null;
+  doublesReliability?: number | null;
   /** @nullable */
-  singleRating?: string | null;
+  singles?: string | null;
   /** @nullable */
-  singleReliability?: number | null;
+  singlesReliability?: number | null;
   /** @nullable */
   selfRating?: string | null;
 }
 
 export interface MemberUpdate {
-  playerName?: string;
+  name?: string;
   /** @nullable */
-  doubleRating?: string | null;
+  doubles?: string | null;
   /** @nullable */
-  doubleReliability?: number | null;
+  doublesReliability?: number | null;
   /** @nullable */
-  singleRating?: string | null;
+  singles?: string | null;
   /** @nullable */
-  singleReliability?: number | null;
+  singlesReliability?: number | null;
   /** @nullable */
   selfRating?: string | null;
 }
@@ -559,11 +559,11 @@ export type ListMembersSortBy = typeof ListMembersSortBy[keyof typeof ListMember
 
 
 export const ListMembersSortBy = {
-  playerName: 'playerName',
-  doubleRating: 'doubleRating',
-  singleRating: 'singleRating',
-  doubleReliability: 'doubleReliability',
-  singleReliability: 'singleReliability',
+  name: 'name',
+  doubles: 'doubles',
+  singles: 'singles',
+  doublesReliability: 'doublesReliability',
+  singlesReliability: 'singlesReliability',
 } as const;
 
 export type ListMembersSortDir = typeof ListMembersSortDir[keyof typeof ListMembersSortDir];

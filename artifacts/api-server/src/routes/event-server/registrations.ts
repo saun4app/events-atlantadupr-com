@@ -46,13 +46,20 @@ function regScope(eventId: number, eventType: EventFormat) {
 }
 
 function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false, eventType?: EventFormat) {
-  const snap = reg.playerSnapshot;
-  const partnerSnap = reg.partnerSnapshot;
+  const snap = reg.playerSnapshot as any;
+  const partnerSnap = reg.partnerSnapshot as any;
+  // Backward compatibility: old DB snapshots use playerName/doubleRating/singleRating; new ones use name/doubles/singles
+  const playerName = snap?.name ?? snap?.playerName ?? reg.memberDuprId;
+  const doubleRating = snap?.doubles ?? snap?.doubleRating ?? null;
+  const singleRating = snap?.singles ?? snap?.singleRating ?? null;
+  const selfRating = snap?.selfRating ?? null;
+  const email = snap?.email ?? null;
+  const phone = snap?.phone ?? null;
   const partnerName = partnerSnap?.partnerName ?? null;
-  const partnerDoubleRating = partnerSnap?.partnerDoubleRating ?? null;
+  const partnerDoubles = partnerSnap?.partnerDoubles ?? partnerSnap?.partnerDoubleRating ?? null;
   const partnerSelfRating = partnerSnap?.partnerSelfRating ?? null;
-  const myRating = parseFloat(snap?.doubleRating ?? "NR");
-  const partnerRating = parseFloat(partnerDoubleRating ?? "NR");
+  const myRating = parseFloat(doubleRating ?? "NR");
+  const partnerRating = parseFloat(partnerDoubles ?? "NR");
   const teamRating = !isNaN(myRating) && !isNaN(partnerRating) ? ((myRating + partnerRating) / 2).toFixed(2) : null;
   return {
     id: reg.id,
@@ -69,15 +76,15 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
     approvedBy: reg.approvedBy ?? null,
     cancelledAt: reg.cancelledAt ?? null,
     cancelledBy: reg.cancelledBy ?? null,
-    playerName: snap?.playerName ?? reg.memberDuprId,
-    doubleRating: snap?.doubleRating ?? null,
-    singleRating: snap?.singleRating ?? null,
-    selfRating: snap?.selfRating ?? null,
+    playerName,
+    doubleRating,
+    singleRating,
+    selfRating,
     partnerName,
-    partnerDoubleRating,
+    partnerDoubleRating: partnerDoubles,
     partnerSelfRating,
     teamRating,
-    ...(includeAdminFields ? { playerEmail: snap?.email ?? null, playerPhone: snap?.phone ?? null } : {}),
+    ...(includeAdminFields ? { playerEmail: email, playerPhone: phone } : {}),
   };
 }
 
@@ -137,7 +144,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
     if (!rating || rating === "NR") return true;
     return isNaN(parseFloat(rating));
   }
-  const selfRatingRequired = member ? isNR(member.doubleRating) : false;
+  const selfRatingRequired = member ? isNR(member.doubles) : false;
 
   // The "from" address must be on a domain verified in the project's Resend
   // account. The event contact email often lives on a domain the operator does
@@ -296,7 +303,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   // Validate and store self-rating for NR players
   // Staff adding participants from admin console are exempt from self-rating requirement
-  if (isNR(member?.doubleRating ?? null) && !staff) {
+  if (isNR(member?.doubles ?? null) && !staff) {
     if (!selfRating || typeof selfRating !== "string") {
       return res.status(400).json({ error: "Self-rating is required for NR (non-rated) players. Please enter a rating between 2.0 and 5.0." });
     }
@@ -310,7 +317,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   }
 
   let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
-  if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubleRating ?? null))) {
+  if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
     status = "pending_approval";
   } else if (confirmedCount >= event.maxParticipants) {
     if (!event.waitlistEnabled) {
@@ -319,24 +326,24 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     status = "waitlisted";
   }
 
-  const assignedRating = member?.doubleRating ? parseFloat(member.doubleRating) : null;
+  const assignedRating = member?.doubles ? parseFloat(member.doubles) : null;
 
   // Capture a self-contained snapshot of the registrant (and partner) at signup
   // time so the registration no longer depends on the member list.
   const snapshotSelfRating =
-    isNR(member?.doubleRating ?? null) && !staff && selfRating ? String(selfRating) : member?.selfRating ?? null;
+    isNR(member?.doubles ?? null) && !staff && selfRating ? String(selfRating) : member?.selfRating ?? null;
   const playerSnapshot = {
-    playerName: member?.playerName ?? finalMemberDuprId,
-    doubleRating: member?.doubleRating ?? null,
-    singleRating: member?.singleRating ?? null,
+    name: member?.name ?? finalMemberDuprId,
+    doubles: member?.doubles ?? null,
+    singles: member?.singles ?? null,
     selfRating: snapshotSelfRating,
     email: member?.email ?? null,
     phone: member?.phone ?? null,
   };
   const partnerSnapshot = resolvedPartnerDuprId
     ? {
-        partnerName: partnerMember?.playerName ?? resolvedPartnerDuprId,
-        partnerDoubleRating: partnerMember?.doubleRating ?? null,
+        partnerName: partnerMember?.name ?? resolvedPartnerDuprId,
+        partnerDoubles: partnerMember?.doubles ?? null,
         partnerSelfRating: partnerMember?.selfRating ?? null,
       }
     : null;
@@ -388,7 +395,7 @@ router.post(
     let updated = 0;
     for (const reg of regs) {
       const snap = reg.playerSnapshot as any;
-      const dupr = snap?.doubleRating;
+      const dupr = snap?.doubles ?? snap?.doubleRating;
       if (dupr && dupr !== "NR") {
         const rating = parseFloat(dupr);
         if (!isNaN(rating)) {
@@ -442,8 +449,8 @@ router.patch(
       if (req.body.partnerDuprId) {
         const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, req.body.partnerDuprId));
         updates.partnerSnapshot = {
-          partnerName: partner?.playerName ?? req.body.partnerDuprId,
-          partnerDoubleRating: partner?.doubleRating ?? null,
+          partnerName: partner?.name ?? req.body.partnerDuprId,
+          partnerDoubles: partner?.doubles ?? null,
           partnerSelfRating: partner?.selfRating ?? null,
         };
       } else {
@@ -459,9 +466,9 @@ router.patch(
     if (req.body.selfRating !== undefined) {
       const sr = req.body.selfRating;
       const baseSnapshot = existing.playerSnapshot ?? {
-        playerName: existing.memberDuprId,
-        doubleRating: null,
-        singleRating: null,
+        name: existing.memberDuprId,
+        doubles: null,
+        singles: null,
         selfRating: null,
         email: null,
         phone: null,

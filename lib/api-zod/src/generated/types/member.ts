@@ -8,15 +8,15 @@
 
 export interface Member {
   duprId: string;
-  playerName: string;
+  name: string;
   /** @nullable */
-  doubleRating?: string | null;
+  doubles?: string | null;
   /** @nullable */
-  doubleReliability?: number | null;
+  doublesReliability?: number | null;
   /** @nullable */
-  singleRating?: string | null;
+  singles?: string | null;
   /** @nullable */
-  singleReliability?: number | null;
+  singlesReliability?: number | null;
   /** @nullable */
   selfRating?: string | null;
 }

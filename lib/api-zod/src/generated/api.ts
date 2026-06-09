@@ -50,17 +50,17 @@ export const GetMeResponse = zod.object({
  */
 export const ListMembersQueryParams = zod.object({
   "search": zod.coerce.string().optional().describe('Search by name or DUPR ID'),
-  "sortBy": zod.enum(['playerName', 'doubleRating', 'singleRating', 'doubleReliability', 'singleReliability']).optional().describe('Field to sort by'),
+  "sortBy": zod.enum(['name', 'doubles', 'singles', 'doublesReliability', 'singlesReliability']).optional().describe('Field to sort by'),
   "sortDir": zod.enum(['asc', 'desc']).optional().describe('Sort direction')
 })
 
 export const ListMembersResponseItem = zod.object({
   "duprId": zod.string(),
-  "playerName": zod.string(),
-  "doubleRating": zod.string().nullish(),
-  "doubleReliability": zod.number().nullish(),
-  "singleRating": zod.string().nullish(),
-  "singleReliability": zod.number().nullish(),
+  "name": zod.string(),
+  "doubles": zod.string().nullish(),
+  "doublesReliability": zod.number().nullish(),
+  "singles": zod.string().nullish(),
+  "singlesReliability": zod.number().nullish(),
   "selfRating": zod.string().nullish()
 })
 export const ListMembersResponse = zod.array(ListMembersResponseItem)
@@ -71,11 +71,11 @@ export const ListMembersResponse = zod.array(ListMembersResponseItem)
  */
 export const CreateMemberBody = zod.object({
   "duprId": zod.string(),
-  "playerName": zod.string(),
-  "doubleRating": zod.string().nullish(),
-  "doubleReliability": zod.number().nullish(),
-  "singleRating": zod.string().nullish(),
-  "singleReliability": zod.number().nullish(),
+  "name": zod.string(),
+  "doubles": zod.string().nullish(),
+  "doublesReliability": zod.number().nullish(),
+  "singles": zod.string().nullish(),
+  "singlesReliability": zod.number().nullish(),
   "selfRating": zod.string().nullish()
 })
 
@@ -101,11 +101,11 @@ export const GetMemberParams = zod.object({
 
 export const GetMemberResponse = zod.object({
   "duprId": zod.string(),
-  "playerName": zod.string(),
-  "doubleRating": zod.string().nullish(),
-  "doubleReliability": zod.number().nullish(),
-  "singleRating": zod.string().nullish(),
-  "singleReliability": zod.number().nullish(),
+  "name": zod.string(),
+  "doubles": zod.string().nullish(),
+  "doublesReliability": zod.number().nullish(),
+  "singles": zod.string().nullish(),
+  "singlesReliability": zod.number().nullish(),
   "selfRating": zod.string().nullish()
 })
 
@@ -118,21 +118,21 @@ export const UpdateMemberParams = zod.object({
 })
 
 export const UpdateMemberBody = zod.object({
-  "playerName": zod.string().optional(),
-  "doubleRating": zod.string().nullish(),
-  "doubleReliability": zod.number().nullish(),
-  "singleRating": zod.string().nullish(),
-  "singleReliability": zod.number().nullish(),
+  "name": zod.string().optional(),
+  "doubles": zod.string().nullish(),
+  "doublesReliability": zod.number().nullish(),
+  "singles": zod.string().nullish(),
+  "singlesReliability": zod.number().nullish(),
   "selfRating": zod.string().nullish()
 })
 
 export const UpdateMemberResponse = zod.object({
   "duprId": zod.string(),
-  "playerName": zod.string(),
-  "doubleRating": zod.string().nullish(),
-  "doubleReliability": zod.number().nullish(),
-  "singleRating": zod.string().nullish(),
-  "singleReliability": zod.number().nullish(),
+  "name": zod.string(),
+  "doubles": zod.string().nullish(),
+  "doublesReliability": zod.number().nullish(),
+  "singles": zod.string().nullish(),
+  "singlesReliability": zod.number().nullish(),
   "selfRating": zod.string().nullish()
 })
 

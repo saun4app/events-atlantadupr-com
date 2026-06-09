@@ -15,7 +15,7 @@ router.get("/", async (req, res) => {
     const q = search.toLowerCase();
     rows = rows.filter(
       (m) =>
-        m.playerName.toLowerCase().includes(q) || m.duprId.toLowerCase().includes(q),
+        m.name.toLowerCase().includes(q) || m.duprId.toLowerCase().includes(q),
     );
   }
 
@@ -32,22 +32,22 @@ router.get("/", async (req, res) => {
 });
 
 router.post("/", requireRole("admin"), async (req, res) => {
-  const { duprId, playerName, doubleRating, doubleReliability, singleRating, singleReliability, selfRating, email, phone } = req.body;
-  if (!duprId || !playerName) {
-    return res.status(400).json({ error: "duprId and playerName are required" });
+  const { duprId, name, doubles, doublesReliability, singles, singlesReliability, selfRating, email, phone } = req.body;
+  if (!duprId || !name) {
+    return res.status(400).json({ error: "duprId and name are required" });
   }
 
   const [member] = await db
     .insert(membersTable)
-    .values({ duprId, playerName, doubleRating, doubleReliability, singleRating, singleReliability, selfRating, email: email || null, phone: phone || null })
+    .values({ duprId, name, doubles, doublesReliability, singles, singlesReliability, selfRating, email: email || null, phone: phone || null })
     .onConflictDoUpdate({
       target: membersTable.duprId,
       set: {
-        playerName,
-        doubleRating,
-        doubleReliability,
-        singleRating,
-        singleReliability,
+        name,
+        doubles,
+        doublesReliability,
+        singles,
+        singlesReliability,
         selfRating,
         email: email || null,
         phone: phone || null,
@@ -90,10 +90,10 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
     });
 
     const duprId = row["dupr_id"] || row["duprid"] || row["dupr id"];
-    const playerName = row["player_name"] || row["playername"] || row["name"];
+    const name = row["name"] || row["player_name"] || row["playername"];
 
-    if (!duprId || !playerName) {
-      errors.push(`Row ${i + 1}: Missing dupr_id or player_name`);
+    if (!duprId || !name) {
+      errors.push(`Row ${i + 1}: Missing dupr_id or name`);
       skipped++;
       continue;
     }
@@ -105,11 +105,11 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
         .insert(membersTable)
         .values({
           duprId,
-          playerName,
-          doubleRating: row["double_rating"] || null,
-          doubleReliability: row["double_reliability"] ? parseInt(row["double_reliability"]) : null,
-          singleRating: row["single_rating"] || null,
-          singleReliability: row["single_reliability"] ? parseInt(row["single_reliability"]) : null,
+          name,
+          doubles: row["doubles"] || row["double_rating"] || null,
+          doublesReliability: row["doubles_reliability"] || row["double_reliability"] ? parseInt(row["doubles_reliability"] || row["double_reliability"]) : null,
+          singles: row["singles"] || row["single_rating"] || null,
+          singlesReliability: row["singles_reliability"] || row["single_reliability"] ? parseInt(row["singles_reliability"] || row["single_reliability"]) : null,
           selfRating: row["self_rating"] || null,
           email: row["email"] || null,
           phone: row["phone"] || null,
@@ -117,11 +117,11 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
         .onConflictDoUpdate({
           target: membersTable.duprId,
           set: {
-            playerName,
-            doubleRating: row["double_rating"] || null,
-            doubleReliability: row["double_reliability"] ? parseInt(row["double_reliability"]) : null,
-            singleRating: row["single_rating"] || null,
-            singleReliability: row["single_reliability"] ? parseInt(row["single_reliability"]) : null,
+            name,
+            doubles: row["doubles"] || row["double_rating"] || null,
+            doublesReliability: row["doubles_reliability"] || row["double_reliability"] ? parseInt(row["doubles_reliability"] || row["double_reliability"]) : null,
+            singles: row["singles"] || row["single_rating"] || null,
+            singlesReliability: row["singles_reliability"] || row["single_reliability"] ? parseInt(row["singles_reliability"] || row["single_reliability"]) : null,
             selfRating: row["self_rating"] || null,
             email: row["email"] || null,
             phone: row["phone"] || null,
@@ -163,13 +163,13 @@ router.patch("/:duprId", requireRole("admin"), async (req, res) => {
   const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, duprId));
   if (!existing) return res.status(404).json({ error: "Member not found" });
 
-  const { playerName, doubleRating, doubleReliability, singleRating, singleReliability, selfRating, email, phone } = req.body;
+  const { name, doubles, doublesReliability, singles, singlesReliability, selfRating, email, phone } = req.body;
   const updates: Partial<typeof existing> = {};
-  if (playerName !== undefined) updates.playerName = playerName;
-  if (doubleRating !== undefined) updates.doubleRating = doubleRating;
-  if (doubleReliability !== undefined) updates.doubleReliability = doubleReliability;
-  if (singleRating !== undefined) updates.singleRating = singleRating;
-  if (singleReliability !== undefined) updates.singleReliability = singleReliability;
+  if (name !== undefined) updates.name = name;
+  if (doubles !== undefined) updates.doubles = doubles;
+  if (doublesReliability !== undefined) updates.doublesReliability = doublesReliability;
+  if (singles !== undefined) updates.singles = singles;
+  if (singlesReliability !== undefined) updates.singlesReliability = singlesReliability;
   if (selfRating !== undefined) updates.selfRating = selfRating;
   if (email !== undefined) updates.email = email || null;
   if (phone !== undefined) updates.phone = phone || null;

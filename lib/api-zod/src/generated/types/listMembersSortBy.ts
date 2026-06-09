@@ -10,9 +10,9 @@ export type ListMembersSortBy = typeof ListMembersSortBy[keyof typeof ListMember
 
 
 export const ListMembersSortBy = {
-  playerName: 'playerName',
-  doubleRating: 'doubleRating',
-  singleRating: 'singleRating',
-  doubleReliability: 'doubleReliability',
-  singleReliability: 'singleReliability',
+  name: 'name',
+  doubles: 'doubles',
+  singles: 'singles',
+  doublesReliability: 'doublesReliability',
+  singlesReliability: 'singlesReliability',
 } as const;

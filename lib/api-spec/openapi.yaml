@@ -96,7 +96,7 @@ paths:
           name: sortBy
           schema:
             type: string
-            enum: [playerName, doubleRating, singleRating, doubleReliability, singleReliability]
+            enum: [name, doubles, singles, doublesReliability, singlesReliability]
           description: Field to sort by
         - in: query
           name: sortDir
@@ -933,38 +933,38 @@ components:
 
     Member:
       type: object
-      required: [duprId, playerName]
+      required: [duprId, name]
       properties:
         duprId:
           type: string
-        playerName:
+        name:
           type: string
-        doubleRating:
+        doubles:
           type: ["string", "null"]
-        doubleReliability:
+        doublesReliability:
           type: ["integer", "null"]
-        singleRating:
+        singles:
           type: ["string", "null"]
-        singleReliability:
+        singlesReliability:
           type: ["integer", "null"]
         selfRating:
           type: ["string", "null"]
 
     MemberInput:
       type: object
-      required: [duprId, playerName]
+      required: [duprId, name]
       properties:
         duprId:
           type: string
-        playerName:
+        name:
           type: string
-        doubleRating:
+        doubles:
           type: ["string", "null"]
-        doubleReliability:
+        doublesReliability:
           type: ["integer", "null"]
-        singleRating:
+        singles:
           type: ["string", "null"]
-        singleReliability:
+        singlesReliability:
           type: ["integer", "null"]
         selfRating:
           type: ["string", "null"]
@@ -972,15 +972,15 @@ components:
     MemberUpdate:
       type: object
       properties:
-        playerName:
+        name:
           type: string
-        doubleRating:
+        doubles:
           type: ["string", "null"]
-        doubleReliability:
+        doublesReliability:
           type: ["integer", "null"]
-        singleRating:
+        singles:
           type: ["string", "null"]
-        singleReliability:
+        singlesReliability:
           type: ["integer", "null"]
         selfRating:
           type: ["string", "null"]

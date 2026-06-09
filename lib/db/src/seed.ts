@@ -110,25 +110,25 @@ async function seed() {
   ]).returning();
 
   await db.insert(membersTable).values([
-    { duprId: "DUPR-001", playerName: "Alice Chen",    doubleRating: "4.25", singleRating: "4.10", email: "alice.chen@gmail.com",      phone: "404-555-0101" },
-    { duprId: "DUPR-002", playerName: "Bob Martinez",  doubleRating: "3.80", singleRating: "3.70", email: "bob.martinez@gmail.com",    phone: "404-555-0102" },
-    { duprId: "DUPR-003", playerName: "Carol Smith",   doubleRating: "4.50", singleRating: "4.40", email: "carol.smith@outlook.com",   phone: "770-555-0103" },
-    { duprId: "DUPR-004", playerName: "David Park",    doubleRating: "3.20", singleRating: "3.10", email: "david.park@yahoo.com",      phone: "678-555-0104" },
-    { duprId: "DUPR-005", playerName: "Emma Wilson",   doubleRating: "4.75", singleRating: "4.60", email: "emma.wilson@gmail.com",     phone: "404-555-0105" },
-    { duprId: "DUPR-006", playerName: "Frank Lee",     doubleRating: "3.60", singleRating: "3.50", email: "frank.lee@outlook.com",     phone: "770-555-0106" },
-    { duprId: "DUPR-007", playerName: "Grace Kim",     doubleRating: "4.10", singleRating: "4.00", email: "grace.kim@gmail.com",       phone: "678-555-0107" },
-    { duprId: "DUPR-008", playerName: "Henry Brown",   doubleRating: "3.90", singleRating: "3.80", email: "henry.brown@yahoo.com",     phone: "404-555-0108" },
-    { duprId: "DUPR-009", playerName: "Isabel Torres", doubleRating: "4.30", singleRating: "4.20", email: "isabel.torres@gmail.com",   phone: "770-555-0109" },
-    { duprId: "DUPR-010", playerName: "Jack Davis",    doubleRating: "3.50", singleRating: "3.40", email: "jack.davis@outlook.com",    phone: "678-555-0110" },
+    { duprId: "DUPR-001", name: "Alice Chen",    doubles: "4.25", singles: "4.10", email: "alice.chen@gmail.com",      phone: "404-555-0101" },
+    { duprId: "DUPR-002", name: "Bob Martinez",  doubles: "3.80", singles: "3.70", email: "bob.martinez@gmail.com",    phone: "404-555-0102" },
+    { duprId: "DUPR-003", name: "Carol Smith",   doubles: "4.50", singles: "4.40", email: "carol.smith@outlook.com",   phone: "770-555-0103" },
+    { duprId: "DUPR-004", name: "David Park",    doubles: "3.20", singles: "3.10", email: "david.park@yahoo.com",      phone: "678-555-0104" },
+    { duprId: "DUPR-005", name: "Emma Wilson",   doubles: "4.75", singles: "4.60", email: "emma.wilson@gmail.com",     phone: "404-555-0105" },
+    { duprId: "DUPR-006", name: "Frank Lee",     doubles: "3.60", singles: "3.50", email: "frank.lee@outlook.com",     phone: "770-555-0106" },
+    { duprId: "DUPR-007", name: "Grace Kim",     doubles: "4.10", singles: "4.00", email: "grace.kim@gmail.com",       phone: "678-555-0107" },
+    { duprId: "DUPR-008", name: "Henry Brown",   doubles: "3.90", singles: "3.80", email: "henry.brown@yahoo.com",     phone: "404-555-0108" },
+    { duprId: "DUPR-009", name: "Isabel Torres", doubles: "4.30", singles: "4.20", email: "isabel.torres@gmail.com",   phone: "770-555-0109" },
+    { duprId: "DUPR-010", name: "Jack Davis",    doubles: "3.50", singles: "3.40", email: "jack.davis@outlook.com",    phone: "678-555-0110" },
   ]);
 
   await db.insert(registrationsTable).values([
-    { eventId: ev1.id, eventType: "rotating", memberDuprId: "DUPR-001", status: "confirmed", playerSnapshot: { playerName: "Alice Chen", doubleRating: "4.25", singleRating: "4.10", selfRating: null, email: "alice.chen@gmail.com", phone: "404-555-0101" } },
-    { eventId: ev1.id, eventType: "rotating", memberDuprId: "DUPR-002", status: "confirmed", playerSnapshot: { playerName: "Bob Martinez", doubleRating: "3.80", singleRating: "3.70", selfRating: null, email: "bob.martinez@gmail.com", phone: "404-555-0102" } },
-    { eventId: ev1.id, eventType: "rotating", memberDuprId: "DUPR-003", status: "waitlisted", playerSnapshot: { playerName: "Carol Smith", doubleRating: "4.50", singleRating: "4.40", selfRating: null, email: "carol.smith@outlook.com", phone: "770-555-0103" } },
-    { eventId: ev2.id, eventType: "fixed_partner", memberDuprId: "DUPR-004", status: "pending_approval", playerSnapshot: { playerName: "David Park", doubleRating: "3.20", singleRating: "3.10", selfRating: null, email: "david.park@yahoo.com", phone: "678-555-0104" } },
-    { eventId: ev2.id, eventType: "fixed_partner", memberDuprId: "DUPR-005", status: "confirmed", playerSnapshot: { playerName: "Emma Wilson", doubleRating: "4.75", singleRating: "4.60", selfRating: null, email: "emma.wilson@gmail.com", phone: "404-555-0105" } },
-    { eventId: ev3.id, eventType: "rotating", memberDuprId: "DUPR-007", status: "confirmed", playerSnapshot: { playerName: "Grace Kim", doubleRating: "4.10", singleRating: "4.00", selfRating: null, email: "grace.kim@gmail.com", phone: "678-555-0107" } },
+    { eventId: ev1.id, eventType: "rotating", memberDuprId: "DUPR-001", status: "confirmed", playerSnapshot: { name: "Alice Chen", doubles: "4.25", singles: "4.10", selfRating: null, email: "alice.chen@gmail.com", phone: "404-555-0101" } },
+    { eventId: ev1.id, eventType: "rotating", memberDuprId: "DUPR-002", status: "confirmed", playerSnapshot: { name: "Bob Martinez", doubles: "3.80", singles: "3.70", selfRating: null, email: "bob.martinez@gmail.com", phone: "404-555-0102" } },
+    { eventId: ev1.id, eventType: "rotating", memberDuprId: "DUPR-003", status: "waitlisted", playerSnapshot: { name: "Carol Smith", doubles: "4.50", singles: "4.40", selfRating: null, email: "carol.smith@outlook.com", phone: "770-555-0103" } },
+    { eventId: ev2.id, eventType: "fixed_partner", memberDuprId: "DUPR-004", status: "pending_approval", playerSnapshot: { name: "David Park", doubles: "3.20", singles: "3.10", selfRating: null, email: "david.park@yahoo.com", phone: "678-555-0104" } },
+    { eventId: ev2.id, eventType: "fixed_partner", memberDuprId: "DUPR-005", status: "confirmed", playerSnapshot: { name: "Emma Wilson", doubles: "4.75", singles: "4.60", selfRating: null, email: "emma.wilson@gmail.com", phone: "404-555-0105" } },
+    { eventId: ev3.id, eventType: "rotating", memberDuprId: "DUPR-007", status: "confirmed", playerSnapshot: { name: "Grace Kim", doubles: "4.10", singles: "4.00", selfRating: null, email: "grace.kim@gmail.com", phone: "678-555-0107" } },
   ]);
 
   console.log("Seed complete: 1 app_settings row, 3 users, 10 members, 3 events, 6 registrations.");

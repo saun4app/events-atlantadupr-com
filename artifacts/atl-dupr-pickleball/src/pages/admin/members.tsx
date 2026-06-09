@@ -22,9 +22,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
-type MemberRow = { duprId: string; playerName: string; doubleRating?: string | null; doubleReliability?: number | null; singleRating?: string | null; singleReliability?: number | null; selfRating?: string | null; email?: string | null; phone?: string | null };
+type MemberRow = { duprId: string; name: string; doubles?: string | null; doublesReliability?: number | null; singles?: string | null; singlesReliability?: number | null; selfRating?: string | null; email?: string | null; phone?: string | null };
 
-const emptyForm = { duprId: "", playerName: "", doubleRating: "", doubleReliability: "", singleRating: "", singleReliability: "", selfRating: "", email: "", phone: "" };
+const emptyForm = { duprId: "", name: "", doubles: "", doublesReliability: "", singles: "", singlesReliability: "", selfRating: "", email: "", phone: "" };
 
 export default function AdminMembers() {
   const { isAuthenticated, isLoading, user, isAdmin } = useAuth();
@@ -50,7 +50,7 @@ export default function AdminMembers() {
   const uploadCsv = useUploadMembersCsv();
 
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<string>("playerName");
+  const [sortKey, setSortKey] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [showClearDialog, setShowClearDialog] = useState(false);
@@ -88,11 +88,11 @@ export default function AdminMembers() {
     createMember.mutate({
       data: {
         duprId: addForm.duprId.trim(),
-        playerName: addForm.playerName.trim(),
-        doubleRating: addForm.doubleRating.trim() || null,
-        doubleReliability: addForm.doubleReliability ? Number(addForm.doubleReliability) : null,
-        singleRating: addForm.singleRating.trim() || null,
-        singleReliability: addForm.singleReliability ? Number(addForm.singleReliability) : null,
+        name: addForm.name.trim(),
+        doubles: addForm.doubles.trim() || null,
+        doublesReliability: addForm.doublesReliability ? Number(addForm.doublesReliability) : null,
+        singles: addForm.singles.trim() || null,
+        singlesReliability: addForm.singlesReliability ? Number(addForm.singlesReliability) : null,
         selfRating: addForm.selfRating.trim() || null,
         email: addForm.email.trim() || null,
         phone: addForm.phone.trim() || null,
@@ -107,11 +107,11 @@ export default function AdminMembers() {
     setEditMember(m);
     setEditForm({
       duprId: m.duprId,
-      playerName: m.playerName,
-      doubleRating: m.doubleRating ?? "",
-      doubleReliability: m.doubleReliability != null ? String(m.doubleReliability) : "",
-      singleRating: m.singleRating ?? "",
-      singleReliability: m.singleReliability != null ? String(m.singleReliability) : "",
+      name: m.name,
+      doubles: m.doubles ?? "",
+      doublesReliability: m.doublesReliability != null ? String(m.doublesReliability) : "",
+      singles: m.singles ?? "",
+      singlesReliability: m.singlesReliability != null ? String(m.singlesReliability) : "",
       selfRating: m.selfRating ?? "",
       email: m.email ?? "",
       phone: m.phone ?? "",
@@ -124,11 +124,11 @@ export default function AdminMembers() {
     updateMember.mutate({
       duprId: editMember.duprId,
       data: {
-        playerName: editForm.playerName.trim(),
-        doubleRating: editForm.doubleRating.trim() || null,
-        doubleReliability: editForm.doubleReliability ? Number(editForm.doubleReliability) : null,
-        singleRating: editForm.singleRating.trim() || null,
-        singleReliability: editForm.singleReliability ? Number(editForm.singleReliability) : null,
+        name: editForm.name.trim(),
+        doubles: editForm.doubles.trim() || null,
+        doublesReliability: editForm.doublesReliability ? Number(editForm.doublesReliability) : null,
+        singles: editForm.singles.trim() || null,
+        singlesReliability: editForm.singlesReliability ? Number(editForm.singlesReliability) : null,
         selfRating: editForm.selfRating.trim() || null,
         email: editForm.email.trim() || null,
         phone: editForm.phone.trim() || null,
@@ -161,7 +161,7 @@ export default function AdminMembers() {
   }
 
   const filtered = (members ?? [])
-    .filter(m => !search || m.playerName.toLowerCase().includes(search.toLowerCase()) || m.duprId.toLowerCase().includes(search.toLowerCase()))
+    .filter(m => !search || m.name.toLowerCase().includes(search.toLowerCase()) || m.duprId.toLowerCase().includes(search.toLowerCase()))
     .sort((a: any, b: any) => {
       const av = a[sortKey] ?? "";
       const bv = b[sortKey] ?? "";
@@ -254,11 +254,11 @@ export default function AdminMembers() {
                 <thead>
                   <tr className="border-b border-border bg-muted/40">
                     <SortTh label="DUPR ID" col="duprId" />
-                    <SortTh label="Name" col="playerName" />
-                    <SortTh label="Double Rating" col="doubleRating" />
-                    <SortTh label="D. Reliability" col="doubleReliability" />
-                    <SortTh label="Single Rating" col="singleRating" />
-                    <SortTh label="S. Reliability" col="singleReliability" />
+                    <SortTh label="Name" col="name" />
+                    <SortTh label="Doubles" col="doubles" />
+                    <SortTh label="D. Reliability" col="doublesReliability" />
+                    <SortTh label="Singles" col="singles" />
+                    <SortTh label="S. Reliability" col="singlesReliability" />
                     <th className="text-left px-4 py-2.5 font-medium text-muted-foreground">Self-Rating</th>
                     <SortTh label="Email" col="email" />
                     <SortTh label="Phone" col="phone" />
@@ -269,11 +269,11 @@ export default function AdminMembers() {
                   {filtered.map(m => (
                     <tr key={m.duprId} data-testid={`row-member-${m.duprId}`} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                       <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{m.duprId}</td>
-                      <td className="px-4 py-3 font-medium">{m.playerName}</td>
-                      <td className="px-4 py-3 font-mono">{m.doubleRating ?? "—"}</td>
-                      <td className="px-4 py-3">{m.doubleReliability != null ? `${m.doubleReliability}%` : "—"}</td>
-                      <td className="px-4 py-3 font-mono">{m.singleRating ?? "—"}</td>
-                      <td className="px-4 py-3">{m.singleReliability != null ? `${m.singleReliability}%` : "—"}</td>
+                      <td className="px-4 py-3 font-medium">{m.name}</td>
+                      <td className="px-4 py-3 font-mono">{m.doubles ?? "—"}</td>
+                      <td className="px-4 py-3">{m.doublesReliability != null ? `${m.doublesReliability}%` : "—"}</td>
+                      <td className="px-4 py-3 font-mono">{m.singles ?? "—"}</td>
+                      <td className="px-4 py-3">{m.singlesReliability != null ? `${m.singlesReliability}%` : "—"}</td>
                       <td className="px-4 py-3">{m.selfRating ?? "—"}</td>
                       <td className="px-4 py-3 text-xs">{(m as any).email ? <a href={`mailto:${(m as any).email}`} className="text-primary hover:underline">{(m as any).email}</a> : "—"}</td>
                       <td className="px-4 py-3 text-xs">{(m as any).phone || "—"}</td>
@@ -346,24 +346,24 @@ export default function AdminMembers() {
                 <Input id="add-dupr-id" data-testid="input-add-member-dupr-id" value={addForm.duprId} onChange={e => setAddForm(f => ({ ...f, duprId: e.target.value.toUpperCase() }))} required placeholder="ATL099" className="uppercase" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="add-player-name">Player Name *</Label>
-                <Input id="add-player-name" data-testid="input-add-member-name" value={addForm.playerName} onChange={e => setAddForm(f => ({ ...f, playerName: e.target.value }))} required placeholder="Jane Smith" />
+                <Label htmlFor="add-name">Name *</Label>
+                <Input id="add-name" data-testid="input-add-member-name" value={addForm.name} onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))} required placeholder="Jane Smith" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="add-double-rating">Double Rating</Label>
-                <Input id="add-double-rating" value={addForm.doubleRating} onChange={e => setAddForm(f => ({ ...f, doubleRating: e.target.value }))} placeholder="4.25 or NR" />
+                <Label htmlFor="add-doubles">Doubles</Label>
+                <Input id="add-doubles" value={addForm.doubles} onChange={e => setAddForm(f => ({ ...f, doubles: e.target.value }))} placeholder="4.25 or NR" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="add-d-rel">D. Reliability %</Label>
-                <Input id="add-d-rel" type="number" min={0} max={100} value={addForm.doubleReliability} onChange={e => setAddForm(f => ({ ...f, doubleReliability: e.target.value }))} placeholder="75" />
+                <Input id="add-d-rel" type="number" min={0} max={100} value={addForm.doublesReliability} onChange={e => setAddForm(f => ({ ...f, doublesReliability: e.target.value }))} placeholder="75" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="add-single-rating">Single Rating</Label>
-                <Input id="add-single-rating" value={addForm.singleRating} onChange={e => setAddForm(f => ({ ...f, singleRating: e.target.value }))} placeholder="4.10 or NR" />
+                <Label htmlFor="add-singles">Singles</Label>
+                <Input id="add-singles" value={addForm.singles} onChange={e => setAddForm(f => ({ ...f, singles: e.target.value }))} placeholder="4.10 or NR" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="add-s-rel">S. Reliability %</Label>
-                <Input id="add-s-rel" type="number" min={0} max={100} value={addForm.singleReliability} onChange={e => setAddForm(f => ({ ...f, singleReliability: e.target.value }))} placeholder="60" />
+                <Input id="add-s-rel" type="number" min={0} max={100} value={addForm.singlesReliability} onChange={e => setAddForm(f => ({ ...f, singlesReliability: e.target.value }))} placeholder="60" />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="add-self-rating">Self-Rating</Label>
@@ -396,24 +396,24 @@ export default function AdminMembers() {
           <form onSubmit={handleEdit} className="space-y-3">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div className="space-y-1.5 col-span-2">
-                <Label htmlFor="edit-player-name">Player Name *</Label>
-                <Input id="edit-player-name" data-testid="input-edit-member-name" value={editForm.playerName} onChange={e => setEditForm(f => ({ ...f, playerName: e.target.value }))} required placeholder="Jane Smith" />
+                <Label htmlFor="edit-name">Name *</Label>
+                <Input id="edit-name" data-testid="input-edit-member-name" value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required placeholder="Jane Smith" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-double-rating">Double Rating</Label>
-                <Input id="edit-double-rating" value={editForm.doubleRating} onChange={e => setEditForm(f => ({ ...f, doubleRating: e.target.value }))} placeholder="4.25 or NR" />
+                <Label htmlFor="edit-doubles">Doubles</Label>
+                <Input id="edit-doubles" value={editForm.doubles} onChange={e => setEditForm(f => ({ ...f, doubles: e.target.value }))} placeholder="4.25 or NR" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="edit-d-rel">D. Reliability %</Label>
-                <Input id="edit-d-rel" type="number" min={0} max={100} value={editForm.doubleReliability} onChange={e => setEditForm(f => ({ ...f, doubleReliability: e.target.value }))} placeholder="75" />
+                <Input id="edit-d-rel" type="number" min={0} max={100} value={editForm.doublesReliability} onChange={e => setEditForm(f => ({ ...f, doublesReliability: e.target.value }))} placeholder="75" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="edit-single-rating">Single Rating</Label>
-                <Input id="edit-single-rating" value={editForm.singleRating} onChange={e => setEditForm(f => ({ ...f, singleRating: e.target.value }))} placeholder="4.10 or NR" />
+                <Label htmlFor="edit-singles">Singles</Label>
+                <Input id="edit-singles" value={editForm.singles} onChange={e => setEditForm(f => ({ ...f, singles: e.target.value }))} placeholder="4.10 or NR" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="edit-s-rel">S. Reliability %</Label>
-                <Input id="edit-s-rel" type="number" min={0} max={100} value={editForm.singleReliability} onChange={e => setEditForm(f => ({ ...f, singleReliability: e.target.value }))} placeholder="60" />
+                <Input id="edit-s-rel" type="number" min={0} max={100} value={editForm.singlesReliability} onChange={e => setEditForm(f => ({ ...f, singlesReliability: e.target.value }))} placeholder="60" />
               </div>
               <div className="space-y-1.5 col-span-2">
                 <Label htmlFor="edit-self-rating">Self-Rating</Label>

@@ -320,9 +320,9 @@ async function backfillSnapshots() {
   const playerRes = await db.execute(sql`
     UPDATE atl_dupr_signups s
     SET player_snapshot = jsonb_build_object(
-      'playerName', m.player_name,
-      'doubleRating', m.double_rating,
-      'singleRating', m.single_rating,
+      'name', m.player_name,
+      'doubles', m.double_rating,
+      'singles', m.single_rating,
       'selfRating', m.self_rating,
       'email', m.email,
       'phone', m.phone
@@ -336,7 +336,7 @@ async function backfillSnapshots() {
     UPDATE atl_dupr_signups s
     SET partner_snapshot = jsonb_build_object(
       'partnerName', m.player_name,
-      'partnerDoubleRating', m.double_rating
+      'partnerDoubles', m.double_rating
     )
     FROM atl_dupr_member_list m
     WHERE s.partner_dupr_id = m.dupr_id

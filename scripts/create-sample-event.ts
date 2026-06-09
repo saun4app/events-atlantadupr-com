@@ -96,9 +96,9 @@ async function main() {
     }
 
     const playerSnapshot: RegistrantSnapshot = {
-      playerName: member.playerName,
-      doubleRating: member.doubleRating ?? null,
-      singleRating: member.singleRating ?? null,
+      name: member.name,
+      doubles: member.doubles ?? null,
+      singles: member.singles ?? null,
       selfRating: null,
       email: member.email ?? null,
       phone: member.phone ?? null,
@@ -111,7 +111,7 @@ async function main() {
       playerSnapshot,
       status: statuses[i],
     });
-    console.log(`  Registered ${member.playerName} (${duprId}) as ${statuses[i]}`);
+    console.log(`  Registered ${member.name} (${duprId}) as ${statuses[i]}`);
   }
 
   console.log("Done.");

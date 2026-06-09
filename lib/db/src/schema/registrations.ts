@@ -4,9 +4,9 @@ import { z } from "zod/v4";
 import { usersTable } from "./users";
 
 export interface RegistrantSnapshot {
-  playerName: string;
-  doubleRating: string | null;
-  singleRating: string | null;
+  name: string;
+  doubles: string | null;
+  singles: string | null;
   selfRating: string | null;
   email: string | null;
   phone: string | null;
@@ -14,7 +14,7 @@ export interface RegistrantSnapshot {
 
 export interface PartnerSnapshot {
   partnerName: string | null;
-  partnerDoubleRating: string | null;
+  partnerDoubles: string | null;
   partnerSelfRating?: string | null;
 }
 

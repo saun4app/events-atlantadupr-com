@@ -4,11 +4,11 @@ import { z } from "zod/v4";
 
 export const membersTable = pgTable("atl_dupr_member_list", {
   duprId: text("dupr_id").primaryKey(),
-  playerName: text("player_name").notNull(),
-  doubleRating: text("double_rating"),
-  doubleReliability: integer("double_reliability"),
-  singleRating: text("single_rating"),
-  singleReliability: integer("single_reliability"),
+  name: text("name").notNull(),
+  doubles: text("doubles"),
+  doublesReliability: integer("doubles_reliability"),
+  singles: text("singles"),
+  singlesReliability: integer("singles_reliability"),
   selfRating: text("self_rating"),
   email: text("email"),
   phone: text("phone"),

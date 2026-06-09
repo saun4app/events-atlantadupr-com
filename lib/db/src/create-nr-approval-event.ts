@@ -58,25 +58,25 @@ async function main() {
   const nrMembers = allMembers
     .filter(
       (m) =>
-        m.doubleRating === null ||
-        m.doubleRating === "NR" ||
-        m.doubleRating === "NR (2.5)" ||
-        isNaN(parseFloat(m.doubleRating || "")),
+        m.doubles === null ||
+        m.doubles === "NR" ||
+        m.doubles === "NR (2.5)" ||
+        isNaN(parseFloat(m.doubles || "")),
     )
     .slice(0, 3);
 
   const ratedMembers = allMembers
     .filter(
       (m) =>
-        m.doubleRating !== null &&
-        m.doubleRating !== "NR" &&
-        m.doubleRating !== "NR (2.5)" &&
-        !isNaN(parseFloat(m.doubleRating)),
+        m.doubles !== null &&
+        m.doubles !== "NR" &&
+        m.doubles !== "NR (2.5)" &&
+        !isNaN(parseFloat(m.doubles)),
     )
     .slice(0, 3);
 
-  console.log(`NR members: ${nrMembers.map((m) => m.playerName).join(", ")}`);
-  console.log(`Rated members: ${ratedMembers.map((m) => m.playerName).join(", ")}`);
+  console.log(`NR members: ${nrMembers.map((m) => m.name).join(", ")}`);
+  console.log(`Rated members: ${ratedMembers.map((m) => m.name).join(", ")}`);
 
   for (const member of nrMembers) {
     const existingReg = await db
@@ -101,7 +101,7 @@ async function main() {
       memberDuprId: member.duprId,
       status: "pending_approval",
     });
-    console.log(`  Registered ${member.playerName} (${member.duprId}) as pending_approval`);
+    console.log(`  Registered ${member.name} (${member.duprId}) as pending_approval`);
   }
 
   for (const member of ratedMembers) {
@@ -127,7 +127,7 @@ async function main() {
       memberDuprId: member.duprId,
       status: "confirmed",
     });
-    console.log(`  Registered ${member.playerName} (${member.duprId}) as confirmed`);
+    console.log(`  Registered ${member.name} (${member.duprId}) as confirmed`);
   }
 
   console.log("Done.");
