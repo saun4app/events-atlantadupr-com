@@ -599,6 +599,42 @@ paths:
         "404":
           description: Not found
 
+  /events/{eventType}/{id}/broadcast:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: broadcastEmail
+      tags: [registrations]
+      summary: Broadcast email to all confirmed participants
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastEmailInput"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BroadcastEmailResult"
+        "400":
+          description: Missing subject/body or no recipients
+        "404":
+          description: Event not found
+
   /events/{eventType}/{id}/registrations/{regId}/approve:
     parameters:
       - in: path
@@ -1339,6 +1375,24 @@ components:
         code:
           type: string
           description: 6-digit email verification code
+
+    BroadcastEmailInput:
+      type: object
+      required: [subject, body]
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+
+    BroadcastEmailResult:
+      type: object
+      required: [sent, recipients]
+      properties:
+        sent:
+          type: boolean
+        recipients:
+          type: integer
 
     RegistrationUpdate:
       type: object

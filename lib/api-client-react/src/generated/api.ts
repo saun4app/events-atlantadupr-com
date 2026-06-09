@@ -22,6 +22,8 @@ import type {
 import type {
   AppSettings,
   AppSettingsInput,
+  BroadcastEmailInput,
+  BroadcastEmailResult,
   CancelRegistrationInput,
   CsvUploadResult,
   Event,
@@ -2017,6 +2019,80 @@ export const useDeleteRegistration = <TError = ErrorType<void>,
         TContext
       > => {
       return useMutation(getDeleteRegistrationMutationOptions(options));
+    }
+
+export const getBroadcastEmailUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
+
+
+
+
+  return `/api/events/${eventType}/${id}/broadcast`
+}
+
+/**
+ * @summary Broadcast email to all confirmed participants
+ */
+export const broadcastEmail = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
+    broadcastEmailInput: BroadcastEmailInput, options?: RequestInit): Promise<BroadcastEmailResult> => {
+
+  return customFetch<BroadcastEmailResult>(getBroadcastEmailUrl(eventType,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      broadcastEmailInput,)
+  }
+);}
+
+
+
+
+export const getBroadcastEmailMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastEmail>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<BroadcastEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof broadcastEmail>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<BroadcastEmailInput>}, TContext> => {
+
+const mutationKey = ['broadcastEmail'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof broadcastEmail>>, {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<BroadcastEmailInput>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
+
+          return  broadcastEmail(eventType,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type BroadcastEmailMutationResult = NonNullable<Awaited<ReturnType<typeof broadcastEmail>>>
+    export type BroadcastEmailMutationBody = BodyType<BroadcastEmailInput>
+    export type BroadcastEmailMutationError = ErrorType<void>
+
+    /**
+ * @summary Broadcast email to all confirmed participants
+ */
+export const useBroadcastEmail = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof broadcastEmail>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<BroadcastEmailInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof broadcastEmail>>,
+        TError,
+        {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<BroadcastEmailInput>},
+        TContext
+      > => {
+      return useMutation(getBroadcastEmailMutationOptions(options));
     }
 
 export const getApproveRegistrationUrl = (eventType: 'rotating' | 'fixed_partner',

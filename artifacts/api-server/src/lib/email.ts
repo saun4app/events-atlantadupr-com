@@ -104,3 +104,37 @@ export async function sendVerificationEmail(params: SendVerificationEmailParams)
     throw new Error(`Resend send failed (${response.status}): ${detail}`);
   }
 }
+
+export interface SendBroadcastEmailParams {
+  to: string[];
+  from: string;
+  replyTo?: string;
+  subject: string;
+  body: string;
+}
+
+export async function sendBroadcastEmail(params: SendBroadcastEmailParams): Promise<void> {
+  const { to, from, replyTo, subject, body } = params;
+  if (to.length === 0) return;
+
+  const connectors = new ReplitConnectors();
+  const payload: Record<string, unknown> = {
+    from,
+    to: [from],
+    bcc: to,
+    subject,
+    text: body,
+  };
+  if (replyTo) payload.reply_to = replyTo;
+
+  const response = await connectors.proxy("resend", "/emails", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`Resend broadcast failed (${response.status}): ${detail}`);
+  }
+}

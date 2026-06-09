@@ -1,9 +1,11 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { eventAssignmentsTable, usersTable } from "@workspace/db";
+import { eventAssignmentsTable, usersTable, registrationsTable, appSettingsTable } from "@workspace/db";
 import { eq, and } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
-import { eventControllers, parseEventType } from "./eventController.js";
+import { eventControllers, parseEventType, canAccessEvent, getNormalizedEvent } from "./eventController.js";
+import { sendBroadcastEmail } from "../../lib/email.js";
+import { logger } from "../../lib/logger.js";
 
 // Re-export shared helpers consumed by registrations.ts and other modules.
 export {
@@ -57,6 +59,73 @@ router.delete("/:eventType/:id", requireAuth, requireRole(...writeRoles), dispat
 router.post("/:eventType/:id/clone", requireAuth, requireRole(...writeRoles), dispatch("clone"));
 router.post("/:eventType/:id/close", requireAuth, requireRole(...writeRoles), dispatch("close"));
 router.get("/:eventType/:id/roster-summary", dispatch("rosterSummary"));
+
+// Broadcast email to all confirmed participants
+router.post(
+  "/:eventType/:id/broadcast",
+  requireAuth,
+  requireRole(...writeRoles),
+  async (req: Request, res: Response) => {
+    const eventType = parseEventType(req.params.eventType as string);
+    if (!eventType) return res.status(404).json({ error: "Unknown event format" });
+    const eventId = Number(req.params.id);
+
+    const event = await getNormalizedEvent(eventType, eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    if (!(await canAccessEvent(eventId, eventType, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+
+    const { body, subject } = req.body as { body?: string; subject?: string };
+    if (!body || !subject) {
+      return res.status(400).json({ error: "subject and body are required" });
+    }
+
+    const [settings] = await db.select().from(appSettingsTable).where(eq(appSettingsTable.id, 1));
+    const contactEmail = settings?.eventContactEmails?.[0];
+    const fromEmail = process.env.VERIFICATION_EMAIL_FROM || contactEmail;
+    if (!fromEmail) {
+      return res.status(400).json({ error: "No sender email configured" });
+    }
+
+    const replyTo = contactEmail && contactEmail !== fromEmail ? contactEmail : undefined;
+
+    const regs = await db
+      .select()
+      .from(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, eventType),
+          eq(registrationsTable.status, "confirmed"),
+        ),
+      );
+
+    const emails = Array.from(
+      new Set(
+        regs
+          .map((r) => {
+            const snap = r.playerSnapshot as any;
+            return snap?.email ?? null;
+          })
+          .filter((e): e is string => !!e),
+      ),
+    );
+
+    if (emails.length === 0) {
+      return res.status(400).json({ error: "No confirmed participants with email addresses" });
+    }
+
+    try {
+      await sendBroadcastEmail({ to: emails, from: fromEmail, replyTo, subject, body });
+      return res.json({ sent: true, recipients: emails.length });
+    } catch (err: any) {
+      logger.error({ err, eventId, eventType }, "Failed to send broadcast email");
+      return res.status(500).json({ error: err.message || "Failed to send broadcast email" });
+    }
+  },
+);
 
 router.get(
   "/:eventType/:id/assignments",

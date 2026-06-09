@@ -431,6 +431,16 @@ export interface CancelRegistrationInput {
   code: string;
 }
 
+export interface BroadcastEmailInput {
+  subject: string;
+  body: string;
+}
+
+export interface BroadcastEmailResult {
+  sent: boolean;
+  recipients: number;
+}
+
 export type RegistrationUpdateStatus = typeof RegistrationUpdateStatus[keyof typeof RegistrationUpdateStatus];
 
 

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useLocation, Link } from "wouter";
 import {
   useGetEvent, useListRegistrations, useUpdateEvent, useDeleteEvent, useUpdateRegistration,
-  useCreateRegistration, useGetSettings,
+  useCreateRegistration, useGetSettings, useBroadcastEmail,
   getGetEventQueryKey, getListRegistrationsQueryKey, getGetEventRosterSummaryQueryKey,
   getListEventsQueryKey, getGetEventsSummaryQueryKey
 } from "@workspace/api-client-react";
@@ -134,6 +134,7 @@ export default function AdminEventDetailFixed() {
   const deleteEvent = useDeleteEvent();
   const updateReg = useUpdateRegistration();
   const createReg = useCreateRegistration();
+  const broadcastEmail = useBroadcastEmail();
   const bulkSetAssigned = useMutation({
     mutationFn: async () => {
       const token = localStorage.getItem("authToken");
@@ -462,11 +463,27 @@ export default function AdminEventDetailFixed() {
     }
     const message = clientMessage.trim();
     if (kind === "broadcast") {
-      toast({
-        title: mode === "email" ? "Email broadcast" : "Text broadcast",
-        description: `Bulk ${mode === "email" ? "email" : "text"} to ${values.length} confirmed participant${values.length === 1 ? "" : "s"} will be enabled soon.`,
-      });
-      setClientDialog(null);
+      if (mode === "email") {
+        const subject = event?.name ? `Update: ${event.name}` : "Event update";
+        broadcastEmail.mutate(
+          { eventType, id: eventId, data: { subject, body: message } },
+          {
+            onSuccess: (data) => {
+              toast({ title: `Email sent to ${data.recipients} participant${data.recipients === 1 ? "" : "s"}` });
+              setClientDialog(null);
+            },
+            onError: (err: any) => {
+              toast({ title: err?.data?.error || "Failed to send broadcast email", variant: "destructive" });
+            },
+          }
+        );
+      } else {
+        toast({
+          title: "Text broadcast",
+          description: `Bulk text to ${values.length} confirmed participant${values.length === 1 ? "" : "s"} will be enabled soon.`,
+        });
+        setClientDialog(null);
+      }
       return;
     }
     if (mode === "email") {
@@ -727,7 +744,7 @@ export default function AdminEventDetailFixed() {
                                   </Button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end">
-                                  <DropdownMenuItem data-testid="action-email-broadcast" disabled>
+                                  <DropdownMenuItem data-testid="action-email-broadcast" onClick={() => openNotifyDialog("email", "broadcast")}>
                                     <Mail className="w-3.5 h-3.5 mr-2" /> Email broadcast
                                   </DropdownMenuItem>
                                   <DropdownMenuItem data-testid="action-email-client" onClick={handleEmailClient}>

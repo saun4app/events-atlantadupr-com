@@ -8,6 +8,8 @@
 
 export * from './appSettings';
 export * from './appSettingsInput';
+export * from './broadcastEmailInput';
+export * from './broadcastEmailResult';
 export * from './cancelRegistrationInput';
 export * from './contactPerson';
 export * from './csvUploadResult';

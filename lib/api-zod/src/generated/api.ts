@@ -578,6 +578,25 @@ export const DeleteRegistrationParams = zod.object({
 
 
 /**
+ * @summary Broadcast email to all confirmed participants
+ */
+export const BroadcastEmailParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "id": zod.coerce.number()
+})
+
+export const BroadcastEmailBody = zod.object({
+  "subject": zod.string(),
+  "body": zod.string()
+})
+
+export const BroadcastEmailResponse = zod.object({
+  "sent": zod.boolean(),
+  "recipients": zod.number()
+})
+
+
+/**
  * @summary Approve a pending registration
  */
 export const ApproveRegistrationParams = zod.object({

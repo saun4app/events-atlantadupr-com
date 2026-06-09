@@ -11,13 +11,13 @@ export async function verifyPassword(password: string, hash: string): Promise<bo
   return bcrypt.compare(password, hash);
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction): void {
+export const requireAuth: (req: Request, res: Response, next: NextFunction) => void = (req, res, next) => {
   if (!(req as any).session?.userId) {
     res.status(401).json({ error: "Not authenticated" });
     return;
   }
   next();
-}
+};
 
 export function requireRole(...roles: string[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
