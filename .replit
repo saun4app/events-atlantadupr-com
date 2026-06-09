@@ -42,4 +42,4 @@ channel = "stable-25_05"
 [userenv]
 
 [userenv.shared]
-VERIFICATION_EMAIL_FROM = "Atlanta DUPR Pickleball <noreply@atlantadupr.com>"
+VERIFICATION_EMAIL_FROM = "saun@atlantadupr.com"
