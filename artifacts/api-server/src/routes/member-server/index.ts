@@ -100,17 +100,20 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
 
     csvDuprIds.push(duprId);
 
+    const dRelRaw = row["doubles_reliability"] || row["double_reliability"] || row["doublesreliability"] || row["doublereliability"];
+    const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
+
     try {
       await db
         .insert(membersTable)
         .values({
           duprId,
           name,
-          doubles: row["doubles"] || row["double_rating"] || null,
-          doublesReliability: row["doubles_reliability"] || row["double_reliability"] ? parseInt(row["doubles_reliability"] || row["double_reliability"]) : null,
-          singles: row["singles"] || row["single_rating"] || null,
-          singlesReliability: row["singles_reliability"] || row["single_reliability"] ? parseInt(row["singles_reliability"] || row["single_reliability"]) : null,
-          selfRating: row["self_rating"] || null,
+          doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
+          doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
+          singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
+          singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
+          selfRating: row["self_rating"] || row["selfrating"] || null,
           email: row["email"] || null,
           phone: row["phone"] || null,
         })
@@ -118,11 +121,11 @@ router.post("/csv", requireRole("admin"), async (req, res) => {
           target: membersTable.duprId,
           set: {
             name,
-            doubles: row["doubles"] || row["double_rating"] || null,
-            doublesReliability: row["doubles_reliability"] || row["double_reliability"] ? parseInt(row["doubles_reliability"] || row["double_reliability"]) : null,
-            singles: row["singles"] || row["single_rating"] || null,
-            singlesReliability: row["singles_reliability"] || row["single_reliability"] ? parseInt(row["singles_reliability"] || row["single_reliability"]) : null,
-            selfRating: row["self_rating"] || null,
+            doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
+            doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
+            singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
+            singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
+            selfRating: row["self_rating"] || row["selfrating"] || null,
             email: row["email"] || null,
             phone: row["phone"] || null,
           },
