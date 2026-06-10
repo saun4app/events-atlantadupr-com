@@ -465,8 +465,9 @@ export default function AdminEventDetailFixed() {
     if (kind === "broadcast") {
       if (mode === "email") {
         const subject = event?.name ? `Update: ${event.name}` : "Event update";
+        const selectedIds = Array.from(clientSelectedIds);
         broadcastEmail.mutate(
-          { eventType, id: eventId, data: { subject, body: message } },
+          { eventType, id: eventId, data: { subject, body: message, registrationIds: selectedIds } },
           {
             onSuccess: (data) => {
               toast({ title: `Email sent to ${data.recipients} participant${data.recipients === 1 ? "" : "s"}` });

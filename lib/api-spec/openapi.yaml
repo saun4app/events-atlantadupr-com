@@ -1384,6 +1384,11 @@ components:
           type: string
         body:
           type: string
+        registrationIds:
+          type: array
+          items:
+            type: integer
+          description: Optional list of specific registration IDs to target. If omitted, all confirmed participants are targeted.
 
     BroadcastEmailResult:
       type: object

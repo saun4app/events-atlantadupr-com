@@ -587,7 +587,8 @@ export const BroadcastEmailParams = zod.object({
 
 export const BroadcastEmailBody = zod.object({
   "subject": zod.string(),
-  "body": zod.string()
+  "body": zod.string(),
+  "registrationIds": zod.array(zod.number()).optional().describe('Optional list of specific registration IDs to target. If omitted, all confirmed participants are targeted.')
 })
 
 export const BroadcastEmailResponse = zod.object({

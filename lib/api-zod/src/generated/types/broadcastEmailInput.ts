@@ -9,4 +9,6 @@
 export interface BroadcastEmailInput {
   subject: string;
   body: string;
+  /** Optional list of specific registration IDs to target. If omitted, all confirmed participants are targeted. */
+  registrationIds?: number[];
 }

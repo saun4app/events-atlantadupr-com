@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { eventAssignmentsTable, usersTable, registrationsTable, appSettingsTable } from "@workspace/db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { eventControllers, parseEventType, canAccessEvent, getNormalizedEvent } from "./eventController.js";
 import { sendBroadcastEmail } from "../../lib/email.js";
@@ -77,7 +77,7 @@ router.post(
       return res.status(403).json({ error: "Forbidden: not assigned to this event" });
     }
 
-    const { body, subject } = req.body as { body?: string; subject?: string };
+    const { body, subject, registrationIds } = req.body as { body?: string; subject?: string; registrationIds?: number[] };
     if (!body || !subject) {
       return res.status(400).json({ error: "subject and body are required" });
     }
@@ -91,6 +91,8 @@ router.post(
 
     const replyTo = contactEmail && contactEmail !== fromEmail ? contactEmail : undefined;
 
+    const hasSelection = Array.isArray(registrationIds) && registrationIds.length > 0;
+
     const regs = await db
       .select()
       .from(registrationsTable)
@@ -99,6 +101,7 @@ router.post(
           eq(registrationsTable.eventId, eventId),
           eq(registrationsTable.eventType, eventType),
           eq(registrationsTable.status, "confirmed"),
+          hasSelection ? inArray(registrationsTable.id, registrationIds!) : undefined,
         ),
       );
 
