@@ -8,14 +8,13 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import NotFound from "@/pages/not-found";
 import { PublicNav } from "@/components/public-nav";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
-import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, DollarSign, Mail, ExternalLink, ArrowUpDown, ArrowUp, ArrowDown, Activity } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
@@ -497,9 +496,11 @@ export default function EventDetail() {
               {format(new Date(event.startDatetime), "h:mm a")} – {format(new Date(event.endDatetime), "h:mm a")}
             </div>
             <div className="flex items-center gap-2 text-muted-foreground col-span-2">
-              {signupOpen && <Badge className="text-xs">Open</Badge>}
-              {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
-              {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
+              <Activity className="w-4 h-4 text-primary" />
+              <span className="text-muted-foreground">Status:</span>
+              <span className={signupOpen ? "text-primary font-medium" : "text-foreground"}>
+                {signupOpen ? "Open" : signupNotYet ? "Not yet open" : "Closed"}
+              </span>
             </div>
             {(event as any).showSignupEnd && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
