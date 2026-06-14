@@ -270,6 +270,7 @@ export default function AdminEventDetailRotating() {
       requireApproval: (event.requireApproval as any) || "none",
       signupStartDatetime: toLocalInput(event.signupStartDatetime),
       signupEndDatetime: toLocalInput(event.signupEndDatetime),
+      showSignupEnd: (event as any).showSignupEnd ?? false,
       status: event.status ?? "upcoming",
       contactEmail: (event as any).contactEmail ?? "",
       courtFeeEnabled: (event as any).courtFeeEnabled ?? false,
@@ -325,6 +326,7 @@ export default function AdminEventDetailRotating() {
         requireApproval: editForm.requireApproval,
         signupStartDatetime: editForm.signupStartDatetime ? new Date(editForm.signupStartDatetime).toISOString() : undefined,
         signupEndDatetime: editForm.signupEndDatetime ? new Date(editForm.signupEndDatetime).toISOString() : undefined,
+        showSignupEnd: editForm.showSignupEnd,
         status: editForm.status || undefined,
         contactEmail: editForm.contactEmail || null,
         courtFeeEnabled: editForm.courtFeeEnabled,
@@ -1436,6 +1438,10 @@ export default function AdminEventDetailRotating() {
                     <Label>Signup Closes</Label>
                     <DateTimeInput value={editForm.signupEndDatetime ?? ""} onChange={v => setEditForm((f: any) => ({ ...f, signupEndDatetime: v }))} />
                   </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input type="checkbox" id="edit-show-signup-end" className="w-4 h-4 accent-primary cursor-pointer" checked={editForm.showSignupEnd} onChange={e => setEditForm((f: any) => ({ ...f, showSignupEnd: e.target.checked }))} />
+                  <label htmlFor="edit-show-signup-end" className="text-sm cursor-pointer">Show signup close time on public event page</label>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Status</Label>

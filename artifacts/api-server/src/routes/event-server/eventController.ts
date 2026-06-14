@@ -40,6 +40,7 @@ export interface NormalizedEvent {
   requireApproval: string;
   signupStartDatetime: Date;
   signupEndDatetime: Date;
+  showSignupEnd: boolean;
   status: string;
   courtFeeEnabled: boolean;
   memberFee: number;
@@ -99,6 +100,7 @@ function buildCommonBase(body: any) {
     ratingConfig: body.ratingConfig ?? null,
     waitlistEnabled: body.waitlistEnabled ?? true,
     requireApproval: body.requireApproval ?? "none",
+    showSignupEnd: body.showSignupEnd ?? false,
     status: "upcoming" as const,
     courtFeeEnabled: body.courtFeeEnabled ?? false,
     memberFee: typeof body.memberFee === "number" ? body.memberFee : 0,
@@ -255,6 +257,7 @@ export abstract class BaseEventController {
     if (b.endDatetime !== undefined) updates.endDatetime = new Date(b.endDatetime);
     if (b.signupStartDatetime !== undefined) updates.signupStartDatetime = new Date(b.signupStartDatetime);
     if (b.signupEndDatetime !== undefined) updates.signupEndDatetime = new Date(b.signupEndDatetime);
+    if (b.showSignupEnd !== undefined) updates.showSignupEnd = b.showSignupEnd;
     this.applyCapacityUpdate(updates, b);
 
     const [updated] = (await db

@@ -1042,7 +1042,7 @@ components:
 
     Event:
       type: object
-      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, teamFormat, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, status, courtFeeEnabled, memberFee, nonMemberFee, createdAt]
+      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, teamFormat, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, showSignupEnd, status, courtFeeEnabled, memberFee, nonMemberFee, createdAt]
       properties:
         id:
           type: integer
@@ -1092,6 +1092,8 @@ components:
         signupEndDatetime:
           type: string
           format: date-time
+        showSignupEnd:
+          type: boolean
         status:
           type: string
           enum: [upcoming, closed, ended, cancelled]
@@ -1179,6 +1181,8 @@ components:
         signupEndDatetime:
           type: string
           format: date-time
+        showSignupEnd:
+          type: boolean
         courtFeeEnabled:
           type: boolean
         memberFee:
@@ -1233,6 +1237,8 @@ components:
         signupEndDatetime:
           type: string
           format: date-time
+        showSignupEnd:
+          type: boolean
         status:
           type: string
           enum: [upcoming, closed, ended, cancelled]

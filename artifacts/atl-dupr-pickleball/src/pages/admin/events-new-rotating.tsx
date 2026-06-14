@@ -130,6 +130,7 @@ export default function AdminEventNewRotating() {
     requireApproval: "none" as "none" | "all" | "nr_only",
     signupStartDatetime: "",
     signupEndDatetime: "",
+    showSignupEnd: false,
     courtFeeEnabled: false,
     memberFee: 0,
     nonMemberFee: 0,
@@ -248,6 +249,7 @@ export default function AdminEventNewRotating() {
       requireApproval: (ev.requireApproval as any) || "none",
       signupStartDatetime: "",
       signupEndDatetime: "",
+      showSignupEnd: false,
       courtFeeEnabled: (ev as any).courtFeeEnabled ?? false,
       memberFee: (ev as any).memberFee ?? 0,
       nonMemberFee: (ev as any).nonMemberFee ?? 0,
@@ -306,6 +308,7 @@ export default function AdminEventNewRotating() {
       requireApproval: form.requireApproval,
       signupStartDatetime: new Date(form.signupStartDatetime).toISOString(),
       signupEndDatetime: new Date(form.signupEndDatetime).toISOString(),
+      showSignupEnd: form.showSignupEnd,
       courtFeeEnabled: form.courtFeeEnabled,
       memberFee: form.memberFee,
       nonMemberFee: form.nonMemberFee,
@@ -635,6 +638,10 @@ export default function AdminEventNewRotating() {
                 <DateTimeInput id="signup-end" data-testid="input-signup-end" value={form.signupEndDatetime} onChange={v => { signupEndEdited.current = true; setField("signupEndDatetime", v); }} required />
                 {dtDow(form.signupEndDatetime) && <p className="text-xs text-muted-foreground">{dtDow(form.signupEndDatetime)}</p>}
               </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <input type="checkbox" id="show-signup-end" className="w-4 h-4 accent-primary cursor-pointer" checked={form.showSignupEnd} onChange={e => setField("showSignupEnd", e.target.checked)} />
+              <label htmlFor="show-signup-end" className="text-sm cursor-pointer">Show signup close time on public event page</label>
             </div>
           </div>
 

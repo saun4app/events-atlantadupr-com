@@ -39,6 +39,7 @@ export interface Event {
   requireApproval: EventRequireApproval;
   signupStartDatetime: Date;
   signupEndDatetime: Date;
+  showSignupEnd: boolean;
   status: EventStatus;
   courtFeeEnabled: boolean;
   memberFee: number;

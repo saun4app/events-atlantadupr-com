@@ -183,6 +183,7 @@ export interface Event {
   requireApproval: EventRequireApproval;
   signupStartDatetime: string;
   signupEndDatetime: string;
+  showSignupEnd: boolean;
   status: EventStatus;
   courtFeeEnabled: boolean;
   memberFee: number;
@@ -255,6 +256,7 @@ export interface EventInput {
   requireApproval: EventInputRequireApproval;
   signupStartDatetime: string;
   signupEndDatetime: string;
+  showSignupEnd?: boolean;
   courtFeeEnabled?: boolean;
   memberFee?: number;
   nonMemberFee?: number;
@@ -308,6 +310,7 @@ export interface EventUpdate {
   requireApproval?: EventUpdateRequireApproval;
   signupStartDatetime?: string;
   signupEndDatetime?: string;
+  showSignupEnd?: boolean;
   status?: EventUpdateStatus;
   courtFeeEnabled?: boolean;
   memberFee?: number;

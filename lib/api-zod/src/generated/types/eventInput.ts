@@ -31,6 +31,7 @@ export interface EventInput {
   requireApproval: EventInputRequireApproval;
   signupStartDatetime: Date;
   signupEndDatetime: Date;
+  showSignupEnd?: boolean;
   courtFeeEnabled?: boolean;
   memberFee?: number;
   nonMemberFee?: number;
