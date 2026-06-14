@@ -496,6 +496,11 @@ export default function EventDetail() {
               <Clock className="w-4 h-4 text-primary" />
               {format(new Date(event.startDatetime), "h:mm a")} – {format(new Date(event.endDatetime), "h:mm a")}
             </div>
+            <div className="flex items-center gap-2 text-muted-foreground col-span-2">
+              {signupOpen && <Badge className="text-xs">Open</Badge>}
+              {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
+              {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
+            </div>
             {(event as any).showSignupEnd && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <Calendar className="w-4 h-4 text-primary" />
@@ -503,9 +508,6 @@ export default function EventDetail() {
                 <span className={signupOpen ? "text-primary font-medium" : "text-muted-foreground"}>
                   {format(new Date(event.signupEndDatetime), "EEE, MMM d, h:mm a")}
                 </span>
-                {signupOpen && <Badge className="text-xs">Open</Badge>}
-                {!signupOpen && !signupNotYet && <Badge variant="secondary" className="text-xs">Closed</Badge>}
-                {signupNotYet && <Badge variant="secondary" className="text-xs">Not yet open</Badge>}
               </div>
             )}
             {rosterSummary && (
