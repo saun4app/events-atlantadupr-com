@@ -460,8 +460,23 @@ export const RegistrationUpdateStatus = {
 
 export interface RegistrationUpdate {
   status?: RegistrationUpdateStatus;
+  /**
+     * Replace the primary player by DUPR ID. The new member must exist and not already be registered for this event.
+     * @nullable
+     */
+  memberDuprId?: string | null;
+  /**
+     * Replace the primary player by email. The new member must exist and not already be registered for this event.
+     * @nullable
+     */
+  memberEmail?: string | null;
   /** @nullable */
   partnerDuprId?: string | null;
+  /**
+     * Replace the partner by email. Resolved to the member's DUPR ID.
+     * @nullable
+     */
+  partnerEmail?: string | null;
   /** @nullable */
   assignedRating?: number | null;
   /**

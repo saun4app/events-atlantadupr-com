@@ -177,6 +177,10 @@ export default function AdminEventDetailFixed() {
   const [editForm, setEditForm] = useState<Record<string, any>>({});
   const [editRatingConfig, setEditRatingConfig] = useState<any>(null);
 
+  const [editRegId, setEditRegId] = useState<number | null>(null);
+  const [editRegForm, setEditRegForm] = useState<Record<string, any>>({});
+  const [editRegOrig, setEditRegOrig] = useState<Record<string, any>>({});
+
 
   const rrc = getRrc(settings);
 
@@ -341,6 +345,72 @@ export default function AdminEventDetailFixed() {
   function handleCancelReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleNoShowReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "no_show" } as any }, { onSuccess: () => { toast({ title: "Moved to no-show" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   function handleConfirmReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+
+  function openEditRegDialog(reg: any) {
+    const base = {
+      status: reg.status ?? "confirmed",
+      assignedRating: reg.assignedRating != null ? String(reg.assignedRating) : "",
+      selfRating: reg.selfRating != null ? String(reg.selfRating) : "",
+      eventRole: reg.eventRole ?? "__none__",
+    };
+    setEditRegId(reg.id);
+    setEditRegOrig(base);
+    setEditRegForm({
+      ...base,
+      playerName: reg.playerName ?? "",
+      memberDuprId: reg.memberDuprId ?? "",
+      partnerName: reg.partnerName ?? "",
+      partnerDuprId: reg.partnerDuprId ?? "",
+      replacePlayer: "",
+      replacePartner: "",
+    });
+  }
+
+  function handleEditRegSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (editRegId == null) return;
+    const f = editRegForm;
+    const orig = editRegOrig;
+    const data: any = {};
+
+    // Only send fields that the admin actually changed, so player/partner
+    // replacement (which resets ratings server-side) isn't overwritten.
+    if (f.status !== orig.status) data.status = f.status;
+    if ((f.eventRole ?? "__none__") !== (orig.eventRole ?? "__none__")) {
+      data.eventRole = f.eventRole === "__none__" ? null : f.eventRole;
+    }
+    if ((f.assignedRating ?? "") !== (orig.assignedRating ?? "")) {
+      data.assignedRating = f.assignedRating.trim() === "" ? null : Number(f.assignedRating);
+    }
+    if ((f.selfRating ?? "") !== (orig.selfRating ?? "")) {
+      data.selfRating = f.selfRating.trim() === "" ? null : f.selfRating.trim();
+    }
+
+    const replacePlayer = (f.replacePlayer || "").trim();
+    if (replacePlayer) {
+      if (replacePlayer.includes("@")) data.memberEmail = replacePlayer.toLowerCase();
+      else data.memberDuprId = replacePlayer;
+    }
+    const replacePartner = (f.replacePartner || "").trim();
+    if (replacePartner) {
+      if (replacePartner.includes("@")) data.partnerEmail = replacePartner.toLowerCase();
+      else data.partnerDuprId = replacePartner;
+    }
+
+    if (Object.keys(data).length === 0) {
+      toast({ title: "No changes to save" });
+      setEditRegId(null);
+      return;
+    }
+
+    updateReg.mutate(
+      { eventType, id: eventId, regId: editRegId, data },
+      {
+        onSuccess: () => { toast({ title: "Registration updated" }); invalidate(); setEditRegId(null); },
+        onError: (err: any) => toast({ title: err?.data?.error || "Failed to update registration", variant: "destructive" }),
+      }
+    );
+  }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
@@ -968,6 +1038,10 @@ export default function AdminEventDetailFixed() {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48">
+                                          <DropdownMenuItem data-testid={`action-edit-${reg.id}`} className="gap-2" onClick={() => openEditRegDialog(reg)}>
+                                            <Pencil className="w-3.5 h-3.5 text-primary" /> Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
                                           {reg.status !== "confirmed" && (
                                             <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
                                               <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
@@ -1110,6 +1184,10 @@ export default function AdminEventDetailFixed() {
                                           </Button>
                                         </DropdownMenuTrigger>
                                         <DropdownMenuContent align="end" className="w-48">
+                                          <DropdownMenuItem data-testid={`action-edit-${reg.id}`} className="gap-2" onClick={() => openEditRegDialog(reg)}>
+                                            <Pencil className="w-3.5 h-3.5 text-primary" /> Edit
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
                                           <DropdownMenuItem data-testid={`action-move-to-confirmed-${reg.id}`} className="gap-2" onClick={() => handleConfirmReg(reg.id)}>
                                             <CheckCircle className="w-3.5 h-3.5 text-primary" /> Move to Confirmed
                                           </DropdownMenuItem>
@@ -1464,6 +1542,83 @@ export default function AdminEventDetailFixed() {
               <Button type="button" variant="outline" onClick={() => setShowEditDialog(false)}>Cancel</Button>
               <Button type="submit" data-testid="button-submit-edit-event" disabled={updateEvent.isPending}>
                 {updateEvent.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Edit Registration Dialog ───────────────────────── */}
+      <Dialog open={editRegId !== null} onOpenChange={open => { if (!open) setEditRegId(null); }}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader><DialogTitle>Edit Registration</DialogTitle></DialogHeader>
+          <form onSubmit={handleEditRegSubmit}>
+            <div className="space-y-4 py-2">
+              {/* Registration Data */}
+              <div className="space-y-3">
+                <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Registration Data</h2>
+                <div className="space-y-1.5">
+                  <Label>Status</Label>
+                  <Select value={editRegForm.status ?? "confirmed"} onValueChange={v => setEditRegForm((f: any) => ({ ...f, status: v }))}>
+                    <SelectTrigger data-testid="select-edit-reg-status"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="confirmed">Confirmed</SelectItem>
+                      <SelectItem value="waitlisted">Waitlisted</SelectItem>
+                      <SelectItem value="pending_approval">Pending Approval</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                      <SelectItem value="cancelled">Canceled</SelectItem>
+                      <SelectItem value="no_show">No-show</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-reg-assigned">Assigned Rating</Label>
+                    <Input id="edit-reg-assigned" data-testid="input-edit-reg-assigned" type="number" step="0.01" min="0" max="8" placeholder="—" value={editRegForm.assignedRating ?? ""} onChange={e => setEditRegForm((f: any) => ({ ...f, assignedRating: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="edit-reg-self">Self-Rating</Label>
+                    <Input id="edit-reg-self" data-testid="input-edit-reg-self" type="number" step="0.01" min="2" max="5" placeholder="—" value={editRegForm.selfRating ?? ""} onChange={e => setEditRegForm((f: any) => ({ ...f, selfRating: e.target.value }))} />
+                  </div>
+                </div>
+                {eventRolesList.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label>Event Role</Label>
+                    <Select value={editRegForm.eventRole ?? "__none__"} onValueChange={v => setEditRegForm((f: any) => ({ ...f, eventRole: v }))}>
+                      <SelectTrigger data-testid="select-edit-reg-role"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__none__">None</SelectItem>
+                        {eventRolesList.map(role => <SelectItem key={role} value={role}>{role}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </div>
+
+              {/* Replace Players */}
+              <div className="space-y-3">
+                <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide">Replace Players</h2>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-reg-replace-player">Player</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Current: {editRegForm.playerName || "—"}{editRegForm.memberDuprId ? ` (${editRegForm.memberDuprId})` : ""}
+                  </p>
+                  <Input id="edit-reg-replace-player" data-testid="input-edit-reg-replace-player" placeholder="New player email or DUPR ID" value={editRegForm.replacePlayer ?? ""} onChange={e => setEditRegForm((f: any) => ({ ...f, replacePlayer: e.target.value }))} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="edit-reg-replace-partner">Partner</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Current: {editRegForm.partnerName || "—"}{editRegForm.partnerDuprId ? ` (${editRegForm.partnerDuprId})` : ""}
+                  </p>
+                  <Input id="edit-reg-replace-partner" data-testid="input-edit-reg-replace-partner" placeholder="New partner email or DUPR ID" value={editRegForm.replacePartner ?? ""} onChange={e => setEditRegForm((f: any) => ({ ...f, replacePartner: e.target.value }))} />
+                </div>
+                <p className="text-xs text-muted-foreground">Leave a field blank to keep the current player. The member must exist in the member list.</p>
+              </div>
+            </div>
+            <DialogFooter className="flex-row items-center gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditRegId(null)}>Cancel</Button>
+              <Button type="submit" data-testid="button-submit-edit-reg" disabled={updateReg.isPending}>
+                {updateReg.isPending ? "Saving..." : "Save Changes"}
               </Button>
             </DialogFooter>
           </form>

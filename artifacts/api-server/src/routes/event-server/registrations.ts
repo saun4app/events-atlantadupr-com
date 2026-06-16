@@ -444,12 +444,65 @@ router.patch(
 
     const updates: any = {};
     if (req.body.status !== undefined) updates.status = req.body.status;
-    if (req.body.partnerDuprId !== undefined) {
-      updates.partnerDuprId = req.body.partnerDuprId;
-      if (req.body.partnerDuprId) {
-        const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, req.body.partnerDuprId));
+
+    // Replace the primary player. Accept a new member by email or DUPR ID,
+    // verify the member exists and is not already registered for this event,
+    // then rebuild the player snapshot and reset the assigned rating to the
+    // new member's DUPR.
+    if (req.body.memberEmail !== undefined || req.body.memberDuprId !== undefined) {
+      let newMember: typeof membersTable.$inferSelect | undefined;
+      if (req.body.memberEmail) {
+        [newMember] = await db
+          .select()
+          .from(membersTable)
+          .where(sql`lower(${membersTable.email}) = lower(${req.body.memberEmail})`);
+        if (!newMember) return res.status(404).json({ error: "No member found with that email address" });
+      } else if (req.body.memberDuprId) {
+        [newMember] = await db.select().from(membersTable).where(eq(membersTable.duprId, req.body.memberDuprId));
+        if (!newMember) return res.status(404).json({ error: "No member found with that DUPR ID" });
+      }
+      if (newMember && newMember.duprId !== existing.memberDuprId) {
+        const [dup] = await db
+          .select()
+          .from(registrationsTable)
+          .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, newMember.duprId)));
+        if (dup) return res.status(409).json({ error: "Member already registered for this event" });
+        updates.memberDuprId = newMember.duprId;
+        updates.playerSnapshot = {
+          name: newMember.name ?? newMember.duprId,
+          doubles: newMember.doubles ?? null,
+          singles: newMember.singles ?? null,
+          selfRating: newMember.selfRating ?? null,
+          email: newMember.email ?? null,
+          phone: newMember.phone ?? null,
+        };
+        const ar = newMember.doubles ? parseFloat(newMember.doubles) : null;
+        updates.assignedRating = ar !== null && !isNaN(ar) ? ar : null;
+      }
+    }
+
+    // Replace the partner. Accept a partner by email or DUPR ID; email takes
+    // precedence and is resolved to the member's DUPR ID.
+    let partnerDuprIdToSet: string | null | undefined;
+    if (req.body.partnerEmail) {
+      const [partner] = await db
+        .select()
+        .from(membersTable)
+        .where(sql`lower(${membersTable.email}) = lower(${req.body.partnerEmail})`);
+      if (!partner) return res.status(404).json({ error: "No partner found with that email address" });
+      partnerDuprIdToSet = partner.duprId;
+    } else if (req.body.partnerDuprId !== undefined) {
+      partnerDuprIdToSet = req.body.partnerDuprId;
+    }
+    if (partnerDuprIdToSet !== undefined) {
+      updates.partnerDuprId = partnerDuprIdToSet;
+      if (partnerDuprIdToSet) {
+        const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprIdToSet));
+        if (!partner && req.body.partnerEmail === undefined) {
+          return res.status(404).json({ error: "No partner found with that DUPR ID" });
+        }
         updates.partnerSnapshot = {
-          partnerName: partner?.name ?? req.body.partnerDuprId,
+          partnerName: partner?.name ?? partnerDuprIdToSet,
           partnerDoubles: partner?.doubles ?? null,
           partnerSelfRating: partner?.selfRating ?? null,
         };
@@ -465,7 +518,7 @@ router.patch(
     }
     if (req.body.selfRating !== undefined) {
       const sr = req.body.selfRating;
-      const baseSnapshot = existing.playerSnapshot ?? {
+      const baseSnapshot = updates.playerSnapshot ?? existing.playerSnapshot ?? {
         name: existing.memberDuprId,
         doubles: null,
         singles: null,

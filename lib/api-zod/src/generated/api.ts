@@ -543,7 +543,10 @@ export const UpdateRegistrationParams = zod.object({
 
 export const UpdateRegistrationBody = zod.object({
   "status": zod.enum(['confirmed', 'waitlisted', 'pending_approval', 'rejected', 'cancelled', 'no_show']).optional(),
+  "memberDuprId": zod.string().nullish().describe('Replace the primary player by DUPR ID. The new member must exist and not already be registered for this event.'),
+  "memberEmail": zod.string().nullish().describe('Replace the primary player by email. The new member must exist and not already be registered for this event.'),
   "partnerDuprId": zod.string().nullish(),
+  "partnerEmail": zod.string().nullish().describe('Replace the partner by email. Resolved to the member\'s DUPR ID.'),
   "assignedRating": zod.number().nullish(),
   "selfRating": zod.string().nullish().describe('Self-assessed rating (2.0-5.0) for NR (non-rated) players. Updates the member\'s self-rating.'),
   "isNew": zod.boolean().optional(),
