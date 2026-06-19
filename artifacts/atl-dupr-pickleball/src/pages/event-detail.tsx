@@ -255,6 +255,15 @@ export default function EventDetail() {
 
   const confirmedRegs = registrations?.filter(r => r.status === "confirmed") ?? [];
 
+  // Fixed-partner DUPR events can disallow NR (non-rated) players. When that's
+  // the case and the registrant is NR (selfRatingRequired), block registration
+  // instead of prompting for a self-rating.
+  const eventNrNotAllowed =
+    event.teamFormat === "fixed_partner" &&
+    !!(event as any).ratingConfig &&
+    (event as any).ratingConfig.nrAllowed === false;
+  const nrBlocked = eventNrNotAllowed && selfRatingRequired;
+
   function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
     if (event?.teamFormat === "fixed_partner" && !partnerEmail.trim()) {
@@ -665,7 +674,14 @@ export default function EventDetail() {
                     </button>
                   </p>
                 </div>
-                {selfRatingRequired && (
+                {nrBlocked ? (
+                  <div className="flex items-start gap-3 bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive" data-testid="notice-nr-blocked">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>
+                      This event does not allow non-rated (NR) players. A DUPR doubles rating is required to register.
+                    </span>
+                  </div>
+                ) : selfRatingRequired ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="self-rating">Self-Rating <span className="text-destructive">*</span></Label>
                     <Input
@@ -692,8 +708,8 @@ export default function EventDetail() {
                       Your DUPR rating is NR (non-rated). Enter a self-assessed rating between 2.0 and 5.0 (e.g. 3.50).
                     </p>
                   </div>
-                )}
-                <Button data-testid="button-register" type="submit" disabled={createReg.isPending || code.trim().length !== 6}>
+                ) : null}
+                <Button data-testid="button-register" type="submit" disabled={createReg.isPending || code.trim().length !== 6 || nrBlocked}>
                   {createReg.isPending ? "Submitting..." : "Submit Registration"}
                 </Button>
               </form>

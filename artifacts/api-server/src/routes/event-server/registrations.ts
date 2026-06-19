@@ -301,6 +301,22 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return isNaN(parseFloat(rating));
   }
 
+  // Enforce the "Allow NR players" toggle for fixed-partner DUPR events.
+  // When NR is not allowed, reject non-rated players (primary or partner).
+  // Staff adding participants from the admin console are exempt, consistent
+  // with the self-rating exemption below.
+  const rc = event.ratingConfig as { nrAllowed?: boolean } | null;
+  const nrNotAllowed =
+    event.teamFormat === "fixed_partner" && !!rc && typeof rc === "object" && "nrAllowed" in rc && rc.nrAllowed === false;
+  if (nrNotAllowed && !staff) {
+    if (isNR(member?.doubles ?? null)) {
+      return res.status(400).json({ error: "This event does not allow non-rated (NR) players. A DUPR doubles rating is required to register." });
+    }
+    if (isNR(partnerMember?.doubles ?? null)) {
+      return res.status(400).json({ error: "This event does not allow non-rated (NR) players. Your partner needs a DUPR doubles rating to register." });
+    }
+  }
+
   // Validate and store self-rating for NR players
   // Staff adding participants from admin console are exempt from self-rating requirement
   if (isNR(member?.doubles ?? null) && !staff) {
