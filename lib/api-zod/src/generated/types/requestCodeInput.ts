@@ -8,4 +8,6 @@
 
 export interface RequestCodeInput {
   email: string;
+  /** Optional partner email for fixed-partner events, used to preflight the partner's NR status */
+  partnerEmail?: string;
 }

@@ -418,6 +418,8 @@ export interface RegistrationInput {
 
 export interface RequestCodeInput {
   email: string;
+  /** Optional partner email for fixed-partner events, used to preflight the partner's NR status */
+  partnerEmail?: string;
 }
 
 export interface RequestCodeResult {
@@ -426,6 +428,8 @@ export interface RequestCodeResult {
   cooldownSeconds?: number;
   /** Whether the member is NR (non-rated) and must provide a self-rating */
   selfRatingRequired?: boolean;
+  /** Whether the provided partner is NR (non-rated); used to warn before submission on NR-restricted fixed-partner events */
+  partnerSelfRatingRequired?: boolean;
 }
 
 export interface CancelRegistrationInput {

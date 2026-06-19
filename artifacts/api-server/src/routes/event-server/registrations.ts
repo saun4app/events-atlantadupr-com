@@ -113,6 +113,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   if (!eventType) return res.status(404).json({ error: "Unknown event format" });
   const eventId = Number(req.params.id);
   const email = typeof req.body?.email === "string" ? req.body.email.trim() : "";
+  const partnerEmail = typeof req.body?.partnerEmail === "string" ? req.body.partnerEmail.trim() : "";
 
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return res.status(400).json({ error: "A valid email address is required" });
@@ -146,6 +147,19 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   }
   const selfRatingRequired = member ? isNR(member.doubles) : false;
 
+  // For fixed-partner events, preflight the partner's NR status so the client
+  // can warn before submission instead of failing late at submit time. When the
+  // partner email isn't supplied or isn't a known member, treat it as not NR
+  // (the submit handler surfaces "partner not found" separately).
+  let partnerSelfRatingRequired = false;
+  if (eventType === "fixed_partner" && partnerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail)) {
+    const [partner] = await db
+      .select()
+      .from(membersTable)
+      .where(sql`lower(${membersTable.email}) = lower(${partnerEmail})`);
+    partnerSelfRatingRequired = partner ? isNR(partner.doubles) : false;
+  }
+
   // The "from" address must be on a domain verified in the project's Resend
   // account. The event contact email often lives on a domain the operator does
   // not control (e.g. a Zoho Desk subdomain), so prefer a dedicated verified
@@ -154,7 +168,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   const fromEmail = process.env.VERIFICATION_EMAIL_FROM || contactEmail;
   if (!fromEmail) {
     logger.error("Cannot send verification code: no VERIFICATION_EMAIL_FROM or eventContactEmails configured");
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
   }
   // Route replies back to the human contact address when the sender is a
   // dedicated no-reply style verified address.
@@ -162,7 +176,7 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
 
   const code = await issueCode(email);
   if (code === null) {
-    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
+    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
   }
 
   try {
@@ -190,10 +204,10 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
       });
     }
 
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
+    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
   }
 
-  return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired });
+  return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
 });
 
 router.post("/", async (req: Request<EventParams>, res: Response) => {

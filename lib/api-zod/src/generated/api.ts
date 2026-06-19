@@ -490,13 +490,15 @@ export const RequestRegistrationCodeParams = zod.object({
 })
 
 export const RequestRegistrationCodeBody = zod.object({
-  "email": zod.string()
+  "email": zod.string(),
+  "partnerEmail": zod.string().optional().describe('Optional partner email for fixed-partner events, used to preflight the partner\'s NR status')
 })
 
 export const RequestRegistrationCodeResponse = zod.object({
   "sent": zod.boolean(),
   "cooldownSeconds": zod.number().optional().describe('Seconds the client should wait before requesting another code'),
-  "selfRatingRequired": zod.boolean().optional().describe('Whether the member is NR (non-rated) and must provide a self-rating')
+  "selfRatingRequired": zod.boolean().optional().describe('Whether the member is NR (non-rated) and must provide a self-rating'),
+  "partnerSelfRatingRequired": zod.boolean().optional().describe('Whether the provided partner is NR (non-rated); used to warn before submission on NR-restricted fixed-partner events')
 })
 
 

@@ -182,6 +182,7 @@ export default function EventDetail() {
   const [selfRating, setSelfRating] = useState("");
   const [selfRatingError, setSelfRatingError] = useState("");
   const [selfRatingRequired, setSelfRatingRequired] = useState(false);
+  const [partnerSelfRatingRequired, setPartnerSelfRatingRequired] = useState(false);
 
   const [cancelEmail, setCancelEmail] = useState("");
   const [cancelCode, setCancelCode] = useState("");
@@ -263,6 +264,7 @@ export default function EventDetail() {
     !!(event as any).ratingConfig &&
     (event as any).ratingConfig.nrAllowed === false;
   const nrBlocked = eventNrNotAllowed && selfRatingRequired;
+  const partnerNrBlocked = eventNrNotAllowed && partnerSelfRatingRequired;
 
   function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -271,7 +273,14 @@ export default function EventDetail() {
       return;
     }
     requestCode.mutate(
-      { eventType, id: eventId, data: { email: email.trim() } },
+      {
+        eventType,
+        id: eventId,
+        data: {
+          email: email.trim(),
+          partnerEmail: event?.teamFormat === "fixed_partner" ? partnerEmail.trim().toLowerCase() : undefined,
+        },
+      },
       {
         onSuccess: (res) => {
           if (!res?.sent) {
@@ -282,6 +291,7 @@ export default function EventDetail() {
           setCode("");
           setCooldown(res.cooldownSeconds ?? 30);
           setSelfRatingRequired(res.selfRatingRequired ?? false);
+          setPartnerSelfRatingRequired(res.partnerSelfRatingRequired ?? false);
           setSelfRating("");
           setSelfRatingError("");
           toast({ title: "Verification code sent", description: `We emailed a 6-digit code to ${email.trim()}. It expires in 10 minutes.` });
@@ -336,6 +346,7 @@ export default function EventDetail() {
     setSelfRating("");
     setSelfRatingError("");
     setSelfRatingRequired(false);
+    setPartnerSelfRatingRequired(false);
   }
 
   function handleSignup(e: React.FormEvent) {
@@ -681,6 +692,13 @@ export default function EventDetail() {
                       This event does not allow non-rated (NR) players. A DUPR doubles rating is required to register.
                     </span>
                   </div>
+                ) : partnerNrBlocked ? (
+                  <div className="flex items-start gap-3 bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-sm text-destructive" data-testid="notice-partner-nr-blocked">
+                    <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                    <span>
+                      This event does not allow non-rated (NR) players. Your partner needs a DUPR doubles rating to register.
+                    </span>
+                  </div>
                 ) : selfRatingRequired ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="self-rating">Self-Rating <span className="text-destructive">*</span></Label>
@@ -709,7 +727,7 @@ export default function EventDetail() {
                     </p>
                   </div>
                 ) : null}
-                <Button data-testid="button-register" type="submit" disabled={createReg.isPending || code.trim().length !== 6 || nrBlocked}>
+                <Button data-testid="button-register" type="submit" disabled={createReg.isPending || code.trim().length !== 6 || nrBlocked || partnerNrBlocked}>
                   {createReg.isPending ? "Submitting..." : "Submit Registration"}
                 </Button>
               </form>
