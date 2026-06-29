@@ -301,20 +301,22 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     }
   }
 
-  // A previously cancelled registration should NOT block a fresh signup — it is
-  // reactivated below instead. Only an active (confirmed / waitlisted / pending
-  // approval, etc.) registration blocks a duplicate signup. Inspect ALL rows for
-  // this member (the table has no uniqueness constraint, so historical data may
-  // contain multiple rows): if any is active, reject; otherwise reactivate the
-  // most recent cancelled row.
+  // Only an ACTIVE registration blocks a duplicate signup. Non-active historical
+  // rows (cancelled, rejected, no_show) do not block — a previously cancelled
+  // registration is reactivated in place below; other non-active states fall
+  // through to a fresh insert. Inspect ALL rows for this member because the table
+  // has no uniqueness constraint and may contain multiple historical rows.
+  const ACTIVE_REG_STATUSES = ["confirmed", "waitlisted", "pending_approval"];
   const memberRegs = await db
     .select()
     .from(registrationsTable)
     .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
-  if (memberRegs.some((r) => r.status !== "cancelled")) {
+  if (memberRegs.some((r) => ACTIVE_REG_STATUSES.includes(r.status))) {
     return res.status(409).json({ error: "Member already registered for this event" });
   }
-  const existingReg = memberRegs.slice().sort((a, b) => b.id - a.id)[0];
+  const existingReg = memberRegs
+    .filter((r) => r.status === "cancelled")
+    .sort((a, b) => b.id - a.id)[0];
   const reactivatingCancelled = !!existingReg;
 
   const allRegs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
