@@ -301,11 +301,21 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     }
   }
 
-  const [existingReg] = await db
+  // A previously cancelled registration should NOT block a fresh signup — it is
+  // reactivated below instead. Only an active (confirmed / waitlisted / pending
+  // approval, etc.) registration blocks a duplicate signup. Inspect ALL rows for
+  // this member (the table has no uniqueness constraint, so historical data may
+  // contain multiple rows): if any is active, reject; otherwise reactivate the
+  // most recent cancelled row.
+  const memberRegs = await db
     .select()
     .from(registrationsTable)
     .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
-  if (existingReg) return res.status(409).json({ error: "Member already registered for this event" });
+  if (memberRegs.some((r) => r.status !== "cancelled")) {
+    return res.status(409).json({ error: "Member already registered for this event" });
+  }
+  const existingReg = memberRegs.slice().sort((a, b) => b.id - a.id)[0];
+  const reactivatingCancelled = !!existingReg;
 
   const allRegs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
   const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
@@ -378,19 +388,42 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       }
     : null;
 
-  const [reg] = await db
-    .insert(registrationsTable)
-    .values({
-      eventId,
-      eventType,
-      memberDuprId: finalMemberDuprId,
-      partnerDuprId: resolvedPartnerDuprId,
-      playerSnapshot,
-      partnerSnapshot,
-      status,
-      assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
-    })
-    .returning();
+  let reg;
+  if (reactivatingCancelled && existingReg) {
+    // Reactivate the player's cancelled registration in place: refresh the
+    // snapshots, partner, status and assigned rating, stamp a fresh
+    // registered-at time, and clear stale cancellation/approval metadata.
+    [reg] = await db
+      .update(registrationsTable)
+      .set({
+        partnerDuprId: resolvedPartnerDuprId,
+        playerSnapshot,
+        partnerSnapshot,
+        status,
+        assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
+        registeredAt: new Date(),
+        cancelledAt: null,
+        cancelledBy: null,
+        approvedAt: null,
+        approvedBy: null,
+      })
+      .where(eq(registrationsTable.id, existingReg.id))
+      .returning();
+  } else {
+    [reg] = await db
+      .insert(registrationsTable)
+      .values({
+        eventId,
+        eventType,
+        memberDuprId: finalMemberDuprId,
+        partnerDuprId: resolvedPartnerDuprId,
+        playerSnapshot,
+        partnerSnapshot,
+        status,
+        assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
+      })
+      .returning();
+  }
 
   if (!staff && email) {
     await consumeCode(email);
