@@ -137,6 +137,7 @@ export const EventRequireApproval = {
   none: 'none',
   all: 'all',
   nr_only: 'nr_only',
+  enforce_rating: 'enforce_rating',
 } as const;
 
 export type EventStatus = typeof EventStatus[keyof typeof EventStatus];
@@ -227,6 +228,7 @@ export const EventInputRequireApproval = {
   none: 'none',
   all: 'all',
   nr_only: 'nr_only',
+  enforce_rating: 'enforce_rating',
 } as const;
 
 /**
@@ -274,6 +276,7 @@ export const EventUpdateRequireApproval = {
   none: 'none',
   all: 'all',
   nr_only: 'nr_only',
+  enforce_rating: 'enforce_rating',
 } as const;
 
 export type EventUpdateStatus = typeof EventUpdateStatus[keyof typeof EventUpdateStatus];

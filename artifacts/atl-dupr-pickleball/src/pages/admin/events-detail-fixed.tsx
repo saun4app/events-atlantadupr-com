@@ -667,7 +667,7 @@ export default function AdminEventDetailFixed() {
                     {event.ratingTypeRequired !== "none" && (
                       <Badge variant="outline" className="text-xs">{formatRatingBadge(event)}</Badge>
                     )}
-                    {event.requireApproval !== "none" && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">{event.requireApproval === "all" ? "Approval Required" : "NR Approval Required"}</Badge>}
+                    {event.requireApproval !== "none" && <Badge variant="outline" className="text-xs border-yellow-300 text-yellow-700">{event.requireApproval === "all" ? "Approval Required" : event.requireApproval === "enforce_rating" ? "Rating Enforced" : "NR Approval Required"}</Badge>}
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -1468,8 +1468,12 @@ export default function AdminEventDetailFixed() {
                       <SelectItem value="none">No Approval</SelectItem>
                       <SelectItem value="all">All Players</SelectItem>
                       <SelectItem value="nr_only">NR Players Only</SelectItem>
+                      <SelectItem value="enforce_rating">Enforce Rating</SelectItem>
                     </SelectContent>
                   </Select>
+                  {editForm.requireApproval === "enforce_rating" && (
+                    <p className="text-xs text-muted-foreground">Players whose rating is outside the Rating Requirement range will be blocked from registering.</p>
+                  )}
                 </div>
               </div>
 

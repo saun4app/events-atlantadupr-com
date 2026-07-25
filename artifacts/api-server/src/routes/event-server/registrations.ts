@@ -358,6 +358,89 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     }
   }
 
+  // "Enforce Rating" mode: instead of routing players through approval, hard-
+  // reject registrations whose rating falls outside the event's configured
+  // rating requirement. Applies to public signups AND staff adds, and to the
+  // partner on fixed-partner events.
+  if (event.requireApproval === "enforce_rating") {
+    const cfg = event.ratingConfig as { min?: number; max?: number; nrAllowed?: boolean } | null;
+    const type = event.ratingTypeRequired;
+    const hasRange = !!cfg && typeof cfg.min === "number" && typeof cfg.max === "number";
+    if (hasRange && (type === "dupr" || type === "self_numeric")) {
+      const min = cfg!.min!;
+      const max = cfg!.max!;
+      const range = `${min.toFixed(1)}–${max.toFixed(1)}`;
+      // Fail-closed range check: a missing or unparseable rating is rejected,
+      // not silently accepted.
+      const outOfRange = (raw: string | null | undefined): { ok: boolean; val?: number } => {
+        const v = raw != null ? parseFloat(raw) : NaN;
+        if (isNaN(v)) return { ok: false };
+        return { ok: v >= min && v <= max, val: v };
+      };
+      const registrantSelf = selfRating && !isNaN(parseFloat(selfRating)) ? selfRating : member?.selfRating ?? null;
+
+      if (type === "dupr") {
+        // Registrant
+        if (isNR(member?.doubles ?? null)) {
+          if (!cfg!.nrAllowed) {
+            return res.status(400).json({ error: `This event enforces a DUPR rating between ${range}, and non-rated (NR) players are not allowed.` });
+          }
+          const r = outOfRange(registrantSelf);
+          if (r.val === undefined) {
+            return res.status(400).json({ error: `This event enforces a rating between ${range}. A valid self-rating is required for non-rated (NR) players.` });
+          }
+          if (!r.ok) {
+            return res.status(400).json({ error: `Your self-rating (${r.val}) is outside this event's enforced rating range of ${range}.` });
+          }
+        } else {
+          const r = outOfRange(member?.doubles);
+          if (!r.ok) {
+            return res.status(400).json({ error: `Your DUPR rating (${r.val ?? "unknown"}) is outside this event's enforced rating range of ${range}.` });
+          }
+        }
+        // Partner (fixed-partner events)
+        if (resolvedPartnerDuprId) {
+          if (isNR(partnerMember?.doubles ?? null)) {
+            if (!cfg!.nrAllowed) {
+              return res.status(400).json({ error: `This event enforces a DUPR rating between ${range}, and non-rated (NR) players are not allowed. Your partner needs a DUPR doubles rating.` });
+            }
+            const pr = outOfRange(partnerMember?.selfRating ?? null);
+            if (pr.val === undefined) {
+              return res.status(400).json({ error: `This event enforces a rating between ${range}. Your non-rated (NR) partner needs a valid self-rating on file.` });
+            }
+            if (!pr.ok) {
+              return res.status(400).json({ error: `Your partner's self-rating (${pr.val}) is outside this event's enforced rating range of ${range}.` });
+            }
+          } else {
+            const pr = outOfRange(partnerMember?.doubles);
+            if (!pr.ok) {
+              return res.status(400).json({ error: `Your partner's DUPR rating (${pr.val ?? "unknown"}) is outside this event's enforced rating range of ${range}.` });
+            }
+          }
+        }
+      } else {
+        // self_numeric: the self-rating itself is the basis of eligibility.
+        const r = outOfRange(registrantSelf);
+        if (r.val === undefined) {
+          return res.status(400).json({ error: `This event enforces a self-rating between ${range}. A valid self-rating is required to register.` });
+        }
+        if (!r.ok) {
+          return res.status(400).json({ error: `Your self-rating (${r.val}) is outside this event's enforced rating range of ${range}.` });
+        }
+        if (resolvedPartnerDuprId) {
+          const pr = outOfRange(partnerMember?.selfRating ?? null);
+          if (pr.val === undefined) {
+            return res.status(400).json({ error: `This event enforces a self-rating between ${range}. Your partner needs a valid self-rating on file.` });
+          }
+          if (!pr.ok) {
+            return res.status(400).json({ error: `Your partner's self-rating (${pr.val}) is outside this event's enforced rating range of ${range}.` });
+          }
+        }
+      }
+    }
+    // self_skill / none / missing range config: no numeric range to enforce.
+  }
+
   let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
   if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
     status = "pending_approval";

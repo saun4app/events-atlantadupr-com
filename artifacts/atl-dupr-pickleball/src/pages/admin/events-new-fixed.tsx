@@ -127,7 +127,7 @@ export default function AdminEventNewFixed() {
     minParticipants: 8,
     maxParticipants: 24,
     waitlistEnabled: true,
-    requireApproval: "none" as "none" | "all" | "nr_only",
+    requireApproval: "none" as "none" | "all" | "nr_only" | "enforce_rating",
     signupStartDatetime: "",
     signupEndDatetime: "",
     showSignupEnd: false,
@@ -592,8 +592,12 @@ export default function AdminEventNewFixed() {
                     <SelectItem value="none">No Approval</SelectItem>
                     <SelectItem value="all">All Players</SelectItem>
                     <SelectItem value="nr_only">NR Players Only</SelectItem>
+                    <SelectItem value="enforce_rating">Enforce Rating</SelectItem>
                   </SelectContent>
                 </Select>
+                {form.requireApproval === "enforce_rating" && (
+                  <p className="text-xs text-muted-foreground">Players whose rating is outside the Rating Requirement range will be blocked from registering. Set a DUPR or numeric self-rating requirement above.</p>
+                )}
               </div>
             </div>
           </div>

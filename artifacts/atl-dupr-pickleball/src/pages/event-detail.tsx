@@ -383,7 +383,7 @@ export default function EventDetail() {
         onSuccess: () => {
           toast({ title: "Registration submitted!", description: "You are on the roster." });
           resetRegistrationForm();
-          if (event?.requireApproval !== "none") setShowApprovalNotice(true);
+          if (event?.requireApproval === "all" || event?.requireApproval === "nr_only") setShowApprovalNotice(true);
           queryClient.invalidateQueries({ queryKey: getListRegistrationsQueryKey(eventType, eventId) });
           queryClient.invalidateQueries({ queryKey: getGetEventRosterSummaryQueryKey(eventType, eventId) });
         },
@@ -564,7 +564,11 @@ export default function EventDetail() {
             {event.requireApproval !== "none" && (
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <AlertCircle className="w-4 h-4 text-primary" />
-                {event.requireApproval === "all" ? "Approval Required" : "NR Players: Approval Required"}
+                {event.requireApproval === "all"
+                  ? "Approval Required"
+                  : event.requireApproval === "enforce_rating"
+                    ? "Rating Enforced: only players within the rating range can register"
+                    : "NR Players: Approval Required"}
               </div>
             )}
             {(event as any).contactEmail && (
@@ -838,7 +842,7 @@ export default function EventDetail() {
         )}
 
         {/* Approval notice — shown only after registration submitted */}
-        {showApprovalNotice && event.requireApproval !== "none" && (
+        {showApprovalNotice && (event.requireApproval === "all" || event.requireApproval === "nr_only") && (
           <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>

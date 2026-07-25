@@ -1085,7 +1085,7 @@ components:
           type: boolean
         requireApproval:
           type: string
-          enum: [none, all, nr_only]
+          enum: [none, all, nr_only, enforce_rating]
         signupStartDatetime:
           type: string
           format: date-time
@@ -1174,7 +1174,7 @@ components:
           type: boolean
         requireApproval:
           type: string
-          enum: [none, all, nr_only]
+          enum: [none, all, nr_only, enforce_rating]
         signupStartDatetime:
           type: string
           format: date-time
@@ -1230,7 +1230,7 @@ components:
           type: boolean
         requireApproval:
           type: string
-          enum: [none, all, nr_only]
+          enum: [none, all, nr_only, enforce_rating]
         signupStartDatetime:
           type: string
           format: date-time

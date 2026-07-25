@@ -13,4 +13,5 @@ export const EventUpdateRequireApproval = {
   none: 'none',
   all: 'all',
   nr_only: 'nr_only',
+  enforce_rating: 'enforce_rating',
 } as const;
