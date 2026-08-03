@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { format } from "date-fns";
-import { Search, Calendar, MapPin, TriangleAlert, SlidersHorizontal } from "lucide-react";
+import { Search, Calendar, MapPin, Users, TriangleAlert, SlidersHorizontal } from "lucide-react";
 
 function statusBadge(status: string) {
   if (status === "upcoming") return <Badge className="text-xs bg-primary/10 text-primary border-primary/20 border">Upcoming</Badge>;
@@ -157,6 +157,7 @@ export default function AdminEventsRotating() {
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
                   <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(ev.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a")}</span>
                   <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.locationName}</span>
+                  <span className="flex items-center gap-1"><Users className="w-3 h-3" />{ev.confirmedCount ?? 0} / {ev.maxParticipants} players</span>
                 </div>
               </div>
             </div>
