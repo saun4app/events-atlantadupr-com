@@ -129,8 +129,42 @@ export default function AdminEventsRotating() {
   const filtered = events?.filter(e =>
     !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.locationName.toLowerCase().includes(search.toLowerCase())
   ) ?? [];
+  const now = Date.now();
+  const upcomingEvents = filtered.filter(e => new Date(e.startDatetime).getTime() >= now);
+  const pastEvents = filtered
+    .filter(e => new Date(e.startDatetime).getTime() < now)
+    .sort((a, b) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime());
 
   const formatLabel = "Rotating Partners";
+
+  function renderEventList(list: typeof filtered) {
+    return (
+      <div className="space-y-3">
+        {list.map(ev => (
+          <Link key={ev.id} href={`/admin/events/${eventType}/${ev.id}`} className="block">
+            <div
+              data-testid={`card-event-${ev.id}`}
+              className="bg-card border border-card-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  {statusBadge(ev.status)}
+                  <span className="text-xs text-muted-foreground">
+                    {ev.teamFormat === "fixed_partner" ? "Fixed-Partner" : "Rotating"}
+                  </span>
+                </div>
+                <h3 className="font-semibold text-foreground truncate">{ev.name}</h3>
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
+                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(ev.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a")}</span>
+                  <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.locationName}</span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -183,29 +217,25 @@ export default function AdminEventsRotating() {
             <p>No events found</p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {filtered.map(ev => (
-              <Link key={ev.id} href={`/admin/events/${eventType}/${ev.id}`} className="block">
-                <div
-                  data-testid={`card-event-${ev.id}`}
-                  className="bg-card border border-card-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 hover:shadow-sm transition-all"
-                >
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      {statusBadge(ev.status)}
-                      <span className="text-xs text-muted-foreground">
-                        {ev.teamFormat === "fixed_partner" ? "Fixed-Partner" : "Rotating"}
-                      </span>
-                    </div>
-                    <h3 className="font-semibold text-foreground truncate">{ev.name}</h3>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />{format(new Date(ev.startDatetime), "EEE, MMM d, yyyy 'at' h:mm a")}</span>
-                      <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{ev.locationName}</span>
-                    </div>
-                  </div>
+          <div className="space-y-8">
+            {upcomingEvents.length > 0 && (
+              <section>
+                <div className="flex items-baseline justify-between mb-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Upcoming Events</h2>
+                  <span className="text-xs text-muted-foreground">{upcomingEvents.length}</span>
                 </div>
-              </Link>
-            ))}
+                {renderEventList(upcomingEvents)}
+              </section>
+            )}
+            {pastEvents.length > 0 && (
+              <section>
+                <div className="flex items-baseline justify-between mb-3">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Past Events</h2>
+                  <span className="text-xs text-muted-foreground">{pastEvents.length}</span>
+                </div>
+                {renderEventList(pastEvents)}
+              </section>
+            )}
           </div>
         )}
       </main>
