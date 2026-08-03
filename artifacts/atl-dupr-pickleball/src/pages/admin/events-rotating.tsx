@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -115,6 +116,7 @@ export default function AdminEventsRotating() {
 
   const [search, setSearch] = useState("");
   const [setupOpen, setSetupOpen] = useState(false);
+  const [eventView, setEventView] = useState<"upcoming" | "past">("upcoming");
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
@@ -126,18 +128,17 @@ export default function AdminEventsRotating() {
     { query: { queryKey: getListEventsQueryKey(eventType), refetchOnMount: "always" } }
   );
 
-  const filtered = events?.filter(e =>
-    !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.locationName.toLowerCase().includes(search.toLowerCase())
-  ) ?? [];
   const now = Date.now();
-  const upcomingEvents = filtered.filter(e => new Date(e.startDatetime).getTime() >= now);
-  const pastEvents = filtered
-    .filter(e => new Date(e.startDatetime).getTime() < now)
+  const upcomingEvents = events?.filter(e => new Date(e.startDatetime).getTime() >= now) ?? [];
+  const pastEvents = (events?.filter(e => new Date(e.startDatetime).getTime() < now) ?? [])
     .sort((a, b) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime());
+  const selectedEvents = (eventView === "upcoming" ? upcomingEvents : pastEvents).filter(e =>
+    !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.locationName.toLowerCase().includes(search.toLowerCase())
+  );
 
   const formatLabel = "Rotating Partners";
 
-  function renderEventList(list: typeof filtered) {
+  function renderEventList(list: typeof selectedEvents) {
     return (
       <div className="space-y-3">
         {list.map(ev => (
@@ -207,36 +208,29 @@ export default function AdminEventsRotating() {
           />
         </div>
 
+        <div className="mb-5 flex items-center justify-between gap-3">
+          <Tabs value={eventView} onValueChange={value => setEventView(value as "upcoming" | "past")}>
+            <TabsList>
+              <TabsTrigger value="upcoming">Upcoming ({upcomingEvents.length})</TabsTrigger>
+              <TabsTrigger value="past">Past ({pastEvents.length})</TabsTrigger>
+            </TabsList>
+          </Tabs>
+          <span className="text-xs text-muted-foreground">
+            {selectedEvents.length} {eventView} event{selectedEvents.length === 1 ? "" : "s"}
+          </span>
+        </div>
+
         {evLoading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 w-full rounded-lg" />)}
           </div>
-        ) : filtered.length === 0 ? (
+        ) : selectedEvents.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Calendar className="w-10 h-10 mx-auto mb-3 opacity-20" />
-            <p>No events found</p>
+            <p>{search ? "No matching events found" : `No ${eventView} events`}</p>
           </div>
         ) : (
-          <div className="space-y-8">
-            {upcomingEvents.length > 0 && (
-              <section>
-                <div className="flex items-baseline justify-between mb-3">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-foreground">Upcoming Events</h2>
-                  <span className="text-xs text-muted-foreground">{upcomingEvents.length}</span>
-                </div>
-                {renderEventList(upcomingEvents)}
-              </section>
-            )}
-            {pastEvents.length > 0 && (
-              <section>
-                <div className="flex items-baseline justify-between mb-3">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Past Events</h2>
-                  <span className="text-xs text-muted-foreground">{pastEvents.length}</span>
-                </div>
-                {renderEventList(pastEvents)}
-              </section>
-            )}
-          </div>
+          renderEventList(selectedEvents)
         )}
       </main>
     </div>
