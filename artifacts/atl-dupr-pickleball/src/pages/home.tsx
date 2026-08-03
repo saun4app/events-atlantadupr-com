@@ -67,8 +67,11 @@ function EventCard({ event }: { event: any }) {
 
 function isUpcoming(e: any): boolean {
   if (e.status === "ended" || e.status === "cancelled") return false;
-  if (!e.endDatetime) return true;
-  return new Date(e.endDatetime).getTime() >= Date.now();
+  // Match the API/admin definition of an upcoming event: it is visible until
+  // its start time has passed. Using the end time can hide a future event when
+  // an old or malformed end timestamp is stored.
+  if (!e.startDatetime) return false;
+  return new Date(e.startDatetime).getTime() >= Date.now();
 }
 
 export default function Home() {
