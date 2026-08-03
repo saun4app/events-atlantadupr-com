@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -208,13 +207,39 @@ export default function AdminEventsFixed() {
           />
         </div>
 
-        <div className="mb-5 flex items-center justify-between gap-3">
-          <Tabs value={eventView} onValueChange={value => setEventView(value as "upcoming" | "past")}>
-            <TabsList>
-              <TabsTrigger value="upcoming">Upcoming ({upcomingEvents.length})</TabsTrigger>
-              <TabsTrigger value="past">Past ({pastEvents.length})</TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div
+            className="inline-flex rounded-lg border border-border bg-muted p-1"
+            role="group"
+            aria-label="Event time period"
+          >
+            <button
+              type="button"
+              data-testid="button-upcoming-events"
+              aria-pressed={eventView === "upcoming"}
+              onClick={() => setEventView("upcoming")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                eventView === "upcoming"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Upcoming ({upcomingEvents.length})
+            </button>
+            <button
+              type="button"
+              data-testid="button-past-events"
+              aria-pressed={eventView === "past"}
+              onClick={() => setEventView("past")}
+              className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                eventView === "past"
+                  ? "bg-background text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              Past ({pastEvents.length})
+            </button>
+          </div>
           <span className="text-xs text-muted-foreground">
             {selectedEvents.length} {eventView} event{selectedEvents.length === 1 ? "" : "s"}
           </span>
