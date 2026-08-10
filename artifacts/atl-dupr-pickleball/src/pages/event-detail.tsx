@@ -18,6 +18,7 @@ import { MapPin, Calendar, Clock, Users, ChevronLeft, AlertCircle, WrenchIcon, D
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import { useAuth } from "@/lib/auth";
 
 interface SkillLevel { text: string; level: number; }
 
@@ -80,6 +81,7 @@ function SortHeader({ label, activeKey, sort, onSort }: { label: string; activeK
 }
 
 function ParticipantTable({ registrations, event }: { registrations: any[]; event: any }) {
+  const { canAccessAdmin } = useAuth();
   const { sorted, sort, setSort } = useSortedRegistrations(registrations);
   if (registrations.length === 0) return null;
   function toggleSort(key: SortKey) {
@@ -122,7 +124,7 @@ function ParticipantTable({ registrations, event }: { registrations: any[]; even
           {sorted.map((reg, idx) => (
             <tr key={reg.id} data-testid={`row-participant-${reg.id}`} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
               <td className="px-5 py-3 text-muted-foreground font-mono">{idx + 1}</td>
-              <td className="px-5 py-3 font-medium">{formatNameInitials(reg.playerName)}</td>
+              <td className="px-5 py-3 font-medium">{canAccessAdmin ? reg.playerName : formatNameInitials(reg.playerName)}</td>
               <td className="px-5 py-3">
                 <span data-testid={`text-rating-${reg.id}`} className="font-mono">
                   {reg.doubleRating || "NR"}
