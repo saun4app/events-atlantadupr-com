@@ -505,9 +505,9 @@ export default function EventDetail() {
         </div>
       </div>
 
-      <main className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+      <main className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
         {/* Event Info Card */}
-        <div className="bg-card border border-card-border rounded-lg p-5">
+        <div className="order-1 bg-card border border-card-border rounded-lg p-5">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm mb-4">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Calendar className="w-4 h-4 text-primary" />
@@ -585,28 +585,28 @@ export default function EventDetail() {
 
         {/* Event Description */}
         {event.eventDescription && (
-          <div className="bg-card border border-card-border rounded-lg p-5">
+          <div className="order-3 bg-card border border-card-border rounded-lg p-5">
             <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.eventDescription }} />
           </div>
         )}
 
         {/* Guidelines and Rules */}
         {event.description && (
-          <div className="bg-card border border-card-border rounded-lg p-5">
+          <div className="order-3 bg-card border border-card-border rounded-lg p-5">
             <div className="prose prose-sm max-w-none leading-snug [&_p]:my-0.5 [&_ul]:my-1 [&_ol]:my-1 [&_li]:my-0 text-muted-foreground" dangerouslySetInnerHTML={{ __html: event.description }} />
           </div>
         )}
 
         {/* Canceled notice */}
         {event.status === "cancelled" && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-center text-sm text-destructive font-medium">
+          <div className="order-4 bg-destructive/10 border border-destructive/30 rounded-lg p-4 text-center text-sm text-destructive font-medium">
             This event has been canceled.
           </div>
         )}
 
         {/* Registration form */}
         {signupOpen && event.status === "upcoming" && (
-          <div className="bg-card border border-card-border rounded-lg p-5">
+          <div className="order-2 bg-card border border-card-border rounded-lg p-5">
             <h2 className="font-semibold text-foreground mb-4">Register for This Event</h2>
             {!codeSent ? (
               <form onSubmit={handleSendCode} className="space-y-3">
@@ -742,14 +742,14 @@ export default function EventDetail() {
         )}
 
         {!signupOpen && event.status === "closed" && (
-          <div className="bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
+          <div className="order-2 bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
             Registration is closed for this event.
           </div>
         )}
 
         {/* Cancel Registration trigger */}
         {!showCancelForm && (
-          <div className="text-center">
+          <div className="order-2 text-center">
             <button
               type="button"
               data-testid="button-show-cancel"
@@ -763,7 +763,7 @@ export default function EventDetail() {
 
         {/* Cancel Registration form */}
         {showCancelForm && (
-          <div className="bg-card border border-destructive/30 rounded-lg p-5">
+          <div className="order-2 bg-card border border-destructive/30 rounded-lg p-5">
             <h2 className="font-semibold text-foreground mb-4">Cancel My Registration</h2>
             {!cancelCodeSent ? (
               <form onSubmit={handleCancelSendCode} className="space-y-3">
@@ -845,7 +845,7 @@ export default function EventDetail() {
 
         {/* Approval notice — shown only after registration submitted */}
         {showApprovalNotice && (event.requireApproval === "all" || event.requireApproval === "nr_only") && (
-          <div className="flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
+          <div className="order-2 flex items-start gap-3 bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-sm text-yellow-700">
             <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
             <span>
               {event.requireApproval === "all"
@@ -856,7 +856,7 @@ export default function EventDetail() {
         )}
 
         {/* Confirmed Participants */}
-        <div className="bg-card border border-card-border rounded-lg overflow-hidden">
+        <div className="order-5 bg-card border border-card-border rounded-lg overflow-hidden">
           <div className="px-5 py-4 border-b border-border flex items-center justify-between">
             <h2 className="font-semibold text-foreground">
               Confirmed Participants{confirmedRegs.length > 0 ? ` (${confirmedRegs.length})` : ""}
