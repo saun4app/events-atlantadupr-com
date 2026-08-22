@@ -1,16 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Api
+  title: Atlanta DUPR Pickleball API
   version: 1.0.0
-  description: Atlanta DUPR Pickleball Events API
+  description: Standalone API contract for Atlanta DUPR Pickleball Events. All application routes are mounted under `/api`.
 servers:
   - url: http://localhost:8080/api
     description: Local standalone API server
   - url: /api
     description: API path when hosted behind the web application
-externalDocs:
-  description: Source application API contract
-  url: ../lib/api-spec/openapi.yaml
 tags:
   - name: health
     description: Health operations
@@ -524,6 +521,45 @@ paths:
                 $ref: "#/components/schemas/RequestCodeResult"
         "404":
           description: Event not found
+
+  /events/{eventType}/{id}/registrations/bulk-set-assigned-ratings:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: bulkSetAssignedRatings
+      tags: [registrations]
+      summary: Populate missing assigned ratings from registration DUPR snapshots
+      description: Requires an authenticated admin, organizer, event captain, or court leader. Updates only registrations in this event whose assigned rating is currently empty and whose captured doubles rating is numeric.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Number of registrations updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [updated]
+                properties:
+                  updated:
+                    type: integer
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
 
   /events/{eventType}/{id}/registrations/{regId}:
     parameters:
