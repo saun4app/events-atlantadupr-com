@@ -214,7 +214,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const eventType = parseEventType(req.params.eventType);
   if (!eventType) return res.status(404).json({ error: "Unknown event format" });
   const eventId = Number(req.params.id);
-  const { email, memberDuprId, partnerDuprId, partnerEmail, code, selfRating } = req.body;
+  const { email, memberDuprId, partnerDuprId, partnerEmail, code, selfRating, bypassRatingRequirements } = req.body;
 
   const event = await getNormalizedEvent(eventType, eventId);
   if (!event) return res.status(404).json({ error: "Event not found" });
@@ -223,6 +223,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "This event has been canceled" });
   }
   const staff = isStaffRequest(req);
+  const bypassRatings = staff && bypassRatingRequirements === true;
   if (!staff && event.status !== "upcoming") {
     return res.status(400).json({ error: "Event is not open for registration" });
   }
@@ -362,8 +363,8 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   // reject registrations whose rating falls outside the event's configured
   // rating requirement. Applies to public signups AND staff adds, and to the
   // partner on fixed-partner events.
-  if (event.requireApproval === "enforce_rating") {
-    const cfg = event.ratingConfig as { min?: number; max?: number; nrAllowed?: boolean } | null;
+  if (event.requireApproval === "enforce_rating" && !bypassRatings) {
+    const cfg = event.ratingConfig as { min?: number; max?: number; nrAllowed?: boolean; maxPartnerGap?: number } | null;
     const type = event.ratingTypeRequired;
     const hasRange = !!cfg && typeof cfg.min === "number" && typeof cfg.max === "number";
     if (hasRange && (type === "dupr" || type === "self_numeric")) {
@@ -380,6 +381,8 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       const registrantSelf = selfRating && !isNaN(parseFloat(selfRating)) ? selfRating : member?.selfRating ?? null;
 
       if (type === "dupr") {
+        let registrantEffectiveRating: number | undefined;
+        let partnerEffectiveRating: number | undefined;
         // Registrant
         if (isNR(member?.doubles ?? null)) {
           if (!cfg!.nrAllowed) {
@@ -392,11 +395,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
           if (!r.ok) {
             return res.status(400).json({ error: `Your self-rating (${r.val}) is outside this event's enforced rating range of ${range}.` });
           }
+          registrantEffectiveRating = r.val;
         } else {
           const r = outOfRange(member?.doubles);
           if (!r.ok) {
             return res.status(400).json({ error: `Your DUPR rating (${r.val ?? "unknown"}) is outside this event's enforced rating range of ${range}.` });
           }
+          registrantEffectiveRating = r.val;
         }
         // Partner (fixed-partner events)
         if (resolvedPartnerDuprId) {
@@ -411,12 +416,28 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
             if (!pr.ok) {
               return res.status(400).json({ error: `Your partner's self-rating (${pr.val}) is outside this event's enforced rating range of ${range}.` });
             }
+            partnerEffectiveRating = pr.val;
           } else {
             const pr = outOfRange(partnerMember?.doubles);
             if (!pr.ok) {
               return res.status(400).json({ error: `Your partner's DUPR rating (${pr.val ?? "unknown"}) is outside this event's enforced rating range of ${range}.` });
             }
+            partnerEffectiveRating = pr.val;
           }
+        }
+        const maxPartnerGap = typeof cfg?.maxPartnerGap === "number" ? cfg.maxPartnerGap : 0.5;
+        if (
+          event.teamFormat === "fixed_partner" &&
+          resolvedPartnerDuprId &&
+          typeof maxPartnerGap === "number" &&
+          maxPartnerGap >= 0 &&
+          registrantEffectiveRating !== undefined &&
+          partnerEffectiveRating !== undefined &&
+          Math.abs(registrantEffectiveRating - partnerEffectiveRating) > maxPartnerGap
+        ) {
+          return res.status(400).json({
+            error: `Partners' DUPR ratings may differ by at most ${maxPartnerGap.toFixed(2)}. This team's difference is ${Math.abs(registrantEffectiveRating - partnerEffectiveRating).toFixed(2)}.`,
+          });
         }
       } else {
         // self_numeric: the self-rating itself is the basis of eligibility.

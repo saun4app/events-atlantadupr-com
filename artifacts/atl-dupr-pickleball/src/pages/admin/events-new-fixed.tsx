@@ -88,7 +88,7 @@ function getDefaultRatingType(rrc: RatingRequirementsConfig): string {
 }
 
 function getDefaultRatingConfig(type: string, rrc: RatingRequirementsConfig): any {
-  if (type === "dupr") return { min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed };
+  if (type === "dupr") return { min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed, maxPartnerGap: 0.5 };
   if (type === "self_numeric") return { min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax };
   if (type === "self_skill") return { minLevel: rrc.selfSkill.defaultMinLevel, maxLevel: rrc.selfSkill.defaultMaxLevel };
   return null;
@@ -525,6 +525,11 @@ export default function AdminEventNewFixed() {
                       <Label className="text-xs">Max Rating</Label>
                       <NumericInput data-testid="input-rating-max" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={ratingConfig.max} onChange={v => setRatingConfig((c: any) => ({ ...c, max: v }))} />
                     </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Maximum Partner DUPR Difference</Label>
+                    <NumericInput data-testid="input-max-partner-gap" step={0.01} min={0} max={8} value={ratingConfig.maxPartnerGap ?? 0.5} onChange={v => setRatingConfig((c: any) => ({ ...c, maxPartnerGap: v }))} />
+                    <p className="text-xs text-muted-foreground">Teams are blocked when partners differ by more than this amount.</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <input type="checkbox" id="nr-allowed" className="w-4 h-4 accent-primary" checked={!!ratingConfig.nrAllowed} onChange={e => setRatingConfig((c: any) => ({ ...c, nrAllowed: e.target.checked }))} />

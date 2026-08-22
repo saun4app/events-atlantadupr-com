@@ -279,7 +279,7 @@ export default function AdminEventDetailFixed() {
       memberFee: String((event as any).memberFee ?? ""),
       nonMemberFee: String((event as any).nonMemberFee ?? ""),
     });
-    setEditRatingConfig((event as any).ratingConfig ?? null);
+    setEditRatingConfig((event as any).ratingConfig ? { ...(event as any).ratingConfig, maxPartnerGap: (event as any).ratingConfig.maxPartnerGap ?? 0.5 } : null);
     setShowEditDialog(true);
   }
 
@@ -288,7 +288,7 @@ export default function AdminEventDetailFixed() {
     if (type === "none") {
       setEditRatingConfig(null);
     } else if (type === "dupr") {
-      setEditRatingConfig({ min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed });
+      setEditRatingConfig({ min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed, maxPartnerGap: 0.5 });
     } else if (type === "self_numeric") {
       setEditRatingConfig({ min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax });
     } else if (type === "self_skill") {
@@ -422,14 +422,29 @@ export default function AdminEventDetailFixed() {
     let succeeded = 0;
     const failures: string[] = [];
     const notFound: string[] = [];
+    let bypassRatingRequirements = false;
     for (const email of emails) {
       try {
-        await createReg.mutateAsync({ eventType, id: eventId, data: { email, partnerEmail: event?.teamFormat === "fixed_partner" ? addPartnerEmail.trim().toLowerCase() || null : null } });
+        const data = { email, partnerEmail: event?.teamFormat === "fixed_partner" ? addPartnerEmail.trim().toLowerCase() || null : null, ...(bypassRatingRequirements ? { bypassRatingRequirements: true } : {}) };
+        await createReg.mutateAsync({ eventType, id: eventId, data });
         succeeded++;
       } catch (err: any) {
         const msg = err?.data?.error || "";
         if (msg.toLowerCase().includes("no member found with that email") || msg.toLowerCase().includes("no member found with that dupr id")) {
           notFound.push(email);
+        } else if (
+          event?.teamFormat === "fixed_partner" &&
+          !bypassRatingRequirements &&
+          /outside this event's enforced rating range|partners' DUPR ratings may differ/i.test(msg) &&
+          window.confirm("This team does not meet the event's DUPR rating range or partner-gap requirement. Add it anyway as an admin override?")
+        ) {
+          bypassRatingRequirements = true;
+          try {
+            await createReg.mutateAsync({ eventType, id: eventId, data: { email, partnerEmail: addPartnerEmail.trim().toLowerCase() || null, bypassRatingRequirements: true } });
+            succeeded++;
+          } catch (retryErr: any) {
+            failures.push(`${email}: ${retryErr?.data?.error || "failed"}`);
+          }
         } else {
           failures.push(`${email}: ${msg || "failed"}`);
         }
@@ -1400,6 +1415,11 @@ export default function AdminEventDetailFixed() {
                           <Label className="text-xs">Max Rating</Label>
                           <Input type="number" step={0.1} min={rrc.dupr.minAllowed} max={rrc.dupr.maxAllowed} value={editRatingConfig.max ?? rrc.dupr.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
                         </div>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Maximum Partner DUPR Difference</Label>
+                        <Input data-testid="input-edit-max-partner-gap" type="number" step={0.01} min={0} max={8} value={editRatingConfig.maxPartnerGap ?? 0.5} onChange={e => setEditRatingConfig((c: any) => ({ ...c, maxPartnerGap: Number(e.target.value) }))} />
+                        <p className="text-xs text-muted-foreground">Teams are blocked when partners differ by more than this amount.</p>
                       </div>
                       <div className="flex items-center gap-2">
                         <input type="checkbox" id="edit-nr-allowed" className="w-4 h-4 accent-primary" checked={!!editRatingConfig.nrAllowed} onChange={e => setEditRatingConfig((c: any) => ({ ...c, nrAllowed: e.target.checked }))} />

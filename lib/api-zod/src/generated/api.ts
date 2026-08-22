@@ -477,7 +477,8 @@ export const CreateRegistrationBody = zod.object({
   "partnerDuprId": zod.string().nullish(),
   "partnerEmail": zod.string().nullish(),
   "code": zod.string().nullish().describe('6-digit email verification code (required for public self-registration)'),
-  "selfRating": zod.string().nullish().describe('Self-assessed rating (2.0-5.0) for NR (non-rated) players')
+  "selfRating": zod.string().nullish().describe('Self-assessed rating (2.0-5.0) for NR (non-rated) players'),
+  "bypassRatingRequirements": zod.boolean().optional().describe('Staff-only confirmation to bypass event rating-range and fixed-partner gap checks')
 })
 
 

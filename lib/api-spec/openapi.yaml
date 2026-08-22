@@ -1351,6 +1351,9 @@ components:
         selfRating:
           type: ["string", "null"]
           description: Self-assessed rating (2.0-5.0) for NR (non-rated) players
+        bypassRatingRequirements:
+          type: boolean
+          description: Staff-only confirmation to bypass event rating-range and fixed-partner gap checks
 
     RequestCodeInput:
       type: object

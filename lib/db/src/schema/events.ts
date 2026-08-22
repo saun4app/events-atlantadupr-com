@@ -6,6 +6,7 @@ export interface DuprEventRatingConfig {
   min: number;
   max: number;
   nrAllowed: boolean;
+  maxPartnerGap?: number;
 }
 
 export interface SelfNumericEventRatingConfig {

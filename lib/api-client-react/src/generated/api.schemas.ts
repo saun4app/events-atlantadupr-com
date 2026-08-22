@@ -417,6 +417,8 @@ export interface RegistrationInput {
      * @nullable
      */
   selfRating?: string | null;
+  /** Staff-only confirmation to bypass event rating-range and fixed-partner gap checks */
+  bypassRatingRequirements?: boolean;
 }
 
 export interface RequestCodeInput {
