@@ -139,6 +139,7 @@ export default function AdminEventNewFixed() {
 
   const [ratingConfig, setRatingConfig] = useState<any>(null);
   const [cloneFrom, setCloneFrom] = useState<string>("none");
+  const [cloneFilter, setCloneFilter] = useState("");
   const [descriptionGeneration, setDescriptionGeneration] = useState(0);
   const [nameOpen, setNameOpen] = useState(false);
   const [recurrenceEnabled, setRecurrenceEnabled] = useState(false);
@@ -169,6 +170,10 @@ export default function AdminEventNewFixed() {
     if (!bValid) return -1;
     return bTime - aTime;
   });
+  const normalizedCloneFilter = cloneFilter.trim().toLowerCase();
+  const filteredCloneEvents = sortedEvents.filter(ev =>
+    String(ev.name ?? "").toLowerCase().includes(normalizedCloneFilter)
+  );
 
   useEffect(() => {
     if (settings && eventDefaults && !defaultsApplied.current && cloneFrom === "none") {
@@ -358,11 +363,34 @@ export default function AdminEventNewFixed() {
         {/* Clone from existing */}
         <div className="bg-card border border-card-border rounded-lg p-5 mb-4">
           <Label className="mb-1.5 block">Clone from existing event</Label>
-          <Select value={cloneFrom} onValueChange={handleClone}>
+          <Select
+            value={cloneFrom}
+            onValueChange={handleClone}
+            onOpenChange={open => {
+              if (!open) setCloneFilter("");
+            }}
+          >
             <SelectTrigger data-testid="select-clone-event"><SelectValue placeholder="Select event to clone..." /></SelectTrigger>
             <SelectContent>
+              <div className="border-b border-border p-2">
+                <Input
+                  data-testid="input-clone-event-filter"
+                  aria-label="Filter existing events"
+                  placeholder="Filter events..."
+                  value={cloneFilter}
+                  onChange={event => setCloneFilter(event.target.value)}
+                  onKeyDown={event => event.stopPropagation()}
+                  onPointerDown={event => event.stopPropagation()}
+                />
+              </div>
               <SelectItem value="none">None — start fresh</SelectItem>
-              {sortedEvents.map(ev => <SelectItem key={ev.id} value={String(ev.id)}>{ev.name}</SelectItem>)}
+              {filteredCloneEvents.length > 0 ? (
+                filteredCloneEvents.map(ev => <SelectItem key={ev.id} value={String(ev.id)}>{ev.name}</SelectItem>)
+              ) : (
+                <div className="px-3 py-2 text-sm text-muted-foreground" role="status">
+                  No matching events
+                </div>
+              )}
             </SelectContent>
           </Select>
         </div>
