@@ -158,6 +158,17 @@ export default function AdminEventNewRotating() {
     ...(rrc.selfNumeric.enabled ? [{ key: "self_numeric", label: "Self-Rating (Numeric)" }] : []),
     ...(rrc.selfSkill.enabled ? [{ key: "self_skill", label: "Self-Rating (Skill Level)" }] : []),
   ];
+  const sortedEvents = [...(allEvents ?? [])].sort((a, b) => {
+    const aTime = new Date(a.startDatetime).getTime();
+    const bTime = new Date(b.startDatetime).getTime();
+    const aValid = Number.isFinite(aTime);
+    const bValid = Number.isFinite(bTime);
+
+    if (!aValid && !bValid) return 0;
+    if (!aValid) return 1;
+    if (!bValid) return -1;
+    return bTime - aTime;
+  });
 
   useEffect(() => {
     if (settings && eventDefaults && !defaultsApplied.current && cloneFrom === "none") {
@@ -351,7 +362,7 @@ export default function AdminEventNewRotating() {
             <SelectTrigger data-testid="select-clone-event"><SelectValue placeholder="Select event to clone..." /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">None — start fresh</SelectItem>
-              {allEvents?.map(ev => <SelectItem key={ev.id} value={String(ev.id)}>{ev.name}</SelectItem>)}
+              {sortedEvents.map(ev => <SelectItem key={ev.id} value={String(ev.id)}>{ev.name}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
