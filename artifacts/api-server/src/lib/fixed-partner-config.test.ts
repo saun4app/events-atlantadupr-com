@@ -21,6 +21,141 @@ function formatSchemaErrors(errors: ErrorObject[] | null | undefined): string {
     .join("\n");
 }
 
+type RequirementContract = {
+  consumer: string;
+  fields: readonly string[];
+};
+
+/**
+ * This is the deliberately small bridge between declarative requirement keys
+ * and the code paths that consume them. Keep documented metadata requirements
+ * in this inventory too, even when they have no runtime-read fields, so an
+ * accidental addition or removal is reported instead of being schema-valid
+ * but disconnected from the application.
+ */
+const FIXED_PARTNER_REQUIREMENT_CONTRACT: Record<string, RequirementContract> =
+  {
+    partner_registration: {
+      consumer:
+        "registrations.ts registration creation and event-detail.tsx partner form",
+      fields: ["required", "acceptedIdentifiers"],
+    },
+    team_capacity: {
+      consumer: "eventController.ts fixed-partner team-capacity model",
+      fields: [],
+    },
+    capacity_defaults: {
+      consumer:
+        "eventController.ts and event-defaults-server fixed-partner defaults",
+      fields: [],
+    },
+    partner_rating_gap: {
+      consumer:
+        "registrations.ts registration and roster-edit rating-gap checks",
+      fields: [
+        "condition.ratingType",
+        "condition.approvalMode",
+        "condition.resolvedPartner",
+        "condition.bothEffectiveRatings",
+      ],
+    },
+    nr_partner_check: {
+      consumer: "registrations.ts public fixed-partner NR validation",
+      fields: ["condition.ratingType", "condition.publicRequest"],
+    },
+    partner_rating_range: {
+      consumer: "registrations.ts fixed-partner partner range validation",
+      fields: [
+        "condition.ratingType",
+        "condition.approvalMode",
+        "condition.resolvedPartner",
+        "includePartner",
+      ],
+    },
+    admin_add_input: {
+      consumer: "events-detail-fixed.tsx organizer add-player input limits",
+      fields: ["maxPrimaryEmailsPerSubmission"],
+    },
+    public_partner_preflight: {
+      consumer:
+        "registrations.ts request-code preflight and event-detail.tsx signup warning",
+      fields: ["condition.publicSignup", "requirePartnerBeforeCode"],
+    },
+    roster_edit_validation: {
+      consumer: "registrations.ts fixed-partner roster-edit validation",
+      fields: [
+        "condition.operation",
+        "condition.ratingTypes",
+        "condition.approvalMode",
+        "condition.resolvedPartner",
+        "checks",
+        "staffBypass",
+      ],
+    },
+    active_team_membership: {
+      consumer: "registrations.ts fixed-partner duplicate-membership checks",
+      fields: [
+        "condition.operations",
+        "scope",
+        "membershipRoles",
+        "activeStatuses",
+        "excludeCurrentRegistrationOnEdit",
+      ],
+    },
+    membership_write_serialization: {
+      consumer:
+        "registrations.ts serialized fixed-partner registration and roster writes",
+      fields: [
+        "condition.operations",
+        "lockStrategy",
+        "lockScope",
+        "lockNamespace",
+      ],
+    },
+  };
+
+const FIXED_PARTNER_RUNTIME_CONFIG_FIELDS = [
+  {
+    path: "format",
+    consumer: "eventController.ts and registrations.ts event-format dispatch",
+  },
+  {
+    path: "defaults.capacity.minTeams",
+    consumer: "eventController.ts fixed-event creation defaults",
+  },
+  {
+    path: "defaults.capacity.maxTeams",
+    consumer: "eventController.ts fixed-event creation defaults",
+  },
+  {
+    path: "defaults.capacity.minParticipants",
+    consumer: "event-defaults-server fixed-event defaults",
+  },
+  {
+    path: "defaults.capacity.maxParticipants",
+    consumer: "event-defaults-server fixed-event defaults",
+  },
+  {
+    path: "defaults.rating.maxPartnerGap",
+    consumer: "registrations.ts rating-gap fallback",
+  },
+] as const;
+
+function hasOwnPath(value: unknown, path: string): boolean {
+  let current: unknown = value;
+  for (const segment of path.split(".")) {
+    if (
+      !current ||
+      typeof current !== "object" ||
+      !Object.prototype.hasOwnProperty.call(current, segment)
+    ) {
+      return false;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return true;
+}
+
 describe("fixed-partner configuration", () => {
   it("matches the fixed-partner JSON Schema", () => {
     const ajv = new Ajv2020({
@@ -33,6 +168,86 @@ describe("fixed-partner configuration", () => {
     assert.ok(
       validate(fixedPartnerConfigDocument),
       `fixed-partner-config.json does not match fixed-partner-config.schema.json:\n${formatSchemaErrors(validate.errors)}`,
+    );
+  });
+
+  it("keeps declarative requirement keys and runtime consumers in parity", () => {
+    const declaredRequirements = new Map(
+      fixedPartnerConfig.requirements.map((requirement) => [
+        requirement.key,
+        requirement,
+      ]),
+    );
+    const expectedKeys = Object.keys(FIXED_PARTNER_REQUIREMENT_CONTRACT);
+    const declaredKeys = [...declaredRequirements.keys()];
+    const missingKeys = expectedKeys.filter(
+      (key) => !declaredRequirements.has(key),
+    );
+    const unexpectedKeys = declaredKeys.filter(
+      (key) =>
+        !Object.prototype.hasOwnProperty.call(
+          FIXED_PARTNER_REQUIREMENT_CONTRACT,
+          key,
+        ),
+    );
+    const missingFields = expectedKeys.flatMap((key) => {
+      const requirement = declaredRequirements.get(key);
+      if (!requirement) return [];
+      return FIXED_PARTNER_REQUIREMENT_CONTRACT[key].fields
+        .filter((field) => !hasOwnPath(requirement, field))
+        .map((field) => ({
+          key,
+          field,
+          consumer: FIXED_PARTNER_REQUIREMENT_CONTRACT[key].consumer,
+        }));
+    });
+    const missingRuntimeConfigFields =
+      FIXED_PARTNER_RUNTIME_CONFIG_FIELDS.filter(
+        ({ path }) => !hasOwnPath(fixedPartnerConfig, path),
+      ).map(({ path, consumer }) => ({ path, consumer }));
+
+    const parityErrors: string[] = [];
+    if (missingKeys.length > 0) {
+      parityErrors.push(
+        `missing requirement keys:\n${missingKeys
+          .map(
+            (key) =>
+              `- ${key} (consumed by ${FIXED_PARTNER_REQUIREMENT_CONTRACT[key].consumer})`,
+          )
+          .join("\n")}`,
+      );
+    }
+    if (unexpectedKeys.length > 0) {
+      parityErrors.push(
+        `unexpected requirement keys:\n${unexpectedKeys
+          .map(
+            (key) => `- ${key} (not listed in the runtime consumer contract)`,
+          )
+          .join("\n")}`,
+      );
+    }
+    if (missingFields.length > 0) {
+      parityErrors.push(
+        `missing consumed configuration fields:\n${missingFields
+          .map(
+            ({ key, field, consumer }) =>
+              `- ${key}.${field} (consumed by ${consumer})`,
+          )
+          .join("\n")}`,
+      );
+    }
+    if (missingRuntimeConfigFields.length > 0) {
+      parityErrors.push(
+        `missing runtime configuration fields:\n${missingRuntimeConfigFields
+          .map(({ path, consumer }) => `- ${path} (consumed by ${consumer})`)
+          .join("\n")}`,
+      );
+    }
+
+    assert.equal(
+      parityErrors.length,
+      0,
+      `Fixed-partner declarative/runtime parity check failed:\n${parityErrors.join("\n")}`,
     );
   });
 
