@@ -41,7 +41,7 @@ function isShortUuid(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{8}$/.test(value);
 }
 
-function loadConfig(value: unknown): FixedPartnerConfig {
+export function loadFixedPartnerConfig(value: unknown): FixedPartnerConfig {
   if (!value || typeof value !== "object") {
     throw new Error("Fixed-partner configuration must be an object");
   }
@@ -96,7 +96,7 @@ function loadConfig(value: unknown): FixedPartnerConfig {
   return config as FixedPartnerConfig;
 }
 
-export const fixedPartnerConfig = loadConfig(rawConfig);
+export const fixedPartnerConfig = loadFixedPartnerConfig(rawConfig);
 
 export function getFixedPartnerRequirement(key: string): FixedPartnerRequirement {
   const requirement = fixedPartnerConfig.requirements.find((entry) => entry.key === key);
