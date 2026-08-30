@@ -1530,22 +1530,44 @@ router.post(
       .where(and(eq(registrationsTable.id, Number(req.params.regId)), regScope(eventId, eventType)));
     if (!reg) return res.status(404).json({ error: "Registration not found" });
 
+    const sessionUserId = (req as any).session?.userId;
     const event = await getNormalizedEvent(eventType, eventId);
-    const allRegs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
-    const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+    const promotionResult = await db.transaction(async (tx) => {
+      // Promotion must share the same event-scoped lock as rotating sign-ups,
+      // approvals, and roster-edit promotions. Otherwise simultaneous
+      // organizers can all observe the same open slot.
+      if (eventType === "rotating") {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+        );
+      }
 
-    if (confirmedCount >= (event?.maxParticipants ?? 0)) {
+      const allRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
+      const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+
+      if (confirmedCount >= (event?.maxParticipants ?? 0)) {
+        return { kind: "full" as const };
+      }
+
+      const [updated] = await tx
+        .update(registrationsTable)
+        .set({ status: "confirmed", approvedAt: new Date(), approvedBy: sessionUserId })
+        .where(
+          and(
+            eq(registrationsTable.id, Number(req.params.regId)),
+            regScope(eventId, eventType),
+          ),
+        )
+        .returning();
+
+      return { kind: "promoted" as const, registration: updated };
+    });
+
+    if (promotionResult.kind === "full") {
       return res.status(400).json({ error: "Event is still full" });
     }
 
-    const sessionUserId = (req as any).session?.userId;
-    const [updated] = await db
-      .update(registrationsTable)
-      .set({ status: "confirmed", approvedAt: new Date(), approvedBy: sessionUserId })
-      .where(eq(registrationsTable.id, Number(req.params.regId)))
-      .returning();
-
-    return res.json(buildRosterEntry(updated, true, eventType));
+    return res.json(buildRosterEntry(promotionResult.registration, true, eventType));
   },
 );
 

@@ -158,6 +158,20 @@ async function approve(eventId: number, registrationId: number) {
   return { status: res.status, body };
 }
 
+async function promote(eventId: number, registrationId: number) {
+  const res = await fetch(
+    `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}/promote`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${STAFF_TOKEN}`,
+      },
+    },
+  );
+  const body = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body };
+}
+
 async function editRegistration(eventId: number, registrationId: number, body: Record<string, unknown>) {
   const res = await fetch(
     `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}`,
@@ -837,5 +851,53 @@ describe("mixed roster edit and approval: concurrent rotating-event capacity", (
       .from(registrationsTable)
       .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
     assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
+});
+
+describe("promote-from-waitlist: concurrent rotating-event capacity", () => {
+  for (const waitlistEnabled of [true, false]) {
+    it(`promotes only one registration when waitlisting is ${waitlistEnabled ? "enabled" : "disabled"}`, async () => {
+      const ev = await createEvent({ maxParticipants: 1, waitlistEnabled });
+      const first = await createMember();
+      const second = await createMember();
+      const firstReg = await insertReg(ev.id, first.duprId, "waitlisted");
+      const secondReg = await insertReg(ev.id, second.duprId, "waitlisted");
+
+      const results = await Promise.all([
+        promote(ev.id, firstReg.id),
+        promote(ev.id, secondReg.id),
+      ]);
+
+      assert.deepEqual(
+        results.map((result) => result.status).sort((a, b) => a - b),
+        [200, 400],
+      );
+
+      const rows = await db
+        .select()
+        .from(registrationsTable)
+        .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+      assert.equal(
+        rows.filter((row) => row.status === "confirmed").length,
+        1,
+        "concurrent promotions must never exceed maxParticipants",
+      );
+      assert.equal(rows.filter((row) => row.status === "waitlisted").length, 1);
+    });
+  }
+
+  it("leaves waitlisted registrations unchanged while an event remains full", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const filler = await createMember();
+    await insertReg(ev.id, filler.duprId, "confirmed");
+    const player = await createMember();
+    const waitlisted = await insertReg(ev.id, player.duprId, "waitlisted");
+
+    const result = await promote(ev.id, waitlisted.id);
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /Event is still full/);
+    const rows = await memberRows(ev.id, player.duprId);
+    assert.equal(rows[0].status, "waitlisted");
   });
 });
