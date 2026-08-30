@@ -7,6 +7,7 @@ import { after, before, describe, it } from "node:test";
 
 const repositoryRoot = resolve(import.meta.dirname, "..");
 const openApiPath = join(repositoryRoot, "lib/api-spec/openapi.yaml");
+const packageJsonPath = join(repositoryRoot, "package.json");
 const generatedDirectories = [
   "lib/api-zod/src/generated",
   "lib/api-client-react/src/generated",
@@ -86,6 +87,16 @@ describe("check:api-generated", () => {
       gitStatus(),
       originalStatus,
       "generated-client check changed the working tree",
+    );
+  });
+
+  it("runs before the root release build", async () => {
+    const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+
+    assert.match(
+      packageJson.scripts.build,
+      /^pnpm run check:api-generated &&/,
+      "root builds must validate generated API clients first",
     );
   });
 
