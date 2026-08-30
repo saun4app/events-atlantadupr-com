@@ -407,7 +407,8 @@ export abstract class BaseEventController {
 
     if (
       this.format === fixedPartnerConfig.format &&
-      typeof updates[fixedPartnerLimitField] === "number" &&
+      (typeof updates.minTeams === "number" ||
+        typeof updates[fixedPartnerLimitField] === "number") &&
       fixedPartnerEventLimitUpdateIsConfigured()
     ) {
       const capacityUpdate = await db.transaction(async (tx) => {
@@ -423,6 +424,17 @@ export abstract class BaseEventController {
           .from(this.table)
           .where(eq(this.table.id, eventId));
         if (!current) return { kind: "missing" as const };
+
+        const requestedMinTeams = updates.minTeams ?? current.minTeams;
+        const requestedMaxTeams =
+          updates[fixedPartnerLimitField] ?? current[fixedPartnerLimitField];
+        if (requestedMinTeams > requestedMaxTeams) {
+          return {
+            kind: "range_conflict" as const,
+            requestedMinTeams,
+            requestedMaxTeams,
+          };
+        }
 
         const [{ confirmedCount }] = await tx
           .select({ confirmedCount: count() })
@@ -456,6 +468,13 @@ export abstract class BaseEventController {
 
       if (capacityUpdate.kind === "missing") {
         return res.status(404).json({ error: "Event not found" });
+      }
+      if (capacityUpdate.kind === "range_conflict") {
+        return res.status(400).json({
+          error:
+            `Cannot set the minimum team limit to ${capacityUpdate.requestedMinTeams}: ` +
+            `it cannot exceed the maximum team limit of ${capacityUpdate.requestedMaxTeams}.`,
+        });
       }
       if (capacityUpdate.kind === "capacity_conflict") {
         return res.status(400).json({

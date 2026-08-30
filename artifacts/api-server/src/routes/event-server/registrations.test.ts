@@ -1393,6 +1393,40 @@ describe("mixed fixed-partner roster edit capacity operations", () => {
 });
 
 describe("fixed-partner event limit updates", () => {
+  it("rejects a minimum team limit above the existing maximum", async () => {
+    const ev = await createFixedEvent({ minTeams: 2, maxTeams: 8 });
+
+    const result = await updateFixedEvent(ev.id, { minTeams: 9 });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /minimum team limit.*maximum team limit/i);
+    const [unchanged] = await db
+      .select({
+        minTeams: eventsFixedTable.minTeams,
+        maxTeams: eventsFixedTable.maxTeams,
+      })
+      .from(eventsFixedTable)
+      .where(eq(eventsFixedTable.id, ev.id));
+    assert.deepEqual(unchanged, { minTeams: 2, maxTeams: 8 });
+  });
+
+  it("rejects combined team-limit edits when the requested range is impossible", async () => {
+    const ev = await createFixedEvent({ minTeams: 2, maxTeams: 8 });
+
+    const result = await updateFixedEvent(ev.id, { minTeams: 7, maxTeams: 6 });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /minimum team limit.*maximum team limit/i);
+    const [unchanged] = await db
+      .select({
+        minTeams: eventsFixedTable.minTeams,
+        maxTeams: eventsFixedTable.maxTeams,
+      })
+      .from(eventsFixedTable)
+      .where(eq(eventsFixedTable.id, ev.id));
+    assert.deepEqual(unchanged, { minTeams: 2, maxTeams: 8 });
+  });
+
   it("rejects lowering maxTeams below the current confirmed-team count", async () => {
     const ev = await createFixedEvent({ maxTeams: 3 });
     const firstPrimary = await createMember();
