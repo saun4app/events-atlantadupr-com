@@ -10,3 +10,4 @@
 - [Stateful browser mutation fixtures](stateful-e2e-mocks.md) — mutation tests should model server state so post-save refetches prove the UI persisted changes
 - [Playwright system browser](playwright-system-browser.md) — use the repository e2e script to select Nix Chromium instead of the bundled browser
 - [Rotating capacity lock discipline](rotating-capacity-locks.md) — rotating limit edits share the event lock and reread the limit after locking
+- [Orval integer Zod output](orval-integer-zod.md) — OpenAPI integer fields generate number() in Zod; minimum/maximum constraints still become validators

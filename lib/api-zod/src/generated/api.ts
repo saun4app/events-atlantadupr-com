@@ -203,6 +203,10 @@ export const CreateEventParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner'])
 })
 
+
+
+
+
 export const createEventBodyRecurrenceOccurrencesMin = 2;
 export const createEventBodyRecurrenceOccurrencesMax = 52;
 
@@ -217,10 +221,10 @@ export const CreateEventBody = zod.object({
   "locationName": zod.string(),
   "locationAddress": zod.string(),
   "ratingTypeRequired": zod.string(),
-  "minParticipants": zod.number().optional(),
-  "maxParticipants": zod.number().optional(),
-  "minTeams": zod.number().optional(),
-  "maxTeams": zod.number().optional(),
+  "minParticipants": zod.number().min(1).optional(),
+  "maxParticipants": zod.number().min(1).optional(),
+  "minTeams": zod.number().min(1).optional(),
+  "maxTeams": zod.number().min(1).optional(),
   "waitlistEnabled": zod.boolean(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only', 'enforce_rating']),
   "signupStartDatetime": zod.coerce.date(),
@@ -288,6 +292,12 @@ export const UpdateEventParams = zod.object({
   "id": zod.coerce.number()
 })
 
+
+
+
+
+
+
 export const UpdateEventBody = zod.object({
   "name": zod.string().optional(),
   "description": zod.string().nullish(),
@@ -297,10 +307,10 @@ export const UpdateEventBody = zod.object({
   "locationName": zod.string().optional(),
   "locationAddress": zod.string().optional(),
   "ratingTypeRequired": zod.string().optional(),
-  "minParticipants": zod.number().optional(),
-  "maxParticipants": zod.number().optional(),
-  "minTeams": zod.number().optional(),
-  "maxTeams": zod.number().optional(),
+  "minParticipants": zod.number().min(1).optional(),
+  "maxParticipants": zod.number().min(1).optional(),
+  "minTeams": zod.number().min(1).optional(),
+  "maxTeams": zod.number().min(1).optional(),
   "waitlistEnabled": zod.boolean().optional(),
   "requireApproval": zod.enum(['none', 'all', 'nr_only', 'enforce_rating']).optional(),
   "signupStartDatetime": zod.coerce.date().optional(),

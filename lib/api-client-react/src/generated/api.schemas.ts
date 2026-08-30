@@ -250,9 +250,13 @@ export interface EventInput {
   locationName: string;
   locationAddress: string;
   ratingTypeRequired: string;
+  /** @minimum 1 */
   minParticipants?: number;
+  /** @minimum 1 */
   maxParticipants?: number;
+  /** @minimum 1 */
   minTeams?: number;
+  /** @minimum 1 */
   maxTeams?: number;
   waitlistEnabled: boolean;
   requireApproval: EventInputRequireApproval;
@@ -305,9 +309,13 @@ export interface EventUpdate {
   locationName?: string;
   locationAddress?: string;
   ratingTypeRequired?: string;
+  /** @minimum 1 */
   minParticipants?: number;
+  /** @minimum 1 */
   maxParticipants?: number;
+  /** @minimum 1 */
   minTeams?: number;
+  /** @minimum 1 */
   maxTeams?: number;
   waitlistEnabled?: boolean;
   requireApproval?: EventUpdateRequireApproval;
