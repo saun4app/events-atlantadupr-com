@@ -45,6 +45,30 @@ const FIXED_PARTNER_REQUIREMENT_CONTRACT: Record<string, RequirementContract> =
       consumer: "eventController.ts fixed-partner team-capacity model",
       fields: [],
     },
+    team_capacity_enforcement: {
+      consumer:
+        "registrations.ts and eventController.ts fixed-partner capacity decisions",
+      fields: [
+        "condition.operations",
+        "capacityUnit",
+        "capacityField",
+        "countedStatus",
+        "fullCapacityActions.registration_create.waitlistEnabled",
+        "fullCapacityActions.registration_reactivate.waitlistEnabled",
+        "fullCapacityActions.approval.waitlistEnabled",
+        "fullCapacityActions.waitlist_promotion.waitlistEnabled",
+        "fullCapacityActions.roster_edit.waitlistEnabled",
+      ],
+    },
+    event_limit_safety: {
+      consumer: "eventController.ts fixed-partner maxTeams updates",
+      fields: [
+        "condition.operation",
+        "limitField",
+        "minimumSource",
+        "onConflict",
+      ],
+    },
     capacity_defaults: {
       consumer:
         "eventController.ts and event-defaults-server fixed-partner defaults",
@@ -113,6 +137,16 @@ const FIXED_PARTNER_REQUIREMENT_CONTRACT: Record<string, RequirementContract> =
         "lockNamespace",
       ],
     },
+    capacity_write_serialization: {
+      consumer:
+        "registrations.ts and eventController.ts serialized capacity writes",
+      fields: [
+        "condition.operations",
+        "lockStrategy",
+        "lockScope",
+        "lockNamespace",
+      ],
+    },
   };
 
 const FIXED_PARTNER_RUNTIME_CONFIG_FIELDS = [
@@ -170,6 +204,89 @@ describe("fixed-partner configuration", () => {
       validate(fixedPartnerConfigDocument),
       `fixed-partner-config.json does not match fixed-partner-config.schema.json:\n${formatSchemaErrors(validate.errors)}`,
     );
+  });
+
+  it("rejects disconnected requirement inventory metadata in schema and loader", () => {
+    const ajv = new Ajv2020({ allErrors: true, strictTypes: false });
+    const validate = ajv.compile(fixedPartnerConfigSchema);
+    const invalidCases: Array<{
+      name: string;
+      mutate: (document: any) => void;
+    }> = [
+      {
+        name: "unknown requirement key",
+        mutate(document) {
+          document.requirements[0].key = "partner_registraton";
+        },
+      },
+      {
+        name: "missing requirement",
+        mutate(document) {
+          document.requirements.pop();
+        },
+      },
+      {
+        name: "unknown capacity operation",
+        mutate(document) {
+          document.requirements
+            .find(
+              (requirement: any) =>
+                requirement.key === "team_capacity_enforcement",
+            )
+            .condition.operations.push("capacity_override");
+        },
+      },
+      {
+        name: "duplicate capacity operation",
+        mutate(document) {
+          document.requirements
+            .find(
+              (requirement: any) =>
+                requirement.key === "team_capacity_enforcement",
+            )
+            .condition.operations.push("approval");
+        },
+      },
+      {
+        name: "unexpected requirement property",
+        mutate(document) {
+          document.requirements[0].unexpectedRuleMetadata = true;
+        },
+      },
+      {
+        name: "known property assigned to the wrong requirement",
+        mutate(document) {
+          document.requirements[0].limitField = "maxTeams";
+        },
+      },
+      {
+        name: "known condition assigned to the wrong requirement",
+        mutate(document) {
+          document.requirements[0].condition.operation = "roster_edit";
+        },
+      },
+      {
+        name: "missing required legacy metadata",
+        mutate(document) {
+          delete document.requirements[0].acceptedIdentifiers;
+        },
+      },
+    ];
+
+    for (const invalidCase of invalidCases) {
+      const document = structuredClone(fixedPartnerConfigDocument);
+      invalidCase.mutate(document);
+      assert.equal(
+        validate(document),
+        false,
+        `${invalidCase.name} should fail JSON Schema validation`,
+      );
+      assert.throws(
+        () => loadFixedPartnerConfig(document),
+        Error,
+        `${invalidCase.name} should fail runtime loading`,
+      );
+    }
   });
 
   it("keeps declarative requirement keys and runtime consumers in parity", () => {
@@ -265,12 +382,18 @@ describe("fixed-partner configuration", () => {
     for (const key of [
       "partner_registration",
       "team_capacity",
+      "team_capacity_enforcement",
+      "event_limit_safety",
       "capacity_defaults",
       "partner_rating_gap",
       "nr_partner_check",
       "partner_rating_range",
       "admin_add_input",
       "public_partner_preflight",
+      "roster_edit_validation",
+      "active_team_membership",
+      "membership_write_serialization",
+      "capacity_write_serialization",
     ]) {
       assert.equal(getFixedPartnerRequirement(key).key, key);
     }
@@ -293,6 +416,37 @@ describe("fixed-partner configuration", () => {
     assert.throws(
       () => loadFixedPartnerConfig(duplicate),
       /requirement UUIDs must be unique/,
+    );
+  });
+
+  it("rejects incomplete fixed-partner capacity operation coverage", () => {
+    const malformed = structuredClone(fixedPartnerConfig);
+    const capacity = malformed.requirements.find(
+      (requirement) => requirement.key === "team_capacity_enforcement",
+    );
+    assert.ok(capacity && "condition" in capacity);
+    const operationIndex =
+      capacity.condition.operations?.indexOf("waitlist_promotion") ?? -1;
+    assert.notEqual(operationIndex, -1);
+    capacity.condition.operations?.splice(operationIndex, 1);
+
+    assert.throws(
+      () => loadFixedPartnerConfig(malformed),
+      /team-capacity enforcement requirement is invalid/,
+    );
+  });
+
+  it("rejects capacity locks that do not serialize with membership writes", () => {
+    const malformed = structuredClone(fixedPartnerConfig);
+    const serialization = malformed.requirements.find(
+      (requirement) => requirement.key === "capacity_write_serialization",
+    );
+    assert.ok(serialization && "lockNamespace" in serialization);
+    serialization.lockNamespace = "different-lock";
+
+    assert.throws(
+      () => loadFixedPartnerConfig(malformed),
+      /capacity-write serialization requirement is invalid/,
     );
   });
 

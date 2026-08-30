@@ -12,7 +12,36 @@ import { eq, and, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
 
-const FIXED_PARTNER_LOCK_NAMESPACE = getFixedPartnerRequirement("membership_write_serialization").lockNamespace;
+const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement(
+  "team_capacity_enforcement",
+);
+const EVENT_LIMIT_SAFETY_REQUIREMENT = getFixedPartnerRequirement(
+  "event_limit_safety",
+);
+const CAPACITY_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement(
+  "capacity_write_serialization",
+);
+const FIXED_PARTNER_CAPACITY_OPERATIONS = new Set(
+  CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.condition.operations,
+);
+const FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE =
+  CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+
+function fixedPartnerEventLimitUpdateIsConfigured(): boolean {
+  return (
+    EVENT_LIMIT_SAFETY_REQUIREMENT.condition.operation ===
+      "event_limit_update" &&
+    EVENT_LIMIT_SAFETY_REQUIREMENT.limitField ===
+      TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.capacityField &&
+    EVENT_LIMIT_SAFETY_REQUIREMENT.minimumSource ===
+      "confirmed_team_count" &&
+    EVENT_LIMIT_SAFETY_REQUIREMENT.onConflict === "reject" &&
+    CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy ===
+      "postgres_advisory_xact" &&
+    CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    FIXED_PARTNER_CAPACITY_OPERATIONS.has("event_limit_update")
+  );
+}
 
 export function parseEventType(raw: string | undefined): EventFormat | null {
   if (raw === "rotating" || raw === fixedPartnerConfig.format) return raw;
@@ -263,13 +292,18 @@ export abstract class BaseEventController {
     if (b.showSignupEnd !== undefined) updates.showSignupEnd = b.showSignupEnd;
     this.applyCapacityUpdate(updates, b);
 
-    if (this.format === fixedPartnerConfig.format && typeof updates.maxTeams === "number") {
+    const fixedPartnerLimitField = EVENT_LIMIT_SAFETY_REQUIREMENT.limitField;
+    if (
+      this.format === fixedPartnerConfig.format &&
+      typeof updates[fixedPartnerLimitField] === "number" &&
+      fixedPartnerEventLimitUpdateIsConfigured()
+    ) {
       const capacityUpdate = await db.transaction(async (tx) => {
         // Event limit changes must serialize with fixed-partner membership
         // writes. Otherwise a signup could read the old limit, wait for this
         // update, and then create a team beyond the newly accepted limit.
         await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE}:${eventId}`}, 0))`,
         );
 
         const [current] = await tx
@@ -285,14 +319,17 @@ export abstract class BaseEventController {
             and(
               eq(registrationsTable.eventId, eventId),
               eq(registrationsTable.eventType, this.format),
-              eq(registrationsTable.status, "confirmed"),
+              eq(
+                registrationsTable.status,
+                TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.countedStatus,
+              ),
             ),
           );
         const confirmedTeams = Number(confirmedCount);
-        if (updates.maxTeams < confirmedTeams) {
+        if (updates[fixedPartnerLimitField] < confirmedTeams) {
           return {
             kind: "capacity_conflict" as const,
-            requestedMaxTeams: updates.maxTeams,
+            requestedMaxTeams: updates[fixedPartnerLimitField],
             confirmedTeams,
           };
         }

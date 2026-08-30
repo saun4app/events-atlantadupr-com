@@ -11,7 +11,13 @@ import type {
   FixedPartnerRequirementCondition,
   ActiveTeamMembershipRequirement,
   AdminAddInputRequirement,
+  CapacityWriteSerializationRequirement,
   CapacityDefaultsRequirement,
+  EventLimitSafetyRequirement,
+  FixedPartnerCapacityDecisionOperation,
+  FixedPartnerCapacityWriteOperation,
+  FixedPartnerFullCapacityAction,
+  FixedPartnerFullCapacityBehavior,
   MembershipWriteSerializationRequirement,
   NrPartnerCheckRequirement,
   PartnerRatingGapRequirement,
@@ -20,6 +26,7 @@ import type {
   PublicPartnerPreflightRequirement,
   RosterEditValidationRequirement,
   TeamCapacityRequirement,
+  TeamCapacityEnforcementRequirement,
 } from "@workspace/fixed-partner-config";
 
 export {
@@ -28,8 +35,14 @@ export {
 export type {
   ActiveTeamMembershipRequirement,
   AdminAddInputRequirement,
+  CapacityWriteSerializationRequirement,
   CapacityDefaultsRequirement,
+  EventLimitSafetyRequirement,
+  FixedPartnerCapacityDecisionOperation,
+  FixedPartnerCapacityWriteOperation,
   FixedPartnerConfig,
+  FixedPartnerFullCapacityAction,
+  FixedPartnerFullCapacityBehavior,
   FixedPartnerRequirement,
   FixedPartnerRequirementByKey,
   FixedPartnerRequirementCondition,
@@ -42,6 +55,7 @@ export type {
   PublicPartnerPreflightRequirement,
   RosterEditValidationRequirement,
   TeamCapacityRequirement,
+  TeamCapacityEnforcementRequirement,
 } from "@workspace/fixed-partner-config";
 
 export const fixedPartnerConfig = loadFixedPartnerConfig(rawConfig);

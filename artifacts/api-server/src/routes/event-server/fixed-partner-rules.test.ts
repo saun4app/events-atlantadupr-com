@@ -253,8 +253,13 @@ describe("fixed-partner registration requirements", () => {
     const rosterEdit = getFixedPartnerRequirement("roster_edit_validation");
     const membership = getFixedPartnerRequirement("active_team_membership");
     const serialization = getFixedPartnerRequirement("membership_write_serialization");
+    const capacity = getFixedPartnerRequirement("team_capacity_enforcement");
+    const eventLimit = getFixedPartnerRequirement("event_limit_safety");
+    const capacitySerialization = getFixedPartnerRequirement(
+      "capacity_write_serialization",
+    );
 
-    assert.equal(fixedPartnerConfig.requirements.length, 11);
+    assert.equal(fixedPartnerConfig.requirements.length, 14);
     assert.deepEqual(rosterEdit.condition.ratingTypes, ["dupr", "self_numeric"]);
     assert.deepEqual(rosterEdit.checks, ["nr", "rating_range", "partner_rating_gap"]);
     assert.equal(rosterEdit.staffBypass, true);
@@ -273,6 +278,36 @@ describe("fixed-partner registration requirements", () => {
     assert.equal(serialization.lockStrategy, "postgres_advisory_xact");
     assert.equal(serialization.lockScope, "event");
     assert.equal(serialization.lockNamespace, "atl-dupr:fixed-partner");
+    assert.deepEqual(capacity.condition.operations, [
+      "registration_create",
+      "registration_reactivate",
+      "approval",
+      "waitlist_promotion",
+      "roster_edit",
+    ]);
+    assert.equal(capacity.capacityUnit, "team");
+    assert.equal(capacity.capacityField, "maxTeams");
+    assert.equal(capacity.countedStatus, "confirmed");
+    assert.deepEqual(capacity.fullCapacityActions.waitlist_promotion, {
+      waitlistEnabled: "reject",
+      waitlistDisabled: "reject",
+    });
+    assert.equal(eventLimit.condition.operation, "event_limit_update");
+    assert.equal(eventLimit.limitField, "maxTeams");
+    assert.equal(eventLimit.minimumSource, "confirmed_team_count");
+    assert.equal(eventLimit.onConflict, "reject");
+    assert.deepEqual(capacitySerialization.condition.operations, [
+      "registration_create",
+      "registration_reactivate",
+      "approval",
+      "waitlist_promotion",
+      "roster_edit",
+      "event_limit_update",
+    ]);
+    assert.equal(
+      capacitySerialization.lockNamespace,
+      serialization.lockNamespace,
+    );
   });
 
   it("requires a partner identifier", async () => {

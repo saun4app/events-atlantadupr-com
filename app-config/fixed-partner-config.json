@@ -37,6 +37,56 @@
       "registrationRepresents": "team"
     },
     {
+      "id": "6a3f1c85",
+      "key": "team_capacity_enforcement",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit"
+        ]
+      },
+      "capacityUnit": "team",
+      "capacityField": "maxTeams",
+      "countedStatus": "confirmed",
+      "fullCapacityActions": {
+        "registration_create": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "registration_reactivate": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "approval": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "waitlist_promotion": {
+          "waitlistEnabled": "reject",
+          "waitlistDisabled": "reject"
+        },
+        "roster_edit": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        }
+      }
+    },
+    {
+      "id": "83d7b4e2",
+      "key": "event_limit_safety",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operation": "event_limit_update"
+      },
+      "limitField": "maxTeams",
+      "minimumSource": "confirmed_team_count",
+      "onConflict": "reject"
+    },
+    {
       "id": "c61a8f03",
       "key": "capacity_defaults",
       "condition": {
@@ -148,6 +198,24 @@
           "registration_create",
           "registration_reactivate",
           "roster_edit"
+        ]
+      },
+      "lockStrategy": "postgres_advisory_xact",
+      "lockScope": "event",
+      "lockNamespace": "atl-dupr:fixed-partner"
+    },
+    {
+      "id": "2f9c6a40",
+      "key": "capacity_write_serialization",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit",
+          "event_limit_update"
         ]
       },
       "lockStrategy": "postgres_advisory_xact",

@@ -21,6 +21,10 @@ import {
   rateLimitErrorResponse,
 } from "../../lib/rate-limit.js";
 import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
+import type {
+  FixedPartnerCapacityDecisionOperation,
+  FixedPartnerCapacityWriteOperation,
+} from "../../lib/fixed-partner-config.js";
 
 const router = Router({ mergeParams: true });
 
@@ -52,6 +56,8 @@ const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = getFixedPartnerRequirement("public_
 const ROSTER_EDIT_REQUIREMENT = getFixedPartnerRequirement("roster_edit_validation");
 const ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT = getFixedPartnerRequirement("active_team_membership");
 const MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement("membership_write_serialization");
+const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement("team_capacity_enforcement");
+const CAPACITY_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement("capacity_write_serialization");
 const ACTIVE_REGISTRATION_STATUSES = new Set(["confirmed", "waitlisted", "pending_approval"]);
 const FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES = new Set(
   ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.activeStatuses ?? [],
@@ -66,7 +72,20 @@ const ROSTER_EDIT_CHECKS = new Set(ROSTER_EDIT_REQUIREMENT.checks ?? []);
 const FIXED_PARTNER_WRITE_OPERATIONS = new Set(
   MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.condition.operations ?? [],
 );
-const FIXED_PARTNER_LOCK_NAMESPACE = MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const FIXED_PARTNER_MEMBERSHIP_LOCK_NAMESPACE =
+  MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const FIXED_PARTNER_CAPACITY_OPERATIONS = new Set(
+  TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.condition.operations,
+);
+const FIXED_PARTNER_CAPACITY_WRITE_OPERATIONS = new Set(
+  CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.condition.operations,
+);
+const FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE =
+  CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const FIXED_PARTNER_CAPACITY_FIELD =
+  TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.capacityField;
+const FIXED_PARTNER_CAPACITY_COUNTED_STATUS =
+  TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.countedStatus;
 
 function isActiveRegistration(
   registration: { status: string },
@@ -82,9 +101,53 @@ function fixedPartnerWriteIsSerialized(operation: string): boolean {
   return (
     MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy === "postgres_advisory_xact" &&
     MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
-    typeof FIXED_PARTNER_LOCK_NAMESPACE === "string" &&
+    typeof FIXED_PARTNER_MEMBERSHIP_LOCK_NAMESPACE === "string" &&
     FIXED_PARTNER_WRITE_OPERATIONS.has(operation)
   );
+}
+
+function fixedPartnerCapacityIsEnforced(
+  operation: FixedPartnerCapacityDecisionOperation,
+): boolean {
+  return (
+    TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.capacityUnit === "team" &&
+    FIXED_PARTNER_CAPACITY_FIELD === "maxTeams" &&
+    FIXED_PARTNER_CAPACITY_OPERATIONS.has(operation)
+  );
+}
+
+function fixedPartnerCapacityWriteIsSerialized(
+  operation: FixedPartnerCapacityWriteOperation,
+): boolean {
+  return (
+    CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy ===
+      "postgres_advisory_xact" &&
+    CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE.length > 0 &&
+    FIXED_PARTNER_CAPACITY_WRITE_OPERATIONS.has(operation)
+  );
+}
+
+function fixedPartnerFullCapacityAction(
+  operation: FixedPartnerCapacityDecisionOperation,
+  waitlistEnabled: boolean,
+) {
+  if (!fixedPartnerCapacityIsEnforced(operation)) {
+    throw new Error(
+      `Fixed-partner capacity enforcement is not configured for ${operation}`,
+    );
+  }
+  const behavior =
+    TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.fullCapacityActions[operation];
+  return waitlistEnabled
+    ? behavior.waitlistEnabled
+    : behavior.waitlistDisabled;
+}
+
+function capacityCountedStatus(eventType: EventFormat): string {
+  return eventType === FIXED_PARTNER_FORMAT
+    ? FIXED_PARTNER_CAPACITY_COUNTED_STATUS
+    : "confirmed";
 }
 
 function fixedPartnerMembershipIsEnforced(operation: string): boolean {
@@ -277,15 +340,20 @@ function regScope(eventId: number, eventType: EventFormat) {
   return and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, eventType));
 }
 
-function eventCapacityLockKey(eventType: EventFormat, eventId: number): string | null {
+function eventCapacityLockKey(
+  eventType: EventFormat,
+  eventId: number,
+  operation: FixedPartnerCapacityDecisionOperation,
+): string | null {
   if (eventType === "rotating") {
     return `atl-dupr:rotating:${eventId}`;
   }
   if (
     eventType === FIXED_PARTNER_FORMAT &&
-    fixedPartnerWriteIsSerialized("registration_create")
+    fixedPartnerCapacityIsEnforced(operation) &&
+    fixedPartnerCapacityWriteIsSerialized(operation)
   ) {
-    return `${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`;
+    return `${FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE}:${eventId}`;
   }
   return null;
 }
@@ -294,9 +362,13 @@ function eventCapacityLimit(
   eventType: EventFormat,
   event: NonNullable<Awaited<ReturnType<typeof getNormalizedEvent>>>,
 ): number {
-  return eventType === FIXED_PARTNER_FORMAT
-    ? event.maxTeams ?? Math.floor(event.maxParticipants / 2)
-    : event.maxParticipants;
+  if (eventType !== FIXED_PARTNER_FORMAT) {
+    return event.maxParticipants;
+  }
+  return (
+    event[FIXED_PARTNER_CAPACITY_FIELD] ??
+    Math.floor(event.maxParticipants / 2)
+  );
 }
 
 async function currentEventCapacityLimit(
@@ -310,10 +382,12 @@ async function currentEventCapacityLimit(
   }
 
   const [currentEvent] = await tx
-    .select({ maxTeams: eventsFixedTable.maxTeams })
+    .select({
+      capacityLimit: eventsFixedTable[FIXED_PARTNER_CAPACITY_FIELD],
+    })
     .from(eventsFixedTable)
     .where(eq(eventsFixedTable.id, eventId));
-  return currentEvent?.maxTeams ?? null;
+  return currentEvent?.capacityLimit ?? null;
 }
 
 async function findActiveFixedPartnerMembership(
@@ -869,7 +943,11 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   let reg;
   const fixedPartnerRegistrationWritesSerialized =
     fixedPartnerWriteIsSerialized("registration_create") &&
-    fixedPartnerWriteIsSerialized("registration_reactivate");
+    fixedPartnerWriteIsSerialized("registration_reactivate") &&
+    fixedPartnerCapacityWriteIsSerialized("registration_create") &&
+    fixedPartnerCapacityWriteIsSerialized("registration_reactivate") &&
+    fixedPartnerCapacityIsEnforced("registration_create") &&
+    fixedPartnerCapacityIsEnforced("registration_reactivate");
   if (
     eventType === FIXED_PARTNER_FORMAT &&
     fixedPartnerRegistrationWritesSerialized
@@ -880,7 +958,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     // event and repeat the check on the same transaction/connection.
     const writeResult = await db.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE}:${eventId}`}, 0))`,
       );
 
       const currentMemberRegs = await tx
@@ -914,19 +992,29 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       const currentExistingReg = currentMemberRegs
         .filter((r) => r.status === "cancelled")
         .sort((a, b) => b.id - a.id)[0];
-      const currentConfirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
+      const capacityOperation: FixedPartnerCapacityDecisionOperation =
+        currentExistingReg
+          ? "registration_reactivate"
+          : "registration_create";
+      const currentConfirmedCount = currentRegs.filter(
+        (r) => r.status === FIXED_PARTNER_CAPACITY_COUNTED_STATUS,
+      ).length;
       let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
       if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
         currentStatus = "pending_approval";
       } else if (currentConfirmedCount >= capacityLimit) {
-        if (!event.waitlistEnabled) {
+        const fullCapacityAction = fixedPartnerFullCapacityAction(
+          capacityOperation,
+          event.waitlistEnabled,
+        );
+        if (fullCapacityAction === "reject") {
           return {
             kind: "conflict" as const,
             error: "Event is full and waitlist is disabled",
             status: 400,
           };
         }
-        currentStatus = "waitlisted";
+        currentStatus = fullCapacityAction;
       }
 
       if (currentExistingReg) {
@@ -1343,14 +1431,16 @@ router.patch(
         eventType === FIXED_PARTNER_FORMAT &&
         event &&
         partnerMember &&
-        fixedPartnerWriteIsSerialized("roster_edit")
+        fixedPartnerWriteIsSerialized("roster_edit") &&
+        fixedPartnerCapacityIsEnforced("roster_edit") &&
+        fixedPartnerCapacityWriteIsSerialized("roster_edit")
       ) {
         // Keep the duplicate-membership check and replacement in one
         // transaction. A concurrent signup or roster edit for the same event
         // must observe this update before it can claim either player.
         const updateResult = await db.transaction(async (tx) => {
           await tx.execute(
-            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE}:${eventId}`}, 0))`,
           );
 
           const currentRegs = await tx
@@ -1380,12 +1470,19 @@ router.patch(
           if (req.body.status === "confirmed" && currentRegs.find(
             (registration) => registration.id === existing.id,
           )?.status !== "confirmed") {
-            const confirmedCount = currentRegs.filter((registration) => registration.status === "confirmed").length;
+            const confirmedCount = currentRegs.filter(
+              (registration) =>
+                registration.status === FIXED_PARTNER_CAPACITY_COUNTED_STATUS,
+            ).length;
             if (confirmedCount >= capacityLimit) {
-              if (!event.waitlistEnabled) {
+              const fullCapacityAction = fixedPartnerFullCapacityAction(
+                "roster_edit",
+                event.waitlistEnabled,
+              );
+              if (fullCapacityAction === "reject") {
                 return { kind: "full" as const };
               }
-              transactionUpdates.status = "waitlisted";
+              transactionUpdates.status = fullCapacityAction;
             }
           }
 
@@ -1528,7 +1625,11 @@ router.post(
     const approvalResult = await db.transaction(async (tx) => {
       // Approval must use the same event-scoped lock as sign-ups and
       // promotions so concurrent capacity decisions cannot claim one slot.
-      const capacityLockKey = eventCapacityLockKey(eventType, eventId);
+      const capacityLockKey = eventCapacityLockKey(
+        eventType,
+        eventId,
+        "approval",
+      );
       if (capacityLockKey) {
         await tx.execute(
           sql`SELECT pg_advisory_xact_lock(hashtextextended(${capacityLockKey}, 0))`,
@@ -1540,14 +1641,25 @@ router.post(
       if (capacityLimit === null) {
         return { kind: "missing" as const };
       }
-      const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+      const confirmedCount = allRegs.filter(
+        (r) => r.status === capacityCountedStatus(eventType),
+      ).length;
 
       let newStatus: "confirmed" | "waitlisted";
       if (confirmedCount >= capacityLimit) {
-        if (!event.waitlistEnabled) {
+        const fullCapacityAction =
+          eventType === FIXED_PARTNER_FORMAT
+            ? fixedPartnerFullCapacityAction(
+                "approval",
+                event.waitlistEnabled,
+              )
+            : event.waitlistEnabled
+              ? "waitlisted"
+              : "reject";
+        if (fullCapacityAction === "reject") {
           return { kind: "full" as const };
         }
-        newStatus = "waitlisted";
+        newStatus = fullCapacityAction;
       } else {
         newStatus = "confirmed";
       }
@@ -1620,11 +1732,16 @@ router.post(
 
     const sessionUserId = (req as any).session?.userId;
     const event = await getNormalizedEvent(eventType, eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
     const promotionResult = await db.transaction(async (tx) => {
       // Promotion must share the event-scoped lock used by capacity-changing
       // writes. Otherwise simultaneous organizers can all observe the same
       // open slot.
-      const capacityLockKey = eventCapacityLockKey(eventType, eventId);
+      const capacityLockKey = eventCapacityLockKey(
+        eventType,
+        eventId,
+        "waitlist_promotion",
+      );
       if (capacityLockKey) {
         await tx.execute(
           sql`SELECT pg_advisory_xact_lock(hashtextextended(${capacityLockKey}, 0))`,
@@ -1636,9 +1753,17 @@ router.post(
       if (capacityLimit === null) {
         return { kind: "missing" as const };
       }
-      const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+      const confirmedCount = allRegs.filter(
+        (r) => r.status === capacityCountedStatus(eventType),
+      ).length;
 
       if (confirmedCount >= capacityLimit) {
+        if (eventType === FIXED_PARTNER_FORMAT) {
+          fixedPartnerFullCapacityAction(
+            "waitlist_promotion",
+            event.waitlistEnabled,
+          );
+        }
         return { kind: "full" as const };
       }
 
