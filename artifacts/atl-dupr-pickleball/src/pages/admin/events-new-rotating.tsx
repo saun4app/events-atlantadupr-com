@@ -75,6 +75,13 @@ function generateAdditionalDates(startDate: Date, frequency: string, count: numb
   return dates;
 }
 
+function hasInvertedLimits(min: unknown, max: unknown): boolean {
+  if (min === "" || max === "" || min == null || max == null) return false;
+  const minValue = Number(min);
+  const maxValue = Number(max);
+  return Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue > maxValue;
+}
+
 function getRrc(settings: any): RatingRequirementsConfig {
   const rrc = (settings as any)?.ratingRequirementsConfig ?? DEFAULT_RRC;
   return {
@@ -310,6 +317,14 @@ export default function AdminEventNewRotating() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (hasInvertedLimits(form.minParticipants, form.maxParticipants)) {
+      toast({
+        title: "Invalid participant limits",
+        description: "Minimum participants cannot exceed maximum participants.",
+        variant: "destructive",
+      });
+      return;
+    }
     if (!form.description) {
       toast({ title: "Description is required", variant: "destructive" });
       return;
@@ -534,13 +549,18 @@ export default function AdminEventNewRotating() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <Label htmlFor="min">{minLabel} *</Label>
-                <NumericInput id="min" data-testid="input-min-participants" min={1} required value={form.minParticipants} onChange={v => setField("minParticipants", v)} />
+                <NumericInput id="min" data-testid="input-min-participants" min={1} required aria-invalid={hasInvertedLimits(form.minParticipants, form.maxParticipants)} value={form.minParticipants} onChange={v => setField("minParticipants", v)} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="max">{maxLabel} *</Label>
-                <NumericInput id="max" data-testid="input-max-participants" min={1} required value={form.maxParticipants} onChange={v => setField("maxParticipants", v)} />
+                <NumericInput id="max" data-testid="input-max-participants" min={1} required aria-invalid={hasInvertedLimits(form.minParticipants, form.maxParticipants)} value={form.maxParticipants} onChange={v => setField("maxParticipants", v)} />
               </div>
             </div>
+            {hasInvertedLimits(form.minParticipants, form.maxParticipants) && (
+              <p role="alert" data-testid="event-limit-error" className="text-sm text-destructive">
+                Minimum participants cannot exceed maximum participants.
+              </p>
+            )}
 
             {/* Rating Requirement */}
             <div className="space-y-3">

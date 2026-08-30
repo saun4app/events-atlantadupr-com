@@ -48,6 +48,13 @@ const DEFAULT_RRC: RatingRequirementsConfig = {
   selfSkill: { enabled: true, levels: [], defaultMinLevel: 1, defaultMaxLevel: 3 },
 };
 
+function hasInvertedLimits(min: unknown, max: unknown): boolean {
+  if (min === "" || max === "" || min == null || max == null) return false;
+  const minValue = Number(min);
+  const maxValue = Number(max);
+  return Number.isFinite(minValue) && Number.isFinite(maxValue) && minValue > maxValue;
+}
+
 function getRrc(settings: any): RatingRequirementsConfig {
   const rrc = (settings as any)?.ratingRequirementsConfig ?? DEFAULT_RRC;
   return {
@@ -307,6 +314,14 @@ export default function AdminEventDetailRotating() {
 
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (hasInvertedLimits(editForm.minParticipants, editForm.maxParticipants)) {
+      toast({
+        title: "Invalid participant limits",
+        description: "Minimum participants cannot exceed maximum participants.",
+        variant: "destructive",
+      });
+      return;
+    }
     updateEvent.mutate({
       eventType,
       id: eventId,
@@ -1298,13 +1313,18 @@ export default function AdminEventDetailRotating() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-min">Min Participants</Label>
-                    <Input id="edit-min" type="number" min={1} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />
+                    <Input id="edit-min" data-testid="input-edit-min-participants" type="number" min={1} aria-invalid={hasInvertedLimits(editForm.minParticipants, editForm.maxParticipants)} value={editForm.minParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, minParticipants: e.target.value }))} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="edit-max">Max Participants *</Label>
-                    <Input id="edit-max" type="number" min={1} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, maxParticipants: e.target.value }))} required />
+                    <Input id="edit-max" data-testid="input-edit-max-participants" type="number" min={1} aria-invalid={hasInvertedLimits(editForm.minParticipants, editForm.maxParticipants)} value={editForm.maxParticipants ?? ""} onChange={e => setEditForm((f: any) => ({ ...f, maxParticipants: e.target.value }))} required />
                   </div>
                 </div>
+                {hasInvertedLimits(editForm.minParticipants, editForm.maxParticipants) && (
+                  <p role="alert" data-testid="event-limit-error" className="text-sm text-destructive">
+                    Minimum participants cannot exceed maximum participants.
+                  </p>
+                )}
 
                 {/* Rating Requirement */}
                 <div className="space-y-2">
