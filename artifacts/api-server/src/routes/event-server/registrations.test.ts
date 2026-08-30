@@ -941,6 +941,78 @@ describe("mixed roster edit and approval: concurrent rotating-event capacity", (
   });
 });
 
+describe("mixed rotating capacity operations", () => {
+  for (const waitlistEnabled of [true, false]) {
+    it(`never exceeds maxParticipants when signup, approval, and roster edit race with waitlisting ${waitlistEnabled ? "enabled" : "disabled"}`, async () => {
+      const ev = await createEvent({ maxParticipants: 1, waitlistEnabled });
+      const signupPlayer = await createMember();
+      const approvalPlayer = await createMember();
+      const editPlayer = await createMember();
+      const approvalReg = await insertReg(ev.id, approvalPlayer.duprId, "pending_approval");
+      const editReg = await insertReg(ev.id, editPlayer.duprId, "pending_approval");
+
+      const results = await Promise.all([
+        register(ev.id, signupPlayer.duprId),
+        approve(ev.id, approvalReg.id),
+        editRegistration(ev.id, editReg.id, { status: "confirmed" }),
+      ]);
+
+      if (waitlistEnabled) {
+        assert.deepEqual(
+          results.map((result) => result.status).sort((a, b) => a - b),
+          [200, 200, 201],
+        );
+        assert.deepEqual(
+          results.map((result) => result.body.status).sort(),
+          ["confirmed", "waitlisted", "waitlisted"],
+        );
+      } else {
+        assert.equal(
+          results.filter((result) => result.status === 400).length,
+          2,
+          "the two losing operations should receive the full-event response",
+        );
+        assert.equal(
+          results.filter((result) => result.status === 200 || result.status === 201).length,
+          1,
+          "exactly one operation should claim the only participant slot",
+        );
+      }
+
+      const rows = await db
+        .select()
+        .from(registrationsTable)
+        .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+      assert.equal(
+        rows.filter((row) => row.status === "confirmed").length,
+        1,
+        "shared event-scoped capacity locking must prevent overbooking",
+      );
+      assert.ok(
+        rows.filter((row) => row.status === "confirmed").length <= ev.maxParticipants,
+        "confirmed participants must stay within maxParticipants",
+      );
+
+      if (waitlistEnabled) {
+        assert.equal(rows.filter((row) => row.status === "waitlisted").length, 2);
+      } else {
+        assert.equal(
+          rows.some((row) => row.id === approvalReg.id && row.status === "pending_approval"),
+          results[1].status === 400,
+        );
+        assert.equal(
+          rows.some((row) => row.id === editReg.id && row.status === "pending_approval"),
+          results[2].status === 400,
+        );
+        assert.equal(
+          rows.some((row) => row.memberDuprId === signupPlayer.duprId),
+          results[0].status === 201,
+        );
+      }
+    });
+  }
+});
+
 describe("promote-from-waitlist: concurrent rotating-event capacity", () => {
   for (const waitlistEnabled of [true, false]) {
     it(`promotes only one registration when waitlisting is ${waitlistEnabled ? "enabled" : "disabled"}`, async () => {
