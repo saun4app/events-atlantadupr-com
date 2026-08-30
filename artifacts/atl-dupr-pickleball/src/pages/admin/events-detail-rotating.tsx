@@ -1345,12 +1345,12 @@ export default function AdminEventDetailRotating() {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="space-y-1">
                           <Label className="text-xs">Min Rating</Label>
-                          <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.min ?? rrc.selfNumeric.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
+                          <Input data-testid="input-edit-self-rating-min" type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.min ?? rrc.selfNumeric.defaultMin} onChange={e => setEditRatingConfig((c: any) => ({ ...c, min: Number(e.target.value) }))} />
                           <p className="text-xs text-muted-foreground">Range: {rrc.selfNumeric.minAllowed}–{rrc.selfNumeric.maxAllowed}</p>
                         </div>
                         <div className="space-y-1">
                           <Label className="text-xs">Max Rating</Label>
-                          <Input type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.max ?? rrc.selfNumeric.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
+                          <Input data-testid="input-edit-self-rating-max" type="number" step={0.1} min={rrc.selfNumeric.minAllowed} max={rrc.selfNumeric.maxAllowed} value={editRatingConfig.max ?? rrc.selfNumeric.defaultMax} onChange={e => setEditRatingConfig((c: any) => ({ ...c, max: Number(e.target.value) }))} />
                         </div>
                       </div>
                     </div>
@@ -1362,7 +1362,7 @@ export default function AdminEventDetailRotating() {
                       <Label className="text-xs font-medium text-muted-foreground">Accepted Skill Level Range</Label>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <Select value={String(editRatingConfig.minLevel ?? rrc.selfSkill.defaultMinLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, minLevel: Number(v) }))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger data-testid="select-edit-self-rating-min"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
                               <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>
@@ -1370,7 +1370,7 @@ export default function AdminEventDetailRotating() {
                           </SelectContent>
                         </Select>
                         <Select value={String(editRatingConfig.maxLevel ?? rrc.selfSkill.defaultMaxLevel)} onValueChange={v => setEditRatingConfig((c: any) => ({ ...c, maxLevel: Number(v) }))}>
-                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectTrigger data-testid="select-edit-self-rating-max"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {[...rrc.selfSkill.levels].sort((a, b) => a.level - b.level).map((lv: SkillLevel) => (
                               <SelectItem key={lv.level} value={String(lv.level)}>{lv.text}</SelectItem>

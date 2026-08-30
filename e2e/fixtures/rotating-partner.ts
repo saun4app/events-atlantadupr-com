@@ -34,10 +34,33 @@ const ROTATING_PARTNER_EVENT = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
-export async function mockRotatingPartnerAdminApi(page: Page) {
-  let currentEvent = {
+type RotatingPartnerFixtureOptions = {
+  ratingTypeRequired?: "dupr" | "self_numeric" | "self_skill";
+  ratingConfig?: Record<string, number | boolean>;
+  selfSkillLevels?: Array<{ text: string; level: number }>;
+};
+
+export async function mockRotatingPartnerAdminApi(
+  page: Page,
+  options: RotatingPartnerFixtureOptions = {},
+) {
+  const initialEvent = {
     ...ROTATING_PARTNER_EVENT,
-    ratingConfig: { ...ROTATING_PARTNER_EVENT.ratingConfig },
+    ...(options.ratingTypeRequired
+      ? { ratingTypeRequired: options.ratingTypeRequired }
+      : {}),
+    ratingConfig: options.ratingConfig
+      ? { ...options.ratingConfig }
+      : { ...ROTATING_PARTNER_EVENT.ratingConfig },
+  };
+  const selfSkillLevels = options.selfSkillLevels ?? [
+    { text: "Beginner", level: 1 },
+    { text: "Intermediate", level: 2 },
+    { text: "Advanced", level: 3 },
+  ];
+  let currentEvent = {
+    ...initialEvent,
+    ratingConfig: { ...initialEvent.ratingConfig },
   };
 
   await page.route("**/api/**", async (route) => {
@@ -103,7 +126,7 @@ export async function mockRotatingPartnerAdminApi(page: Page) {
             },
             selfSkill: {
               enabled: true,
-              levels: [],
+              levels: selfSkillLevels,
               defaultMinLevel: 1,
               defaultMaxLevel: 3,
             },
