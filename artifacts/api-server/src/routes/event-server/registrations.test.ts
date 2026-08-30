@@ -1449,6 +1449,29 @@ describe("fixed-partner event limit updates", () => {
     assert.equal(result.body.maxTeams, 6);
   });
 
+  it("rejects negative and fractional team limits without changing the event", async () => {
+    const ev = await createFixedEvent({ minTeams: 2, maxTeams: 8 });
+
+    for (const [field, value] of [
+      ["minTeams", -1],
+      ["maxTeams", 2.5],
+    ] as const) {
+      const result = await updateFixedEvent(ev.id, { [field]: value });
+
+      assert.equal(result.status, 400);
+      assert.equal(result.body.error, `${field} must be an integer >= 1`);
+    }
+
+    const [unchanged] = await db
+      .select({
+        minTeams: eventsFixedTable.minTeams,
+        maxTeams: eventsFixedTable.maxTeams,
+      })
+      .from(eventsFixedTable)
+      .where(eq(eventsFixedTable.id, ev.id));
+    assert.deepEqual(unchanged, { minTeams: 2, maxTeams: 8 });
+  });
+
   it("rejects a minimum team limit above the existing maximum", async () => {
     const ev = await createFixedEvent({ minTeams: 2, maxTeams: 8 });
 
@@ -1568,6 +1591,23 @@ describe("fixed-partner event creation limits", () => {
     createdFixedEventIds.push(result.body[0].id);
   });
 
+  it("rejects negative and fractional team limits without persisting an event", async () => {
+    for (const [field, value] of [
+      ["minTeams", -1],
+      ["maxTeams", 2.5],
+    ] as const) {
+      const result = await createFixedEventViaApi({ [field]: value });
+
+      assert.equal(result.status, 400);
+      assert.equal(result.body.error, `${field} must be an integer >= 1`);
+      const rows = await db
+        .select({ id: eventsFixedTable.id })
+        .from(eventsFixedTable)
+        .where(eq(eventsFixedTable.name, result.name));
+      assert.deepEqual(rows, []);
+    }
+  });
+
   it("rejects minTeams above the default maxTeams without persisting an event", async () => {
     const result = await createFixedEventViaApi({ minTeams: 9 });
 
@@ -1610,6 +1650,23 @@ describe("rotating event creation limits", () => {
     assert.equal(result.body[0].minParticipants, 12);
     assert.equal(result.body[0].maxParticipants, 12);
     createdEventIds.push(result.body[0].id);
+  });
+
+  it("rejects negative and fractional participant limits without persisting an event", async () => {
+    for (const [field, value] of [
+      ["minParticipants", -1],
+      ["maxParticipants", 2.5],
+    ] as const) {
+      const result = await createRotatingEventViaApi({ [field]: value });
+
+      assert.equal(result.status, 400);
+      assert.equal(result.body.error, `${field} must be an integer >= 1`);
+      const rows = await db
+        .select({ id: eventsRotatingTable.id })
+        .from(eventsRotatingTable)
+        .where(eq(eventsRotatingTable.name, result.name));
+      assert.deepEqual(rows, []);
+    }
   });
 
   it("rejects minParticipants above the default maxParticipants without persisting an event", async () => {
@@ -1658,6 +1715,29 @@ describe("rotating event limit updates", () => {
     assert.equal(result.status, 200);
     assert.equal(result.body.minParticipants, 8);
     assert.equal(result.body.maxParticipants, 8);
+  });
+
+  it("rejects negative and fractional participant limits without changing the event", async () => {
+    const ev = await createEvent({ minParticipants: 2, maxParticipants: 16 });
+
+    for (const [field, value] of [
+      ["minParticipants", -1],
+      ["maxParticipants", 2.5],
+    ] as const) {
+      const result = await updateRotatingEvent(ev.id, { [field]: value });
+
+      assert.equal(result.status, 400);
+      assert.equal(result.body.error, `${field} must be an integer >= 1`);
+    }
+
+    const [unchanged] = await db
+      .select({
+        minParticipants: eventsRotatingTable.minParticipants,
+        maxParticipants: eventsRotatingTable.maxParticipants,
+      })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, ev.id));
+    assert.deepEqual(unchanged, { minParticipants: 2, maxParticipants: 16 });
   });
 
   it("accepts safe participant limit changes and preserves the event response shape", async () => {

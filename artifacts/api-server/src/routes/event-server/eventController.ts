@@ -89,6 +89,13 @@ function validateEventLimitRange(
   );
 }
 
+function validateEventLimitValue(value: unknown, field: string): string | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    return `${field} must be an integer >= 1`;
+  }
+  return null;
+}
+
 export function parseEventType(raw: string | undefined): EventFormat | null {
   if (raw === "rotating" || raw === fixedPartnerConfig.format) return raw;
   return null;
@@ -271,6 +278,17 @@ export abstract class BaseEventController {
     const { startDatetime, endDatetime, signupStartDatetime, signupEndDatetime, recurrence } = body;
     const baseEvent: any = { ...buildCommonBase(body), ...this.capacityForCreate(body) };
 
+    const capacityFields =
+      this.format === fixedPartnerConfig.format
+        ? (["minTeams", "maxTeams"] as const)
+        : (["minParticipants", "maxParticipants"] as const);
+    for (const field of capacityFields) {
+      const valueError = validateEventLimitValue(baseEvent[field], field);
+      if (valueError) {
+        return res.status(400).json({ error: valueError });
+      }
+    }
+
     if (this.format === fixedPartnerConfig.format && fixedPartnerEventLimitUpdateIsConfigured()) {
       const requestedMinTeams = baseEvent.minTeams;
       const requestedMaxTeams = baseEvent[EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
@@ -343,6 +361,19 @@ export abstract class BaseEventController {
     if (!existing) return res.status(404).json({ error: "Event not found" });
 
     const b = req.body;
+    const capacityFields =
+      this.format === fixedPartnerConfig.format
+        ? (["minTeams", "maxTeams"] as const)
+        : (["minParticipants", "maxParticipants"] as const);
+    for (const field of capacityFields) {
+      if (b[field] !== undefined) {
+        const valueError = validateEventLimitValue(b[field], field);
+        if (valueError) {
+          return res.status(400).json({ error: valueError });
+        }
+      }
+    }
+
     const updates: any = {};
     if (b.name !== undefined) updates.name = b.name;
     if (b.description !== undefined) updates.description = b.description;
