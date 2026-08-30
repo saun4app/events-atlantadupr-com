@@ -1341,15 +1341,36 @@ router.patch(
             return { kind: "conflict" as const };
           }
 
+          const transactionUpdates = { ...updates };
+          if (req.body.status === "confirmed" && currentRegs.find(
+            (registration) => registration.id === existing.id,
+          )?.status !== "confirmed") {
+            const confirmedCount = currentRegs.filter((registration) => registration.status === "confirmed").length;
+            if (confirmedCount >= eventCapacityLimit(eventType, event)) {
+              if (!event.waitlistEnabled) {
+                return { kind: "full" as const };
+              }
+              transactionUpdates.status = "waitlisted";
+            }
+          }
+
           const [updated] = await tx
             .update(registrationsTable)
-            .set(updates)
-            .where(eq(registrationsTable.id, Number(req.params.regId)))
+            .set(transactionUpdates)
+            .where(
+              and(
+                eq(registrationsTable.id, Number(req.params.regId)),
+                regScope(eventId, FIXED_PARTNER_FORMAT),
+              ),
+            )
             .returning();
           return { kind: "updated" as const, registration: updated };
         });
         if (updateResult.kind === "conflict") {
           return res.status(409).json({ error: "A player is already assigned to another team in this event" });
+        }
+        if (updateResult.kind === "full") {
+          return res.status(400).json({ error: "Event is full and waitlist is disabled" });
         }
         updatedReg = updateResult.registration ?? existing;
       } else if (eventType === "rotating" && event) {

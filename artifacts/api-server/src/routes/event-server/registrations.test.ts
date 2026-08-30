@@ -203,9 +203,14 @@ async function promote(
   return { status: res.status, body };
 }
 
-async function editRegistration(eventId: number, registrationId: number, body: Record<string, unknown>) {
+async function editRegistration(
+  eventId: number,
+  registrationId: number,
+  body: Record<string, unknown>,
+  eventType: "rotating" | "fixed_partner" = "rotating",
+) {
   const res = await fetch(
-    `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}`,
+    `${baseUrl}/events/${eventType}/${eventId}/registrations/${registrationId}`,
     {
       method: "PATCH",
       headers: {
@@ -1105,4 +1110,186 @@ describe("mixed fixed-partner capacity operations", () => {
       }
     });
   }
+});
+
+describe("fixed-partner roster edits: capacity decisions", () => {
+  for (const waitlistEnabled of [true, false]) {
+    it(`waitlists or rejects a full-event promotion when waitlisting is ${waitlistEnabled ? "enabled" : "disabled"}`, async () => {
+      const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled });
+      const fillerPrimary = await createMember();
+      const fillerPartner = await createMember();
+      await insertReg(
+        ev.id,
+        fillerPrimary.duprId,
+        "confirmed",
+        { partnerDuprId: fillerPartner.duprId },
+        "fixed_partner",
+      );
+      const playerPrimary = await createMember();
+      const playerPartner = await createMember();
+      const pending = await insertReg(
+        ev.id,
+        playerPrimary.duprId,
+        "pending_approval",
+        { partnerDuprId: playerPartner.duprId },
+        "fixed_partner",
+      );
+
+      const result = await editRegistration(
+        ev.id,
+        pending.id,
+        { status: "confirmed" },
+        "fixed_partner",
+      );
+
+      assert.equal(result.status, waitlistEnabled ? 200 : 400);
+      const rows = await db
+        .select()
+        .from(registrationsTable)
+        .where(
+          and(
+            eq(registrationsTable.eventId, ev.id),
+            eq(registrationsTable.eventType, "fixed_partner"),
+          ),
+        );
+      assert.equal(
+        rows.find((row) => row.id === pending.id)?.status,
+        waitlistEnabled ? "waitlisted" : "pending_approval",
+      );
+      assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+    });
+  }
+});
+
+describe("mixed fixed-partner roster edit capacity operations", () => {
+  it("serializes a roster edit with a signup", async () => {
+    const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled: true });
+    const editPrimary = await createMember();
+    const editPartner = await createMember();
+    const signupPrimary = await createMember();
+    const signupPartner = await createMember();
+    const editReg = await insertReg(
+      ev.id,
+      editPrimary.duprId,
+      "pending_approval",
+      { partnerDuprId: editPartner.duprId },
+      "fixed_partner",
+    );
+
+    const results = await Promise.all([
+      editRegistration(ev.id, editReg.id, { status: "confirmed" }, "fixed_partner"),
+      registerFixed(ev.id, signupPrimary.duprId, signupPartner.duprId),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 201],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, ev.id),
+          eq(registrationsTable.eventType, "fixed_partner"),
+        ),
+      );
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
+
+  it("serializes a roster edit with approval", async () => {
+    const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled: true });
+    const editPrimary = await createMember();
+    const editPartner = await createMember();
+    const approvalPrimary = await createMember();
+    const approvalPartner = await createMember();
+    const editReg = await insertReg(
+      ev.id,
+      editPrimary.duprId,
+      "pending_approval",
+      { partnerDuprId: editPartner.duprId },
+      "fixed_partner",
+    );
+    const approvalReg = await insertReg(
+      ev.id,
+      approvalPrimary.duprId,
+      "pending_approval",
+      { partnerDuprId: approvalPartner.duprId },
+      "fixed_partner",
+    );
+
+    const results = await Promise.all([
+      editRegistration(ev.id, editReg.id, { status: "confirmed" }, "fixed_partner"),
+      approve(ev.id, approvalReg.id, "fixed_partner"),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 200],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, ev.id),
+          eq(registrationsTable.eventType, "fixed_partner"),
+        ),
+      );
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
+
+  it("serializes a roster edit with waitlist promotion", async () => {
+    const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled: true });
+    const editPrimary = await createMember();
+    const editPartner = await createMember();
+    const promotionPrimary = await createMember();
+    const promotionPartner = await createMember();
+    const editReg = await insertReg(
+      ev.id,
+      editPrimary.duprId,
+      "pending_approval",
+      { partnerDuprId: editPartner.duprId },
+      "fixed_partner",
+    );
+    const promotionReg = await insertReg(
+      ev.id,
+      promotionPrimary.duprId,
+      "waitlisted",
+      { partnerDuprId: promotionPartner.duprId },
+      "fixed_partner",
+    );
+
+    const results = await Promise.all([
+      editRegistration(ev.id, editReg.id, { status: "confirmed" }, "fixed_partner"),
+      promote(ev.id, promotionReg.id, "fixed_partner"),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 200],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, ev.id),
+          eq(registrationsTable.eventType, "fixed_partner"),
+        ),
+      );
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
 });
