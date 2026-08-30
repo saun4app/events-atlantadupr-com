@@ -25,6 +25,7 @@
     "qs": "^6.15.2"
   },
   "devDependencies": {
+    "ajv": "^8.20.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

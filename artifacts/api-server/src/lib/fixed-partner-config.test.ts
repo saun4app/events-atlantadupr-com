@@ -1,5 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
+import Ajv2020, { type ErrorObject } from "ajv/dist/2020.js";
+
+import fixedPartnerConfigDocument from "../../../../app-config/fixed-partner-config.json";
+import fixedPartnerConfigSchema from "../../../../app-config/fixed-partner-config.schema.json";
 
 import {
   fixedPartnerConfig,
@@ -7,7 +11,31 @@ import {
   loadFixedPartnerConfig,
 } from "./fixed-partner-config.js";
 
+function formatSchemaErrors(errors: ErrorObject[] | null | undefined): string {
+  return (errors ?? [])
+    .map(
+      ({ instancePath, keyword, message, params, schemaPath }) =>
+        `${instancePath || "<root>"} ${message ?? "is invalid"} ` +
+        `(keyword: ${keyword}, schema: ${schemaPath}, params: ${JSON.stringify(params)})`,
+    )
+    .join("\n");
+}
+
 describe("fixed-partner configuration", () => {
+  it("matches the fixed-partner JSON Schema", () => {
+    const ajv = new Ajv2020({
+      allErrors: true,
+      // Conditional subschemas rely on their parent properties' types.
+      strictTypes: false,
+    });
+    const validate = ajv.compile(fixedPartnerConfigSchema);
+
+    assert.ok(
+      validate(fixedPartnerConfigDocument),
+      `fixed-partner-config.json does not match fixed-partner-config.schema.json:\n${formatSchemaErrors(validate.errors)}`,
+    );
+  });
+
   it("contains the declarative rules used by fixed-partner registration", () => {
     assert.equal(fixedPartnerConfig.format, "fixed_partner");
     assert.deepEqual(fixedPartnerConfig.defaults.capacity, {

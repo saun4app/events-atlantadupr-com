@@ -5,3 +5,4 @@
 - [Email-code-gated flow testing](email-code-gated-flow-testing.md) — plant a code row within the send cooldown so request-code returns sent:true without email; deterministic e2e for signup/cancel
 - [api-server node:test](api-server-node-test.md) — built-in test runner needs --test-force-exit (rate-limit setInterval + pg pool); staff bearer session bypasses code/rate-limit branches
 - [Mixed capacity concurrency tests](mixed-capacity-concurrency-tests.md) — allow either operation to win the event lock while asserting capacity and loser state
+- [Fixed-partner schema validation](fixed-partner-schema-validation.md) — Ajv 2020 needs strictTypes disabled for the schema’s conditional fragments; retain all-errors path formatting

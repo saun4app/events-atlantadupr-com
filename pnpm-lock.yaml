@@ -222,6 +222,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 25.6.2
+      ajv:
+        specifier: ^8.20.0
+        version: 8.20.0
       esbuild:
         specifier: 0.27.3
         version: 0.27.3
