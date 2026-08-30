@@ -6,6 +6,7 @@ import { db, pool } from "@workspace/db";
 import {
   registrationsTable,
   membersTable,
+  eventsFixedTable,
   eventsRotatingTable,
   emailVerificationCodesTable,
   sessionsTable,
@@ -31,6 +32,7 @@ let baseUrl: string;
 // Track everything we create so each test cleans up after itself; the table has
 // no uniqueness constraints, so leftover rows could silently corrupt later runs.
 const createdEventIds: number[] = [];
+const createdFixedEventIds: number[] = [];
 const createdMemberIds: string[] = [];
 const createdEmails: string[] = [];
 const createdUserIds: number[] = [];
@@ -84,12 +86,13 @@ async function insertReg(
   memberDuprId: string,
   status: typeof registrationsTable.$inferInsert["status"],
   overrides: Partial<typeof registrationsTable.$inferInsert> = {},
+  eventType: "rotating" | "fixed_partner" = "rotating",
 ) {
   const [r] = await db
     .insert(registrationsTable)
     .values({
       eventId,
-      eventType: "rotating",
+      eventType,
       memberDuprId,
       status,
       playerSnapshot: {
@@ -158,9 +161,13 @@ async function approve(eventId: number, registrationId: number) {
   return { status: res.status, body };
 }
 
-async function promote(eventId: number, registrationId: number) {
+async function promote(
+  eventId: number,
+  registrationId: number,
+  eventType: "rotating" | "fixed_partner" = "rotating",
+) {
   const res = await fetch(
-    `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}/promote`,
+    `${baseUrl}/events/${eventType}/${eventId}/registrations/${registrationId}/promote`,
     {
       method: "POST",
       headers: {
@@ -199,6 +206,32 @@ async function memberRows(eventId: number, memberDuprId: string) {
         eq(registrationsTable.memberDuprId, memberDuprId),
       ),
     );
+}
+
+async function createFixedEvent(
+  overrides: Partial<typeof eventsFixedTable.$inferInsert> = {},
+) {
+  const now = Date.now();
+  const [event] = await db
+    .insert(eventsFixedTable)
+    .values({
+      name: "Fixed Partner Test " + Math.random().toString(36).slice(2),
+      startDatetime: new Date(now + 7 * 86_400_000),
+      endDatetime: new Date(now + 7 * 86_400_000 + 3_600_000),
+      locationName: "Test Court",
+      locationAddress: "Test Address",
+      minTeams: 1,
+      maxTeams: 8,
+      waitlistEnabled: true,
+      requireApproval: "none",
+      signupStartDatetime: new Date(now - 86_400_000),
+      signupEndDatetime: new Date(now + 6 * 86_400_000),
+      status: "upcoming",
+      ...overrides,
+    })
+    .returning();
+  createdFixedEventIds.push(event.id);
+  return event;
 }
 
 before(async () => {
@@ -248,6 +281,18 @@ afterEach(async () => {
       .where(eq(emailVerificationCodesTable.email, email.toLowerCase()));
   }
   createdEventIds.length = 0;
+  for (const eventId of createdFixedEventIds) {
+    await db
+      .delete(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, "fixed_partner"),
+        ),
+      );
+    await db.delete(eventsFixedTable).where(eq(eventsFixedTable.id, eventId));
+  }
+  createdFixedEventIds.length = 0;
   createdMemberIds.length = 0;
   createdEmails.length = 0;
 });
@@ -900,4 +945,56 @@ describe("promote-from-waitlist: concurrent rotating-event capacity", () => {
     const rows = await memberRows(ev.id, player.duprId);
     assert.equal(rows[0].status, "waitlisted");
   });
+});
+
+describe("promote-from-waitlist: concurrent fixed-partner capacity", () => {
+  for (const waitlistEnabled of [true, false]) {
+    it(`promotes only one team when waitlisting is ${waitlistEnabled ? "enabled" : "disabled"}`, async () => {
+      const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled });
+      const firstPrimary = await createMember();
+      const firstPartner = await createMember();
+      const secondPrimary = await createMember();
+      const secondPartner = await createMember();
+      const firstReg = await insertReg(
+        ev.id,
+        firstPrimary.duprId,
+        "waitlisted",
+        { partnerDuprId: firstPartner.duprId },
+        "fixed_partner",
+      );
+      const secondReg = await insertReg(
+        ev.id,
+        secondPrimary.duprId,
+        "waitlisted",
+        { partnerDuprId: secondPartner.duprId },
+        "fixed_partner",
+      );
+
+      const results = await Promise.all([
+        promote(ev.id, firstReg.id, "fixed_partner"),
+        promote(ev.id, secondReg.id, "fixed_partner"),
+      ]);
+
+      assert.deepEqual(
+        results.map((result) => result.status).sort((a, b) => a - b),
+        [200, 400],
+      );
+
+      const rows = await db
+        .select()
+        .from(registrationsTable)
+        .where(
+          and(
+            eq(registrationsTable.eventId, ev.id),
+            eq(registrationsTable.eventType, "fixed_partner"),
+          ),
+        );
+      assert.equal(
+        rows.filter((row) => row.status === "confirmed").length,
+        1,
+        "concurrent fixed-partner promotions must never exceed maxTeams",
+      );
+      assert.equal(rows.filter((row) => row.status === "waitlisted").length, 1);
+    });
+  }
 });

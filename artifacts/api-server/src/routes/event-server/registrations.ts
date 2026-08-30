@@ -271,6 +271,19 @@ function regScope(eventId: number, eventType: EventFormat) {
   return and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, eventType));
 }
 
+function eventCapacityLockKey(eventType: EventFormat, eventId: number): string | null {
+  if (eventType === "rotating") {
+    return `atl-dupr:rotating:${eventId}`;
+  }
+  if (
+    eventType === FIXED_PARTNER_FORMAT &&
+    fixedPartnerWriteIsSerialized("registration_create")
+  ) {
+    return `${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`;
+  }
+  return null;
+}
+
 async function findActiveFixedPartnerMembership(
   eventId: number,
   memberDuprIds: string[],
@@ -1533,19 +1546,24 @@ router.post(
     const sessionUserId = (req as any).session?.userId;
     const event = await getNormalizedEvent(eventType, eventId);
     const promotionResult = await db.transaction(async (tx) => {
-      // Promotion must share the same event-scoped lock as rotating sign-ups,
-      // approvals, and roster-edit promotions. Otherwise simultaneous
-      // organizers can all observe the same open slot.
-      if (eventType === "rotating") {
+      // Promotion must share the event-scoped lock used by capacity-changing
+      // writes. Otherwise simultaneous organizers can all observe the same
+      // open slot.
+      const capacityLockKey = eventCapacityLockKey(eventType, eventId);
+      if (capacityLockKey) {
         await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${capacityLockKey}, 0))`,
         );
       }
 
       const allRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
       const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+      const maxConfirmed =
+        eventType === FIXED_PARTNER_FORMAT
+          ? event?.maxTeams ?? Math.floor((event?.maxParticipants ?? 0) / 2)
+          : event?.maxParticipants ?? 0;
 
-      if (confirmedCount >= (event?.maxParticipants ?? 0)) {
+      if (confirmedCount >= maxConfirmed) {
         return { kind: "full" as const };
       }
 
