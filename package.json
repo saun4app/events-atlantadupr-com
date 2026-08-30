@@ -7,7 +7,7 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "check:api-generated": "pnpm --filter @workspace/api-spec run codegen && git diff --exit-code -- lib/api-zod/src/generated lib/api-client-react/src/generated && test -z \"$(git ls-files --others --exclude-standard -- lib/api-zod/src/generated lib/api-client-react/src/generated)\"",
+    "check:api-generated": "pnpm --filter @workspace/api-spec run codegen || { echo '::error::Failed to generate API clients from lib/api-spec/openapi.yaml.' >&2; exit 1; }; if ! git diff --quiet -- lib/api-zod/src/generated lib/api-client-react/src/generated; then echo '::error::Generated API client drift: checked-in clients differ from lib/api-spec/openapi.yaml.' >&2; git diff --stat -- lib/api-zod/src/generated lib/api-client-react/src/generated; exit 1; fi; if test -n \"$(git ls-files --others --exclude-standard -- lib/api-zod/src/generated lib/api-client-react/src/generated)\"; then echo '::error::Generated API client drift: code generation created untracked client files.' >&2; git ls-files --others --exclude-standard -- lib/api-zod/src/generated lib/api-client-react/src/generated; exit 1; fi",
     "test:e2e": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",
     "test:e2e:install": "playwright install chromium"
   },
