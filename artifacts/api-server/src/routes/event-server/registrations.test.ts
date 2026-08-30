@@ -197,6 +197,29 @@ async function createFixedEventViaApi(overrides: Record<string, unknown> = {}) {
   return { status: res.status, body: responseBody, name: body.name };
 }
 
+async function createRotatingEventViaApi(overrides: Record<string, unknown> = {}) {
+  const now = Date.now();
+  const body = {
+    name: "API Rotating Test " + Math.random().toString(36).slice(2),
+    locationName: "Test Court",
+    startDatetime: new Date(now + 7 * 86_400_000).toISOString(),
+    endDatetime: new Date(now + 7 * 86_400_000 + 3_600_000).toISOString(),
+    signupStartDatetime: new Date(now - 86_400_000).toISOString(),
+    signupEndDatetime: new Date(now + 6 * 86_400_000).toISOString(),
+    ...overrides,
+  };
+  const res = await fetch(`${baseUrl}/events/rotating`, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${STAFF_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const responseBody = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body: responseBody, name: body.name };
+}
+
 async function registerPublic(
   eventId: number,
   email: string,
@@ -1541,6 +1564,35 @@ describe("fixed-partner event creation limits", () => {
       .select({ id: eventsFixedTable.id })
       .from(eventsFixedTable)
       .where(eq(eventsFixedTable.name, result.name));
+    assert.deepEqual(rows, []);
+  });
+});
+
+describe("rotating event creation limits", () => {
+  it("rejects minParticipants above the default maxParticipants without persisting an event", async () => {
+    const result = await createRotatingEventViaApi({ minParticipants: 17 });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /minimum participant limit.*maximum participant limit/i);
+    const rows = await db
+      .select({ id: eventsRotatingTable.id })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.name, result.name));
+    assert.deepEqual(rows, []);
+  });
+
+  it("rejects combined participant limits when minParticipants exceeds maxParticipants without persisting an event", async () => {
+    const result = await createRotatingEventViaApi({
+      minParticipants: 17,
+      maxParticipants: 16,
+    });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /minimum participant limit.*maximum participant limit/i);
+    const rows = await db
+      .select({ id: eventsRotatingTable.id })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.name, result.name));
     assert.deepEqual(rows, []);
   });
 });

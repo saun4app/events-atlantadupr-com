@@ -268,6 +268,19 @@ export abstract class BaseEventController {
       }
     }
 
+    if (this.format === rotatingPartnerConfig.format && rotatingPartnerEventLimitUpdateIsConfigured()) {
+      const requestedMinParticipants = baseEvent.minParticipants;
+      const requestedMaxParticipants =
+        baseEvent[ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
+      if (requestedMinParticipants > requestedMaxParticipants) {
+        return res.status(400).json({
+          error:
+            `Cannot set the minimum participant limit to ${requestedMinParticipants}: ` +
+            `it cannot exceed the maximum participant limit of ${requestedMaxParticipants}.`,
+        });
+      }
+    }
+
     const startList: Date[] = [new Date(startDatetime)];
     let seriesId: string | null = null;
     const duration = new Date(endDatetime).getTime() - new Date(startDatetime).getTime();
