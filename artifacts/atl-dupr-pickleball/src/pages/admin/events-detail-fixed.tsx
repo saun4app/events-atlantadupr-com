@@ -35,13 +35,20 @@ import {
 } from "@/components/ui/dialog";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import fixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+import {
+  getFixedPartnerRequirement,
+  loadFixedPartnerConfig,
+} from "@workspace/fixed-partner-config";
+import rawFixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
 
-const ADMIN_ADD_INPUT_REQUIREMENT = fixedPartnerConfig.requirements.find(
-  (requirement) => requirement.key === "admin_add_input",
-) as { maxPrimaryEmailsPerSubmission?: number } | undefined;
+const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
+
+const ADMIN_ADD_INPUT_REQUIREMENT = getFixedPartnerRequirement(
+  fixedPartnerConfig,
+  "admin_add_input",
+);
 const ADMIN_MAX_PRIMARY_EMAILS =
-  ADMIN_ADD_INPUT_REQUIREMENT?.maxPrimaryEmailsPerSubmission ?? 1;
+  ADMIN_ADD_INPUT_REQUIREMENT.maxPrimaryEmailsPerSubmission;
 
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }

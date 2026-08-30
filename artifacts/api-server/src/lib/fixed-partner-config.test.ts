@@ -10,6 +10,7 @@ import {
   getFixedPartnerRequirement,
   loadFixedPartnerConfig,
 } from "./fixed-partner-config.js";
+import type { FixedPartnerRequirement } from "./fixed-partner-config.js";
 
 function formatSchemaErrors(errors: ErrorObject[] | null | undefined): string {
   return (errors ?? [])
@@ -172,7 +173,7 @@ describe("fixed-partner configuration", () => {
   });
 
   it("keeps declarative requirement keys and runtime consumers in parity", () => {
-    const declaredRequirements = new Map(
+    const declaredRequirements = new Map<string, FixedPartnerRequirement>(
       fixedPartnerConfig.requirements.map((requirement) => [
         requirement.key,
         requirement,

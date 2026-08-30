@@ -22,7 +22,10 @@ import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { ChevronLeft, Calendar, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
-import fixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+import { loadFixedPartnerConfig } from "@workspace/fixed-partner-config";
+import rawFixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+
+const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
 
 interface DefaultLocation { id: string; name: string; address: string; memberFee?: number; nonMemberFee?: number; courtFeeEnabled?: boolean; }
 interface SkillLevel { text: string; level: number; }

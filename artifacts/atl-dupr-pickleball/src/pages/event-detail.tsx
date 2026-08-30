@@ -44,20 +44,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
-import fixedPartnerConfig from "../../../../app-config/fixed-partner-config.json";
+import {
+  getFixedPartnerRequirement,
+  loadFixedPartnerConfig,
+} from "@workspace/fixed-partner-config";
+import rawFixedPartnerConfig from "../../../../app-config/fixed-partner-config.json";
 
-const PARTNER_REGISTRATION_REQUIREMENT = fixedPartnerConfig.requirements.find(
-  (requirement) => requirement.key === "partner_registration",
+const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
+
+const PARTNER_REGISTRATION_REQUIREMENT = getFixedPartnerRequirement(
+  fixedPartnerConfig,
+  "partner_registration",
 );
-const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = fixedPartnerConfig.requirements.find(
-  (requirement) => requirement.key === "public_partner_preflight",
+const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = getFixedPartnerRequirement(
+  fixedPartnerConfig,
+  "public_partner_preflight",
 );
-const PARTNER_REQUIRED =
-  PARTNER_REGISTRATION_REQUIREMENT?.required === true;
+const PARTNER_REQUIRED = PARTNER_REGISTRATION_REQUIREMENT.required;
 const REQUIRE_PARTNER_BEFORE_CODE =
-  (PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT as {
-    requirePartnerBeforeCode?: boolean;
-  } | undefined)?.requirePartnerBeforeCode === true;
+  PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT.requirePartnerBeforeCode;
 
 interface SkillLevel {
   text: string;

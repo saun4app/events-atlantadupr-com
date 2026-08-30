@@ -6,3 +6,4 @@
 - [api-server node:test](api-server-node-test.md) — built-in test runner needs --test-force-exit (rate-limit setInterval + pg pool); staff bearer session bypasses code/rate-limit branches
 - [Mixed capacity concurrency tests](mixed-capacity-concurrency-tests.md) — allow either operation to win the event lock while asserting capacity and loser state
 - [Fixed-partner schema validation](fixed-partner-schema-validation.md) — Ajv 2020 needs strictTypes disabled for the schema’s conditional fragments; retain all-errors path formatting
+- [Shared runtime configuration package](shared-config-package.md) — shared API/browser config logic needs its own workspace package boundary, not a direct app-config TS import

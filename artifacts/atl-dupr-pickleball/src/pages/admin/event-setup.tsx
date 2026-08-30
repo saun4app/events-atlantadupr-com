@@ -15,7 +15,10 @@ import {
   ChevronUp, ChevronDown, Mail, Users,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
-import fixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+import { loadFixedPartnerConfig } from "@workspace/fixed-partner-config";
+import rawFixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+
+const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {

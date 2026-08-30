@@ -185,6 +185,9 @@ importers:
       '@workspace/db':
         specifier: workspace:*
         version: link:../../lib/db
+      '@workspace/fixed-partner-config':
+        specifier: workspace:*
+        version: link:../../lib/fixed-partner-config
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -385,6 +388,9 @@ importers:
       '@workspace/api-client-react':
         specifier: workspace:*
         version: link:../../lib/api-client-react
+      '@workspace/fixed-partner-config':
+        specifier: workspace:*
+        version: link:../../lib/fixed-partner-config
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -692,6 +698,8 @@ importers:
       tsx:
         specifier: 'catalog:'
         version: 4.21.0
+
+  lib/fixed-partner-config: {}
 
   scripts:
     devDependencies:
