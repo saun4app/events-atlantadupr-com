@@ -260,6 +260,32 @@ describe("fixed-partner registration requirements", () => {
     assert.match(result.body.error, /partnerDuprId or partnerEmail is required/);
   });
 
+  it("rejects players already assigned to another active fixed-partner team", async () => {
+    const event = await createEvent();
+    const primary = await createMember();
+    const partner = await createMember();
+    const replacementPrimary = await createMember();
+    const firstTeam = await registerStaff(event.id, {
+      memberDuprId: primary.duprId,
+      partnerDuprId: partner.duprId,
+    });
+    assert.equal(firstTeam.status, 201);
+
+    const duplicatePrimaryResult = await registerStaff(event.id, {
+      memberDuprId: partner.duprId,
+      partnerDuprId: replacementPrimary.duprId,
+    });
+    assert.equal(duplicatePrimaryResult.status, 409);
+    assert.match(duplicatePrimaryResult.body.error, /already assigned to another team/);
+
+    const duplicatePartnerResult = await registerStaff(event.id, {
+      memberDuprId: replacementPrimary.duprId,
+      partnerDuprId: primary.duprId,
+    });
+    assert.equal(duplicatePartnerResult.status, 409);
+    assert.match(duplicatePartnerResult.body.error, /already assigned to another team/);
+  });
+
   it("rejects NR players and NR partners on a public event when NR is disabled", async () => {
     const event = await createEvent({
       ratingTypeRequired: "dupr",
@@ -355,6 +381,53 @@ describe("fixed-partner registration requirements", () => {
 });
 
 describe("fixed-partner roster edits", () => {
+  it("rejects replacing either player with someone on another active team but allows the current assignment", async () => {
+    const event = await createEvent();
+    const firstPrimary = await createMember();
+    const firstPartner = await createMember();
+    const secondPrimary = await createMember();
+    const secondPartner = await createMember();
+    const firstTeam = await registerStaff(event.id, {
+      memberDuprId: firstPrimary.duprId,
+      partnerDuprId: firstPartner.duprId,
+    });
+    const secondTeam = await registerStaff(event.id, {
+      memberDuprId: secondPrimary.duprId,
+      partnerDuprId: secondPartner.duprId,
+    });
+    assert.equal(firstTeam.status, 201);
+    assert.equal(secondTeam.status, 201);
+
+    const unchanged = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      firstTeam.body.id,
+      {
+        memberDuprId: firstPrimary.duprId,
+        partnerDuprId: firstPartner.duprId,
+      },
+    );
+    assert.equal(unchanged.status, 200);
+
+    const duplicatePartner = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      secondTeam.body.id,
+      { partnerDuprId: firstPartner.duprId },
+    );
+    assert.equal(duplicatePartner.status, 409);
+    assert.match(duplicatePartner.body.error, /already assigned to another team/);
+
+    const duplicatePrimary = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      secondTeam.body.id,
+      { memberDuprId: firstPrimary.duprId },
+    );
+    assert.equal(duplicatePrimary.status, 409);
+    assert.match(duplicatePrimary.body.error, /already assigned to another team/);
+  });
+
   it("requires a known partner and rechecks NR and enforced rating rules when replacing either player", async () => {
     const event = await createEvent({
       ratingTypeRequired: "dupr",

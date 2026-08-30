@@ -43,6 +43,7 @@ const PARTNER_GAP_DEFAULT = fixedPartnerConfig.defaults.rating.maxPartnerGap;
 const PARTNER_GAP_FALLBACK = PARTNER_GAP_DEFAULT;
 const ACCEPTED_PARTNER_IDENTIFIERS = new Set(PARTNER_REGISTRATION_REQUIREMENT.acceptedIdentifiers ?? []);
 const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = getFixedPartnerRequirement("public_partner_preflight");
+const ACTIVE_REGISTRATION_STATUSES = new Set(["confirmed", "waitlisted", "pending_approval"]);
 
 function isStaffRequest(req: Request): boolean {
   const role = (req as any).session?.role;
@@ -194,6 +195,25 @@ function fixedPartnerRosterValidationError(
 // ids are independent across the two event tables.
 function regScope(eventId: number, eventType: EventFormat) {
   return and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, eventType));
+}
+
+async function findActiveFixedPartnerMembership(
+  eventId: number,
+  memberDuprIds: string[],
+  excludeRegistrationId?: number,
+) {
+  const registrations = await db
+    .select()
+    .from(registrationsTable)
+    .where(regScope(eventId, FIXED_PARTNER_FORMAT));
+  const candidates = new Set(memberDuprIds);
+  return registrations.find(
+    (registration) =>
+      registration.id !== excludeRegistrationId &&
+      ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
+      (candidates.has(registration.memberDuprId) ||
+        (registration.partnerDuprId !== null && candidates.has(registration.partnerDuprId))),
+  );
 }
 
 function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAdminFields = false, eventType?: EventFormat) {
@@ -463,12 +483,11 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   // registration is reactivated in place below; other non-active states fall
   // through to a fresh insert. Inspect ALL rows for this member because the table
   // has no uniqueness constraint and may contain multiple historical rows.
-  const ACTIVE_REG_STATUSES = ["confirmed", "waitlisted", "pending_approval"];
   const memberRegs = await db
     .select()
     .from(registrationsTable)
     .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
-  if (memberRegs.some((r) => ACTIVE_REG_STATUSES.includes(r.status))) {
+  if (memberRegs.some((r) => ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
     return res.status(409).json({ error: "Member already registered for this event" });
   }
   const existingReg = memberRegs
@@ -477,6 +496,15 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const reactivatingCancelled = !!existingReg;
 
   const allRegs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
+  if (eventType === FIXED_PARTNER_FORMAT && resolvedPartnerDuprId) {
+    const duplicate = await findActiveFixedPartnerMembership(eventId, [
+      finalMemberDuprId,
+      resolvedPartnerDuprId,
+    ]);
+    if (duplicate) {
+      return res.status(409).json({ error: "A player is already assigned to another team in this event" });
+    }
+  }
   const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
 
   function isNR(rating: string | null): boolean {
@@ -812,11 +840,13 @@ router.patch(
         if (!newMember) return res.status(404).json({ error: "No member found with that DUPR ID" });
       }
       if (newMember && newMember.duprId !== existing.memberDuprId) {
-        const [dup] = await db
-          .select()
-          .from(registrationsTable)
-          .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, newMember.duprId)));
-        if (dup) return res.status(409).json({ error: "Member already registered for this event" });
+        if (eventType !== FIXED_PARTNER_FORMAT) {
+          const [dup] = await db
+            .select()
+            .from(registrationsTable)
+            .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, newMember.duprId)));
+          if (dup) return res.status(409).json({ error: "Member already registered for this event" });
+        }
         updates.memberDuprId = newMember.duprId;
         updates.playerSnapshot = {
           name: newMember.name ?? newMember.duprId,
@@ -957,6 +987,14 @@ router.patch(
         doubles: primarySnapshot?.doubles ?? primarySnapshot?.doubleRating ?? null,
         selfRating: primarySnapshot?.selfRating ?? null,
       };
+      const duplicate = await findActiveFixedPartnerMembership(
+        eventId,
+        [newMember?.duprId ?? existing.memberDuprId, partnerMember.duprId],
+        existing.id,
+      );
+      if (duplicate) {
+        return res.status(409).json({ error: "A player is already assigned to another team in this event" });
+      }
       const partnerValidationError = fixedPartnerRosterValidationError(
         event,
         primary,
