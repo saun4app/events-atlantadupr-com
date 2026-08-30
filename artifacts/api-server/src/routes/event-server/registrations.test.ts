@@ -7,12 +7,14 @@ import {
   registrationsTable,
   membersTable,
   eventsRotatingTable,
+  emailVerificationCodesTable,
   sessionsTable,
   usersTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
 import app from "../../app.js";
+import { issueCode } from "../../lib/verification.js";
 
 // These tests exercise the create-registration handler's de-duplication and
 // reactivation behavior end-to-end over HTTP. They drive the request through the
@@ -30,6 +32,7 @@ let baseUrl: string;
 // no uniqueness constraints, so leftover rows could silently corrupt later runs.
 const createdEventIds: number[] = [];
 const createdMemberIds: string[] = [];
+const createdEmails: string[] = [];
 const createdUserIds: number[] = [];
 
 async function createEvent(
@@ -72,6 +75,7 @@ async function createMember(
     })
     .returning();
   createdMemberIds.push(m.duprId);
+  if (m.email) createdEmails.push(m.email);
   return m;
 }
 
@@ -119,6 +123,25 @@ async function register(eventId: number, memberDuprId: string) {
   );
   const body = (await res.json().catch(() => null)) as any;
   return { status: res.status, body };
+}
+
+async function registerPublic(
+  eventId: number,
+  email: string,
+  body: Record<string, unknown> = {},
+) {
+  const code = await issueCode(email);
+  assert.equal(typeof code, "string");
+  const res = await fetch(
+    `${baseUrl}/events/rotating/${eventId}/registrations`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ email, code, ...body }),
+    },
+  );
+  const responseBody = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body: responseBody };
 }
 
 async function approve(eventId: number, registrationId: number) {
@@ -205,8 +228,14 @@ afterEach(async () => {
   for (const duprId of createdMemberIds) {
     await db.delete(membersTable).where(eq(membersTable.duprId, duprId));
   }
+  for (const email of createdEmails) {
+    await db
+      .delete(emailVerificationCodesTable)
+      .where(eq(emailVerificationCodesTable.email, email.toLowerCase()));
+  }
   createdEventIds.length = 0;
   createdMemberIds.length = 0;
+  createdEmails.length = 0;
 });
 
 after(async () => {
@@ -217,6 +246,94 @@ after(async () => {
   await new Promise<void>((resolve) => server.close(() => resolve()));
   // Release the pooled DB connections so the test process can exit cleanly.
   await pool.end();
+});
+
+describe("public rotating self-rating registration validation", () => {
+  it("accepts an in-range numeric self-rating and stores it in the snapshot", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "self_numeric",
+      ratingConfig: { min: 3, max: 4.5 },
+    });
+    const player = await createMember({ doubles: "4.00" });
+
+    const result = await registerPublic(event.id, player.email!, {
+      selfRating: "3.75",
+    });
+
+    assert.equal(result.status, 201);
+    const rows = await memberRows(event.id, player.duprId);
+    assert.equal(rows.length, 1);
+    assert.equal((rows[0].playerSnapshot as any).selfRating, "3.75");
+  });
+
+  it("rejects missing and out-of-range numeric self-ratings", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "self_numeric",
+      ratingConfig: { min: 3, max: 4.5 },
+    });
+    const missingPlayer = await createMember({ doubles: "4.00" });
+    const lowPlayer = await createMember({ doubles: "4.00" });
+    const highPlayer = await createMember({ doubles: "4.00" });
+
+    const missing = await registerPublic(event.id, missingPlayer.email!);
+    assert.equal(missing.status, 400);
+    assert.match(missing.body.error, /Self-rating is required/);
+
+    const tooLow = await registerPublic(event.id, lowPlayer.email!, {
+      selfRating: "2.99",
+    });
+    assert.equal(tooLow.status, 400);
+    assert.match(tooLow.body.error, /between 3\.0 and 4\.5/);
+
+    const tooHigh = await registerPublic(event.id, highPlayer.email!, {
+      selfRating: "4.51",
+    });
+    assert.equal(tooHigh.status, 400);
+    assert.match(tooHigh.body.error, /between 3\.0 and 4\.5/);
+  });
+
+  it("accepts an in-range skill-level self-rating and stores it in the snapshot", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "self_skill",
+      ratingConfig: { minLevel: 2, maxLevel: 4 },
+    });
+    const player = await createMember({ doubles: "4.00" });
+
+    const result = await registerPublic(event.id, player.email!, {
+      selfRating: "3",
+    });
+
+    assert.equal(result.status, 201);
+    const rows = await memberRows(event.id, player.duprId);
+    assert.equal(rows.length, 1);
+    assert.equal((rows[0].playerSnapshot as any).selfRating, "3");
+  });
+
+  it("rejects missing and out-of-range skill-level self-ratings", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "self_skill",
+      ratingConfig: { minLevel: 2, maxLevel: 4 },
+    });
+    const missingPlayer = await createMember({ doubles: "4.00" });
+    const lowPlayer = await createMember({ doubles: "4.00" });
+    const highPlayer = await createMember({ doubles: "4.00" });
+
+    const missing = await registerPublic(event.id, missingPlayer.email!);
+    assert.equal(missing.status, 400);
+    assert.match(missing.body.error, /Self-rating is required/);
+
+    const tooLow = await registerPublic(event.id, lowPlayer.email!, {
+      selfRating: "1",
+    });
+    assert.equal(tooLow.status, 400);
+    assert.match(tooLow.body.error, /skill level between 2 and 4/);
+
+    const tooHigh = await registerPublic(event.id, highPlayer.email!, {
+      selfRating: "5",
+    });
+    assert.equal(tooHigh.status, 400);
+    assert.match(tooHigh.body.error, /skill level between 2 and 4/);
+  });
 });
 
 describe("create-registration: cancelled player re-registration", () => {
