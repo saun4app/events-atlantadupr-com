@@ -34,3 +34,6 @@ jobs:
 
       - name: Check generated API clients against OpenAPI
         run: pnpm run check:api-generated
+
+      - name: Verify stale generated clients fail clearly
+        run: pnpm run test:api-generated
