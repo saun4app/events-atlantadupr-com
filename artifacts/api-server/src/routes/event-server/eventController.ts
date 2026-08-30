@@ -256,6 +256,18 @@ export abstract class BaseEventController {
     const { startDatetime, endDatetime, signupStartDatetime, signupEndDatetime, recurrence } = body;
     const baseEvent: any = { ...buildCommonBase(body), ...this.capacityForCreate(body) };
 
+    if (this.format === fixedPartnerConfig.format && fixedPartnerEventLimitUpdateIsConfigured()) {
+      const requestedMinTeams = baseEvent.minTeams;
+      const requestedMaxTeams = baseEvent[EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
+      if (requestedMinTeams > requestedMaxTeams) {
+        return res.status(400).json({
+          error:
+            `Cannot set the minimum team limit to ${requestedMinTeams}: ` +
+            `it cannot exceed the maximum team limit of ${requestedMaxTeams}.`,
+        });
+      }
+    }
+
     const startList: Date[] = [new Date(startDatetime)];
     let seriesId: string | null = null;
     const duration = new Date(endDatetime).getTime() - new Date(startDatetime).getTime();
