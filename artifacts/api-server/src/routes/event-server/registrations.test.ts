@@ -135,6 +135,22 @@ async function approve(eventId: number, registrationId: number) {
   return { status: res.status, body };
 }
 
+async function editRegistration(eventId: number, registrationId: number, body: Record<string, unknown>) {
+  const res = await fetch(
+    `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${STAFF_TOKEN}`,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const responseBody = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body: responseBody };
+}
+
 async function memberRows(eventId: number, memberDuprId: string) {
   return db
     .select()
@@ -517,5 +533,136 @@ describe("mixed signup and approval: concurrent rotating-event capacity", () => 
       rows.filter((row) => row.memberDuprId === newPlayer.duprId).length,
       results[0].status === 201 ? 1 : 0,
     );
+  });
+});
+
+describe("rotating roster edits: capacity decisions", () => {
+  it("waitlists a promotion when the event is full and waitlisting is enabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const filler = await createMember();
+    await insertReg(ev.id, filler.duprId, "confirmed");
+    const player = await createMember();
+    const pending = await insertReg(ev.id, player.duprId, "pending_approval");
+
+    const result = await editRegistration(ev.id, pending.id, { status: "confirmed" });
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.status, "waitlisted");
+    const rows = await memberRows(ev.id, player.duprId);
+    assert.equal(rows[0].status, "waitlisted");
+  });
+
+  it("rejects a promotion when the event is full and waitlisting is disabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: false });
+    const filler = await createMember();
+    await insertReg(ev.id, filler.duprId, "confirmed");
+    const player = await createMember();
+    const pending = await insertReg(ev.id, player.duprId, "pending_approval");
+
+    const result = await editRegistration(ev.id, pending.id, { status: "confirmed" });
+
+    assert.equal(result.status, 400);
+    const rows = await memberRows(ev.id, player.duprId);
+    assert.equal(rows[0].status, "pending_approval");
+  });
+
+  it("allows an edit to an already confirmed registration at a full event", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: false });
+    const player = await createMember();
+    const confirmed = await insertReg(ev.id, player.duprId, "confirmed");
+
+    const result = await editRegistration(ev.id, confirmed.id, { eventRole: "captain" });
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.status, "confirmed");
+    assert.equal(result.body.eventRole, "captain");
+  });
+});
+
+describe("mixed roster edit and signup: concurrent rotating-event capacity", () => {
+  it("confirms only one competitor and waitlists the other", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const pendingPlayer = await createMember();
+    const newPlayer = await createMember();
+    const pendingReg = await insertReg(ev.id, pendingPlayer.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      editRegistration(ev.id, pendingReg.id, { status: "confirmed" }),
+      register(ev.id, newPlayer.duprId),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 201],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
+
+  it("accepts only one competitor when waitlisting is disabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: false });
+    const pendingPlayer = await createMember();
+    const newPlayer = await createMember();
+    const pendingReg = await insertReg(ev.id, pendingPlayer.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      editRegistration(ev.id, pendingReg.id, { status: "confirmed" }),
+      register(ev.id, newPlayer.duprId),
+    ]);
+
+    assert.ok(
+      [[200, 400], [400, 201]].some(([editStatus, signupStatus]) =>
+        results[0].status === editStatus && results[1].status === signupStatus,
+      ),
+      "exactly one of the concurrent operations should succeed",
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+    assert.equal(
+      rows.find((row) => row.id === pendingReg.id)?.status,
+      results[0].status === 200 ? "confirmed" : "pending_approval",
+    );
+  });
+});
+
+describe("mixed roster edit and approval: concurrent rotating-event capacity", () => {
+  it("confirms only one competitor and waitlists the other", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const pendingEditPlayer = await createMember();
+    const pendingApprovalPlayer = await createMember();
+    const editReg = await insertReg(ev.id, pendingEditPlayer.duprId, "pending_approval");
+    const approvalReg = await insertReg(ev.id, pendingApprovalPlayer.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      editRegistration(ev.id, editReg.id, { status: "confirmed" }),
+      approve(ev.id, approvalReg.id),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 200],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
   });
 });

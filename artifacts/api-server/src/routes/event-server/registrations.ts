@@ -930,11 +930,8 @@ router.patch(
       .where(and(eq(registrationsTable.id, Number(req.params.regId)), regScope(eventId, eventType)));
     if (!existing) return res.status(404).json({ error: "Registration not found" });
 
-    const event =
-      eventType === FIXED_PARTNER_FORMAT
-        ? await getNormalizedEvent(eventType, eventId)
-        : null;
-    if (eventType === FIXED_PARTNER_FORMAT && !event) {
+    const event = await getNormalizedEvent(eventType, eventId);
+    if (!event) {
       return res.status(404).json({ error: "Event not found" });
     }
 
@@ -1177,6 +1174,63 @@ router.patch(
         });
         if (updateResult.kind === "conflict") {
           return res.status(409).json({ error: "A player is already assigned to another team in this event" });
+        }
+        updatedReg = updateResult.registration ?? existing;
+      } else if (eventType === "rotating" && event) {
+        // A roster edit can promote a pending or waitlisted registration
+        // directly to confirmed. Serialize that decision with sign-ups and
+        // approvals so it cannot claim the same final slot concurrently.
+        const updateResult = await db.transaction(async (tx) => {
+          await tx.execute(
+            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+          );
+
+          const [currentExisting] = await tx
+            .select()
+            .from(registrationsTable)
+            .where(
+              and(
+                eq(registrationsTable.id, Number(req.params.regId)),
+                regScope(eventId, eventType),
+              ),
+            );
+          if (!currentExisting) {
+            return { kind: "missing" as const };
+          }
+
+          const transactionUpdates = { ...updates };
+          if (req.body.status === "confirmed" && currentExisting.status !== "confirmed") {
+            const currentRegs = await tx
+              .select()
+              .from(registrationsTable)
+              .where(regScope(eventId, eventType));
+            const confirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
+            if (confirmedCount >= event.maxParticipants) {
+              if (!event.waitlistEnabled) {
+                return { kind: "full" as const };
+              }
+              transactionUpdates.status = "waitlisted";
+            }
+          }
+
+          const [updated] = await tx
+            .update(registrationsTable)
+            .set(transactionUpdates)
+            .where(
+              and(
+                eq(registrationsTable.id, Number(req.params.regId)),
+                regScope(eventId, eventType),
+              ),
+            )
+            .returning();
+          return { kind: "updated" as const, registration: updated };
+        });
+
+        if (updateResult.kind === "missing") {
+          return res.status(404).json({ error: "Registration not found" });
+        }
+        if (updateResult.kind === "full") {
+          return res.status(400).json({ error: "Event is full and waitlist is disabled" });
         }
         updatedReg = updateResult.registration ?? existing;
       } else {
