@@ -1445,7 +1445,10 @@ describe("fixed-partner event limit updates", () => {
     const result = await updateFixedEvent(ev.id, { minTeams: 9 });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum team limit.*maximum team limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum team limit to 9: it cannot exceed the maximum team limit of 8.",
+    );
     const [unchanged] = await db
       .select({
         minTeams: eventsFixedTable.minTeams,
@@ -1462,7 +1465,10 @@ describe("fixed-partner event limit updates", () => {
     const result = await updateFixedEvent(ev.id, { minTeams: 7, maxTeams: 6 });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum team limit.*maximum team limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum team limit to 7: it cannot exceed the maximum team limit of 6.",
+    );
     const [unchanged] = await db
       .select({
         minTeams: eventsFixedTable.minTeams,
@@ -1547,7 +1553,10 @@ describe("fixed-partner event creation limits", () => {
     const result = await createFixedEventViaApi({ minTeams: 9 });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum team limit.*maximum team limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum team limit to 9: it cannot exceed the maximum team limit of 8.",
+    );
     const rows = await db
       .select({ id: eventsFixedTable.id })
       .from(eventsFixedTable)
@@ -1559,7 +1568,10 @@ describe("fixed-partner event creation limits", () => {
     const result = await createFixedEventViaApi({ minTeams: 9, maxTeams: 8 });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum team limit.*maximum team limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum team limit to 9: it cannot exceed the maximum team limit of 8.",
+    );
     const rows = await db
       .select({ id: eventsFixedTable.id })
       .from(eventsFixedTable)
@@ -1573,7 +1585,10 @@ describe("rotating event creation limits", () => {
     const result = await createRotatingEventViaApi({ minParticipants: 17 });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum participant limit.*maximum participant limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum participant limit to 17: it cannot exceed the maximum participant limit of 16.",
+    );
     const rows = await db
       .select({ id: eventsRotatingTable.id })
       .from(eventsRotatingTable)
@@ -1588,7 +1603,10 @@ describe("rotating event creation limits", () => {
     });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum participant limit.*maximum participant limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum participant limit to 17: it cannot exceed the maximum participant limit of 16.",
+    );
     const rows = await db
       .select({ id: eventsRotatingTable.id })
       .from(eventsRotatingTable)
@@ -1629,7 +1647,10 @@ describe("rotating event limit updates", () => {
     const result = await updateRotatingEvent(ev.id, { minParticipants: 17 });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /minimum participant limit.*maximum participant limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum participant limit to 17: it cannot exceed the maximum participant limit of 16.",
+    );
     const [unchanged] = await db
       .select({
         minParticipants: eventsRotatingTable.minParticipants,
@@ -1649,7 +1670,10 @@ describe("rotating event limit updates", () => {
     });
 
     assert.equal(result.status, 400);
-    assert.match(result.body.error, /cannot exceed.*maximum participant limit/i);
+    assert.equal(
+      result.body.error,
+      "Cannot set the minimum participant limit to 12: it cannot exceed the maximum participant limit of 8.",
+    );
     const [unchanged] = await db
       .select({
         minParticipants: eventsRotatingTable.minParticipants,

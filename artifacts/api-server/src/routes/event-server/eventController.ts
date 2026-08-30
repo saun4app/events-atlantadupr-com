@@ -74,6 +74,21 @@ function rotatingPartnerEventLimitUpdateIsConfigured(): boolean {
   );
 }
 
+type EventLimitUnit = "participant" | "team";
+
+function validateEventLimitRange(
+  minimum: number,
+  maximum: number,
+  unit: EventLimitUnit,
+): string | null {
+  if (minimum <= maximum) return null;
+
+  return (
+    `Cannot set the minimum ${unit} limit to ${minimum}: ` +
+    `it cannot exceed the maximum ${unit} limit of ${maximum}.`
+  );
+}
+
 export function parseEventType(raw: string | undefined): EventFormat | null {
   if (raw === "rotating" || raw === fixedPartnerConfig.format) return raw;
   return null;
@@ -259,12 +274,13 @@ export abstract class BaseEventController {
     if (this.format === fixedPartnerConfig.format && fixedPartnerEventLimitUpdateIsConfigured()) {
       const requestedMinTeams = baseEvent.minTeams;
       const requestedMaxTeams = baseEvent[EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
-      if (requestedMinTeams > requestedMaxTeams) {
-        return res.status(400).json({
-          error:
-            `Cannot set the minimum team limit to ${requestedMinTeams}: ` +
-            `it cannot exceed the maximum team limit of ${requestedMaxTeams}.`,
-        });
+      const rangeError = validateEventLimitRange(
+        requestedMinTeams,
+        requestedMaxTeams,
+        "team",
+      );
+      if (rangeError) {
+        return res.status(400).json({ error: rangeError });
       }
     }
 
@@ -272,12 +288,13 @@ export abstract class BaseEventController {
       const requestedMinParticipants = baseEvent.minParticipants;
       const requestedMaxParticipants =
         baseEvent[ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
-      if (requestedMinParticipants > requestedMaxParticipants) {
-        return res.status(400).json({
-          error:
-            `Cannot set the minimum participant limit to ${requestedMinParticipants}: ` +
-            `it cannot exceed the maximum participant limit of ${requestedMaxParticipants}.`,
-        });
+      const rangeError = validateEventLimitRange(
+        requestedMinParticipants,
+        requestedMaxParticipants,
+        "participant",
+      );
+      if (rangeError) {
+        return res.status(400).json({ error: rangeError });
       }
     }
 
@@ -371,11 +388,15 @@ export abstract class BaseEventController {
           updates.minParticipants ?? current.minParticipants;
         const requestedMaxParticipants =
           updates[rotatingLimitField] ?? current[rotatingLimitField];
-        if (requestedMinParticipants > requestedMaxParticipants) {
+        const rangeError = validateEventLimitRange(
+          requestedMinParticipants,
+          requestedMaxParticipants,
+          "participant",
+        );
+        if (rangeError) {
           return {
             kind: "range_conflict" as const,
-            requestedMinParticipants,
-            requestedMaxParticipants,
+            error: rangeError,
           };
         }
 
@@ -413,11 +434,7 @@ export abstract class BaseEventController {
         return res.status(404).json({ error: "Event not found" });
       }
       if (capacityUpdate.kind === "range_conflict") {
-        return res.status(400).json({
-          error:
-            `Cannot set the minimum participant limit to ${capacityUpdate.requestedMinParticipants}: ` +
-            `it cannot exceed the maximum participant limit of ${capacityUpdate.requestedMaxParticipants}.`,
-        });
+        return res.status(400).json({ error: capacityUpdate.error });
       }
       if (capacityUpdate.kind === "capacity_conflict") {
         return res.status(400).json({
@@ -453,11 +470,15 @@ export abstract class BaseEventController {
         const requestedMinTeams = updates.minTeams ?? current.minTeams;
         const requestedMaxTeams =
           updates[fixedPartnerLimitField] ?? current[fixedPartnerLimitField];
-        if (requestedMinTeams > requestedMaxTeams) {
+        const rangeError = validateEventLimitRange(
+          requestedMinTeams,
+          requestedMaxTeams,
+          "team",
+        );
+        if (rangeError) {
           return {
             kind: "range_conflict" as const,
-            requestedMinTeams,
-            requestedMaxTeams,
+            error: rangeError,
           };
         }
 
@@ -495,11 +516,7 @@ export abstract class BaseEventController {
         return res.status(404).json({ error: "Event not found" });
       }
       if (capacityUpdate.kind === "range_conflict") {
-        return res.status(400).json({
-          error:
-            `Cannot set the minimum team limit to ${capacityUpdate.requestedMinTeams}: ` +
-            `it cannot exceed the maximum team limit of ${capacityUpdate.requestedMaxTeams}.`,
-        });
+        return res.status(400).json({ error: capacityUpdate.error });
       }
       if (capacityUpdate.kind === "capacity_conflict") {
         return res.status(400).json({
