@@ -89,6 +89,28 @@ describe("check:api-generated", () => {
     );
   });
 
+  it("fails with a generation error that names the OpenAPI source", async () => {
+    const currentSpec = await readFile(openApiPath, "utf8");
+
+    try {
+      await writeFile(openApiPath, "openapi: [\n");
+
+      const result = spawnSync("pnpm", ["run", "check:api-generated"], {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      });
+      const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+
+      assert.notEqual(result.status, 0, "invalid OpenAPI should fail the check");
+      assert.match(
+        output,
+        /Failed to generate API clients from lib\/api-spec\/openapi\.yaml/,
+      );
+    } finally {
+      await writeFile(openApiPath, currentSpec);
+    }
+  });
+
   it("fails with the OpenAPI source and both generated-client directories", () => {
     const result = spawnSync("pnpm", ["run", "check:api-generated"], {
       cwd: repositoryRoot,
