@@ -7,6 +7,7 @@
     "build": "pnpm run typecheck && pnpm -r --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "check:api-generated": "pnpm --filter @workspace/api-spec run codegen && git diff --exit-code -- lib/api-zod/src/generated lib/api-client-react/src/generated && test -z \"$(git ls-files --others --exclude-standard -- lib/api-zod/src/generated lib/api-client-react/src/generated)\"",
     "test:e2e": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",
     "test:e2e:install": "playwright install chromium"
   },
