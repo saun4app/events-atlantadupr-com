@@ -1,6 +1,12 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
-import { registrationsTable, membersTable, appSettingsTable, emailSendFailuresTable } from "@workspace/db";
+import {
+  registrationsTable,
+  membersTable,
+  appSettingsTable,
+  emailSendFailuresTable,
+  eventsFixedTable,
+} from "@workspace/db";
 import type { EventFormat } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
@@ -291,6 +297,23 @@ function eventCapacityLimit(
   return eventType === FIXED_PARTNER_FORMAT
     ? event.maxTeams ?? Math.floor(event.maxParticipants / 2)
     : event.maxParticipants;
+}
+
+async function currentEventCapacityLimit(
+  tx: any,
+  eventType: EventFormat,
+  eventId: number,
+  event: NonNullable<Awaited<ReturnType<typeof getNormalizedEvent>>>,
+): Promise<number | null> {
+  if (eventType !== FIXED_PARTNER_FORMAT) {
+    return eventCapacityLimit(eventType, event);
+  }
+
+  const [currentEvent] = await tx
+    .select({ maxTeams: eventsFixedTable.maxTeams })
+    .from(eventsFixedTable)
+    .where(eq(eventsFixedTable.id, eventId));
+  return currentEvent?.maxTeams ?? null;
 }
 
 async function findActiveFixedPartnerMembership(
@@ -869,6 +892,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       }
 
       const currentRegs = await tx.select().from(registrationsTable).where(regScope(eventId, FIXED_PARTNER_FORMAT));
+      const capacityLimit = await currentEventCapacityLimit(tx, eventType, eventId, event);
+      if (capacityLimit === null) {
+        return { kind: "conflict" as const, error: "Event not found", status: 404 };
+      }
       const candidates = new Set(
         [finalMemberDuprId, resolvedPartnerDuprId].filter((id): id is string => Boolean(id)),
       );
@@ -891,7 +918,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
       if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
         currentStatus = "pending_approval";
-      } else if (currentConfirmedCount >= eventCapacityLimit(eventType, event)) {
+      } else if (currentConfirmedCount >= capacityLimit) {
         if (!event.waitlistEnabled) {
           return {
             kind: "conflict" as const,
@@ -960,6 +987,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       }
 
       const currentRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
+      const capacityLimit = await currentEventCapacityLimit(tx, eventType, eventId, event);
+      if (capacityLimit === null) {
+        return { kind: "conflict" as const, error: "Event not found", status: 404 };
+      }
       const currentExistingReg = currentMemberRegs
         .filter((r) => r.status === "cancelled")
         .sort((a, b) => b.id - a.id)[0];
@@ -967,7 +998,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
       if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
         currentStatus = "pending_approval";
-      } else if (currentConfirmedCount >= eventCapacityLimit(eventType, event)) {
+      } else if (currentConfirmedCount >= capacityLimit) {
         if (!event.waitlistEnabled) {
           return {
             kind: "conflict" as const,
@@ -1326,6 +1357,10 @@ router.patch(
             .select()
             .from(registrationsTable)
             .where(regScope(eventId, FIXED_PARTNER_FORMAT));
+          const capacityLimit = await currentEventCapacityLimit(tx, eventType, eventId, event);
+          if (capacityLimit === null) {
+            return { kind: "missing" as const };
+          }
           const candidates = new Set(
             [newMember?.duprId ?? existing.memberDuprId, partnerMember.duprId].filter(
               (id): id is string => Boolean(id),
@@ -1346,7 +1381,7 @@ router.patch(
             (registration) => registration.id === existing.id,
           )?.status !== "confirmed") {
             const confirmedCount = currentRegs.filter((registration) => registration.status === "confirmed").length;
-            if (confirmedCount >= eventCapacityLimit(eventType, event)) {
+            if (confirmedCount >= capacityLimit) {
               if (!event.waitlistEnabled) {
                 return { kind: "full" as const };
               }
@@ -1366,6 +1401,9 @@ router.patch(
             .returning();
           return { kind: "updated" as const, registration: updated };
         });
+        if (updateResult.kind === "missing") {
+          return res.status(404).json({ error: "Event not found" });
+        }
         if (updateResult.kind === "conflict") {
           return res.status(409).json({ error: "A player is already assigned to another team in this event" });
         }
@@ -1498,10 +1536,14 @@ router.post(
       }
 
       const allRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
+      const capacityLimit = await currentEventCapacityLimit(tx, eventType, eventId, event!);
+      if (capacityLimit === null) {
+        return { kind: "missing" as const };
+      }
       const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
 
       let newStatus: "confirmed" | "waitlisted";
-      if (confirmedCount >= eventCapacityLimit(eventType, event)) {
+      if (confirmedCount >= capacityLimit) {
         if (!event.waitlistEnabled) {
           return { kind: "full" as const };
         }
@@ -1521,6 +1563,9 @@ router.post(
 
     if (approvalResult.kind === "full") {
       return res.status(400).json({ error: "Event is full and waitlist is disabled; cannot approve" });
+    }
+    if (approvalResult.kind === "missing") {
+      return res.status(404).json({ error: "Event not found" });
     }
 
     return res.json(buildRosterEntry(approvalResult.registration, true, eventType));
@@ -1587,10 +1632,13 @@ router.post(
       }
 
       const allRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
+      const capacityLimit = await currentEventCapacityLimit(tx, eventType, eventId, event!);
+      if (capacityLimit === null) {
+        return { kind: "missing" as const };
+      }
       const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
-      const maxConfirmed = eventCapacityLimit(eventType, event!);
 
-      if (confirmedCount >= maxConfirmed) {
+      if (confirmedCount >= capacityLimit) {
         return { kind: "full" as const };
       }
 
@@ -1610,6 +1658,9 @@ router.post(
 
     if (promotionResult.kind === "full") {
       return res.status(400).json({ error: "Event is still full" });
+    }
+    if (promotionResult.kind === "missing") {
+      return res.status(404).json({ error: "Event not found" });
     }
 
     return res.json(buildRosterEntry(promotionResult.registration, true, eventType));

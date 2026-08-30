@@ -148,6 +148,19 @@ async function registerFixed(
   return { status: res.status, body };
 }
 
+async function updateFixedEvent(eventId: number, body: Record<string, unknown>) {
+  const res = await fetch(`${baseUrl}/events/fixed_partner/${eventId}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${STAFF_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const responseBody = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body: responseBody };
+}
+
 async function registerPublic(
   eventId: number,
   email: string,
@@ -1291,5 +1304,75 @@ describe("mixed fixed-partner roster edit capacity operations", () => {
         ),
       );
     assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
+});
+
+describe("fixed-partner event limit updates", () => {
+  it("rejects lowering maxTeams below the current confirmed-team count", async () => {
+    const ev = await createFixedEvent({ maxTeams: 3 });
+    const firstPrimary = await createMember();
+    const firstPartner = await createMember();
+    const secondPrimary = await createMember();
+    const secondPartner = await createMember();
+    await insertReg(
+      ev.id,
+      firstPrimary.duprId,
+      "confirmed",
+      { partnerDuprId: firstPartner.duprId },
+      "fixed_partner",
+    );
+    await insertReg(
+      ev.id,
+      secondPrimary.duprId,
+      "confirmed",
+      { partnerDuprId: secondPartner.duprId },
+      "fixed_partner",
+    );
+
+    const result = await updateFixedEvent(ev.id, { maxTeams: 1 });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /already has 2 confirmed teams/);
+    const [unchanged] = await db
+      .select({ maxTeams: eventsFixedTable.maxTeams })
+      .from(eventsFixedTable)
+      .where(eq(eventsFixedTable.id, ev.id));
+    assert.equal(unchanged.maxTeams, 3);
+  });
+
+  it("serializes concurrent limit changes against the confirmed-team count", async () => {
+    const ev = await createFixedEvent({ maxTeams: 3 });
+    const firstPrimary = await createMember();
+    const firstPartner = await createMember();
+    const secondPrimary = await createMember();
+    const secondPartner = await createMember();
+    await insertReg(
+      ev.id,
+      firstPrimary.duprId,
+      "confirmed",
+      { partnerDuprId: firstPartner.duprId },
+      "fixed_partner",
+    );
+    await insertReg(
+      ev.id,
+      secondPrimary.duprId,
+      "confirmed",
+      { partnerDuprId: secondPartner.duprId },
+      "fixed_partner",
+    );
+
+    const results = await Promise.all([
+      updateFixedEvent(ev.id, { maxTeams: 1 }),
+      updateFixedEvent(ev.id, { maxTeams: 2 }),
+    ]);
+
+    assert.deepEqual(results.map((result) => result.status).sort((a, b) => a - b), [200, 400]);
+    assert.equal(results.filter((result) => result.status === 200)[0].body.maxTeams, 2);
+    assert.ok(results.some((result) => result.status === 400 && /confirmed teams/.test(result.body.error)));
+    const [unchanged] = await db
+      .select({ maxTeams: eventsFixedTable.maxTeams })
+      .from(eventsFixedTable)
+      .where(eq(eventsFixedTable.id, ev.id));
+    assert.equal(unchanged.maxTeams, 2);
   });
 });

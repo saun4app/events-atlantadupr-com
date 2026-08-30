@@ -8,9 +8,11 @@ import {
   type EventFormat,
   type EventRatingConfig,
 } from "@workspace/db";
-import { eq, and, count } from "drizzle-orm";
+import { eq, and, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
-import { fixedPartnerConfig } from "../../lib/fixed-partner-config.js";
+import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
+
+const FIXED_PARTNER_LOCK_NAMESPACE = getFixedPartnerRequirement("membership_write_serialization").lockNamespace;
 
 export function parseEventType(raw: string | undefined): EventFormat | null {
   if (raw === "rotating" || raw === fixedPartnerConfig.format) return raw;
@@ -260,6 +262,62 @@ export abstract class BaseEventController {
     if (b.signupEndDatetime !== undefined) updates.signupEndDatetime = new Date(b.signupEndDatetime);
     if (b.showSignupEnd !== undefined) updates.showSignupEnd = b.showSignupEnd;
     this.applyCapacityUpdate(updates, b);
+
+    if (this.format === fixedPartnerConfig.format && typeof updates.maxTeams === "number") {
+      const capacityUpdate = await db.transaction(async (tx) => {
+        // Event limit changes must serialize with fixed-partner membership
+        // writes. Otherwise a signup could read the old limit, wait for this
+        // update, and then create a team beyond the newly accepted limit.
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+        );
+
+        const [current] = await tx
+          .select()
+          .from(this.table)
+          .where(eq(this.table.id, eventId));
+        if (!current) return { kind: "missing" as const };
+
+        const [{ confirmedCount }] = await tx
+          .select({ confirmedCount: count() })
+          .from(registrationsTable)
+          .where(
+            and(
+              eq(registrationsTable.eventId, eventId),
+              eq(registrationsTable.eventType, this.format),
+              eq(registrationsTable.status, "confirmed"),
+            ),
+          );
+        const confirmedTeams = Number(confirmedCount);
+        if (updates.maxTeams < confirmedTeams) {
+          return {
+            kind: "capacity_conflict" as const,
+            requestedMaxTeams: updates.maxTeams,
+            confirmedTeams,
+          };
+        }
+
+        const [updated] = (await tx
+          .update(this.table)
+          .set(updates)
+          .where(eq(this.table.id, eventId))
+          .returning()) as any[];
+        return { kind: "updated" as const, event: updated };
+      });
+
+      if (capacityUpdate.kind === "missing") {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (capacityUpdate.kind === "capacity_conflict") {
+        return res.status(400).json({
+          error:
+            `Cannot lower the team limit to ${capacityUpdate.requestedMaxTeams}: ` +
+            `this event already has ${capacityUpdate.confirmedTeams} confirmed teams. ` +
+            `Set the limit to at least ${capacityUpdate.confirmedTeams} or remove teams first.`,
+        });
+      }
+      return res.json(this.normalize(capacityUpdate.event));
+    }
 
     const [updated] = (await db
       .update(this.table)
