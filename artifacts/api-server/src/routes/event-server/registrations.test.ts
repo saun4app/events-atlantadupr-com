@@ -448,3 +448,74 @@ describe("approve-registration: concurrent rotating-event capacity", () => {
     assert.equal(rows.filter((row) => row.status === "pending_approval").length, 1);
   });
 });
+
+describe("mixed signup and approval: concurrent rotating-event capacity", () => {
+  it("confirms only one competitor and waitlists the other when waitlisting is enabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const pendingPlayer = await createMember();
+    const newPlayer = await createMember();
+    const pendingReg = await insertReg(ev.id, pendingPlayer.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      register(ev.id, newPlayer.duprId),
+      approve(ev.id, pendingReg.id),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 201],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(
+      rows.filter((row) => row.status === "confirmed").length,
+      1,
+      "mixed signup and approval must never exceed maxParticipants",
+    );
+    assert.equal(rows.filter((row) => row.status === "waitlisted").length, 1);
+  });
+
+  it("accepts only one competitor when waitlisting is disabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: false });
+    const pendingPlayer = await createMember();
+    const newPlayer = await createMember();
+    const pendingReg = await insertReg(ev.id, pendingPlayer.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      register(ev.id, newPlayer.duprId),
+      approve(ev.id, pendingReg.id),
+    ]);
+
+    assert.ok(
+      [[201, 400], [400, 200]].some(([signupStatus, approvalStatus]) =>
+        results[0].status === signupStatus && results[1].status === approvalStatus,
+      ),
+      "exactly one of the concurrent operations should succeed",
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(
+      rows.filter((row) => row.status === "confirmed").length,
+      1,
+      "mixed signup and approval must never exceed maxParticipants",
+    );
+    assert.equal(
+      rows.filter((row) => row.status === "pending_approval").length,
+      results[1].status === 400 ? 1 : 0,
+    );
+    assert.equal(
+      rows.filter((row) => row.memberDuprId === newPlayer.duprId).length,
+      results[0].status === 201 ? 1 : 0,
+    );
+  });
+});
