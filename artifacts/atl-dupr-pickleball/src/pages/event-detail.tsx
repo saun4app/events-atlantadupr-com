@@ -19,6 +19,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast, isFuture } from "date-fns";
 import {
@@ -423,6 +430,44 @@ export default function EventDetail() {
     (event as any).ratingConfig.nrAllowed === false;
   const nrBlocked = eventNrNotAllowed && selfRatingRequired;
   const partnerNrBlocked = eventNrNotAllowed && partnerSelfRatingRequired;
+  const eventRatingConfig = (event.ratingConfig ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const eventSelfRatingMode =
+    event.teamFormat === "rotating" && event.ratingTypeRequired === "self_numeric"
+      ? "numeric"
+      : event.teamFormat === "rotating" &&
+          event.ratingTypeRequired === "self_skill"
+        ? "skill"
+        : null;
+  const eventSelfRatingRequired = eventSelfRatingMode !== null;
+  const selfRatingFieldRequired =
+    selfRatingRequired || eventSelfRatingRequired;
+  const selfNumericMin =
+    typeof eventRatingConfig?.min === "number"
+      ? eventRatingConfig.min
+      : null;
+  const selfNumericMax =
+    typeof eventRatingConfig?.max === "number"
+      ? eventRatingConfig.max
+      : null;
+  const selfSkillMin =
+    typeof eventRatingConfig?.minLevel === "number"
+      ? eventRatingConfig.minLevel
+      : null;
+  const selfSkillMax =
+    typeof eventRatingConfig?.maxLevel === "number"
+      ? eventRatingConfig.maxLevel
+      : null;
+  const sortedSkillLevels = [...skillLevels].sort(
+    (a, b) => a.level - b.level,
+  );
+  const skillLevelLabel = (level: number | null) =>
+    level === null
+      ? ""
+      : skillLevels.find((item) => item.level === level)?.text ??
+        `Level ${level}`;
 
   function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -565,12 +610,69 @@ export default function EventDetail() {
     e.preventDefault();
     // Frontend validation for self-rating
     const ratingVal = selfRating.trim();
-    if (selfRatingRequired) {
+    if (eventSelfRatingMode === "numeric") {
       if (!ratingVal) {
         setSelfRatingError("Self-rating is required.");
         return;
       }
-      const num = parseFloat(ratingVal);
+      if (
+        selfNumericMin === null ||
+        selfNumericMax === null ||
+        selfNumericMin > selfNumericMax
+      ) {
+        setSelfRatingError(
+          "This event's self-rating requirements are unavailable. Please contact the organizer.",
+        );
+        return;
+      }
+      const num = Number(ratingVal);
+      if (
+        !Number.isFinite(num) ||
+        !/^\d+(\.\d{1,2})?$/.test(ratingVal)
+      ) {
+        setSelfRatingError(
+          "Self-rating must be a number with at most 2 decimal places.",
+        );
+        return;
+      }
+      if (num < selfNumericMin || num > selfNumericMax) {
+        setSelfRatingError(
+          `Self-rating must be between ${selfNumericMin.toFixed(1)} and ${selfNumericMax.toFixed(1)}.`,
+        );
+        return;
+      }
+    } else if (eventSelfRatingMode === "skill") {
+      if (!ratingVal) {
+        setSelfRatingError("Self-rating is required.");
+        return;
+      }
+      if (
+        selfSkillMin === null ||
+        selfSkillMax === null ||
+        selfSkillMin > selfSkillMax
+      ) {
+        setSelfRatingError(
+          "This event's self-rating requirements are unavailable. Please contact the organizer.",
+        );
+        return;
+      }
+      const level = Number(ratingVal);
+      if (
+        !Number.isInteger(level) ||
+        level < selfSkillMin ||
+        level > selfSkillMax
+      ) {
+        setSelfRatingError(
+          `Self-rating must be between ${skillLevelLabel(selfSkillMin)} and ${skillLevelLabel(selfSkillMax)}.`,
+        );
+        return;
+      }
+    } else if (selfRatingRequired) {
+      if (!ratingVal) {
+        setSelfRatingError("Self-rating is required.");
+        return;
+      }
+      const num = Number(ratingVal);
       if (isNaN(num) || num < 2.0 || num > 5.0) {
         setSelfRatingError("Self-rating must be between 2.0 and 5.0.");
         return;
@@ -1117,36 +1219,79 @@ export default function EventDetail() {
                       partner needs a DUPR doubles rating to register.
                     </span>
                   </div>
-                ) : selfRatingRequired ? (
+                ) : selfRatingFieldRequired ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="self-rating">
-                      Self-Rating <span className="text-destructive">*</span>
+                      {eventSelfRatingMode === "skill"
+                        ? "Self-Rating (Skill Level)"
+                        : eventSelfRatingMode === "numeric"
+                          ? "Self-Rating (Numeric)"
+                          : "Self-Rating"}{" "}
+                      <span className="text-destructive">*</span>
                     </Label>
-                    <Input
-                      id="self-rating"
-                      type="text"
-                      inputMode="decimal"
-                      data-testid="input-self-rating"
-                      value={selfRating}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        if (v === "" || /^\d+(\.\d{0,2})?$/.test(v)) {
-                          setSelfRating(v);
+                    {eventSelfRatingMode === "skill" ? (
+                      <Select
+                        value={selfRating}
+                        onValueChange={(value) => {
+                          setSelfRating(value);
                           setSelfRatingError("");
-                        }
-                      }}
-                      placeholder="e.g. 3.50"
-                      required={selfRatingRequired}
-                      className={selfRatingError ? "border-destructive" : ""}
-                    />
+                        }}
+                        required={selfRatingFieldRequired}
+                      >
+                        <SelectTrigger
+                          id="self-rating"
+                          data-testid="select-self-rating"
+                          className={
+                            selfRatingError ? "border-destructive" : ""
+                          }
+                        >
+                          <SelectValue placeholder="Select your skill level" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sortedSkillLevels.map((level) => (
+                            <SelectItem
+                              key={level.level}
+                              value={String(level.level)}
+                            >
+                              {level.text}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <Input
+                        id="self-rating"
+                        type="text"
+                        inputMode="decimal"
+                        data-testid="input-self-rating"
+                        value={selfRating}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          if (v === "" || /^\d+(\.\d{0,2})?$/.test(v)) {
+                            setSelfRating(v);
+                            setSelfRatingError("");
+                          }
+                        }}
+                        placeholder="e.g. 3.50"
+                        required={selfRatingFieldRequired}
+                        className={selfRatingError ? "border-destructive" : ""}
+                      />
+                    )}
                     {selfRatingError && (
                       <p className="text-xs text-destructive">
                         {selfRatingError}
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Your DUPR rating is NR (non-rated). Enter a self-assessed
-                      rating between 2.0 and 5.0 (e.g. 3.50).
+                      {eventSelfRatingMode === "numeric" &&
+                      selfNumericMin !== null &&
+                      selfNumericMax !== null
+                        ? `Enter a self-assessed rating between ${selfNumericMin.toFixed(1)} and ${selfNumericMax.toFixed(1)}.`
+                        : eventSelfRatingMode === "skill" &&
+                            selfSkillMin !== null &&
+                            selfSkillMax !== null
+                          ? `Select a self-assessed skill level between ${skillLevelLabel(selfSkillMin)} and ${skillLevelLabel(selfSkillMax)}.`
+                          : "Your DUPR rating is NR (non-rated). Enter a self-assessed rating between 2.0 and 5.0 (e.g. 3.50)."}
                     </p>
                   </div>
                 ) : null}

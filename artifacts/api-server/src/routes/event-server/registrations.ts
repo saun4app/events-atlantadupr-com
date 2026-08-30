@@ -582,6 +582,65 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return isNaN(parseFloat(rating));
   }
 
+  // Rotating events that use a self-rating requirement must validate the
+  // submitted value against the event's saved configuration. This is separate
+  // from "enforce_rating": self-rating events require a value even when the
+  // organizer routes registrations through approval or accepts them directly.
+  if (
+    !staff &&
+    event.teamFormat === "rotating" &&
+    (event.ratingTypeRequired === "self_numeric" ||
+      event.ratingTypeRequired === "self_skill")
+  ) {
+    const config = event.ratingConfig as {
+      min?: number;
+      max?: number;
+      minLevel?: number;
+      maxLevel?: number;
+    } | null;
+    if (!selfRating || typeof selfRating !== "string") {
+      return res.status(400).json({ error: "Self-rating is required for this event." });
+    }
+
+    if (event.ratingTypeRequired === "self_numeric") {
+      const min = config?.min;
+      const max = config?.max;
+      const value = Number(selfRating);
+      if (
+        typeof min !== "number" ||
+        typeof max !== "number" ||
+        min > max
+      ) {
+        return res.status(400).json({ error: "This event's self-rating requirements are not configured correctly." });
+      }
+      if (!/^\d+(\.\d{1,2})?$/.test(selfRating) || !Number.isFinite(value)) {
+        return res.status(400).json({ error: "Self-rating must be a number with at most 2 decimal places." });
+      }
+      if (value < min || value > max) {
+        return res.status(400).json({ error: `Self-rating must be between ${min.toFixed(1)} and ${max.toFixed(1)}.` });
+      }
+    } else {
+      const minLevel = config?.minLevel;
+      const maxLevel = config?.maxLevel;
+      const level = Number(selfRating);
+      if (
+        typeof minLevel !== "number" ||
+        typeof maxLevel !== "number" ||
+        minLevel > maxLevel
+      ) {
+        return res.status(400).json({ error: "This event's self-rating requirements are not configured correctly." });
+      }
+      if (
+        !/^\d+$/.test(selfRating) ||
+        !Number.isInteger(level) ||
+        level < minLevel ||
+        level > maxLevel
+      ) {
+        return res.status(400).json({ error: `Self-rating must be a skill level between ${minLevel} and ${maxLevel}.` });
+      }
+    }
+  }
+
   // Enforce the "Allow NR players" toggle for fixed-partner DUPR events.
   // When NR is not allowed, reject non-rated players (primary or partner).
   // Staff adding participants from the admin console are exempt, consistent
@@ -738,7 +797,14 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   // Capture a self-contained snapshot of the registrant (and partner) at signup
   // time so the registration no longer depends on the member list.
   const snapshotSelfRating =
-    isNR(member?.doubles ?? null) && !staff && selfRating ? String(selfRating) : member?.selfRating ?? null;
+    !staff &&
+    selfRating &&
+    (isNR(member?.doubles ?? null) ||
+      (event.teamFormat === "rotating" &&
+        (event.ratingTypeRequired === "self_numeric" ||
+          event.ratingTypeRequired === "self_skill")))
+      ? String(selfRating)
+      : member?.selfRating ?? null;
   const playerSnapshot = {
     name: member?.name ?? finalMemberDuprId,
     doubles: member?.doubles ?? null,

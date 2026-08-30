@@ -98,6 +98,73 @@ test("open rotating-partner registration and cancellation controls follow Event 
   await expect(page.getByTestId("notice-event-cancelled")).toHaveCount(0);
 });
 
+test("public rotating registration enforces saved numeric self-rating bounds", async ({
+  page,
+}) => {
+  await mockEventDetailApi(page, "rotating", "open", {
+    ratingTypeRequired: "self_numeric",
+    ratingConfig: { min: 2.5, max: 4.5 },
+  });
+  await page.goto("/events/rotating/1");
+
+  await page.getByTestId("input-reg-email").fill("numeric@example.com");
+  await page.getByTestId("button-send-code").click();
+  await page.getByTestId("input-reg-code").fill("123456");
+
+  const selfRating = page.getByTestId("input-self-rating");
+  await expect(selfRating).toBeVisible();
+  await expect(
+    page.getByText(
+      "Enter a self-assessed rating between 2.5 and 4.5.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  await selfRating.fill("2.4");
+  await page.getByTestId("button-register").click();
+  await expect(page.getByText("Self-rating must be between 2.5 and 4.5.", { exact: true })).toBeVisible();
+
+  await selfRating.fill("3.5");
+  await page.getByTestId("button-register").click();
+  await expect(page.getByText("Registration submitted!", { exact: true })).toBeVisible();
+});
+
+test("public rotating registration enforces saved skill-level self-rating bounds", async ({
+  page,
+}) => {
+  await mockEventDetailApi(page, "rotating", "open", {
+    ratingTypeRequired: "self_skill",
+    ratingConfig: { minLevel: 2, maxLevel: 3 },
+  });
+  await page.goto("/events/rotating/1");
+
+  await page.getByTestId("input-reg-email").fill("skill@example.com");
+  await page.getByTestId("button-send-code").click();
+  await page.getByTestId("input-reg-code").fill("123456");
+
+  await expect(page.getByTestId("select-self-rating")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Select a self-assessed skill level between Intermediate and Advanced.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+
+  await page.getByTestId("select-self-rating").click();
+  await page.getByRole("option", { name: "Beginner", exact: true }).click();
+  await page.getByTestId("button-register").click();
+  await expect(
+    page.getByText("Self-rating must be between Intermediate and Advanced.", {
+      exact: true,
+    }),
+  ).toBeVisible();
+
+  await page.getByTestId("select-self-rating").click();
+  await page.getByRole("option", { name: "Intermediate", exact: true }).click();
+  await page.getByTestId("button-register").click();
+  await expect(page.getByText("Registration submitted!", { exact: true })).toBeVisible();
+});
+
 test("open fixed-partner registration keeps its partner control above event copy", async ({
   page,
 }) => {

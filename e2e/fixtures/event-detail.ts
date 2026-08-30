@@ -4,6 +4,9 @@ export type EventDetailState = "open" | "closed" | "cancelled";
 export type EventFormat = "rotating" | "fixed_partner";
 type MockEventDetailOptions = {
   requireApproval?: "none" | "all" | "nr_only";
+  ratingTypeRequired?: "none" | "self_numeric" | "self_skill";
+  ratingConfig?: Record<string, number | boolean>;
+  selfSkillLevels?: Array<{ text: string; level: number }>;
 };
 
 const OPEN_SIGNUP_START = "2020-01-01T12:00:00.000Z";
@@ -26,8 +29,8 @@ function makeEvent(
     locationName: "Placement Test Courts",
     locationAddress: "100 Test Lane",
     teamFormat: format,
-    ratingTypeRequired: "none",
-    ratingConfig: null,
+    ratingTypeRequired: options.ratingTypeRequired ?? "none",
+    ratingConfig: options.ratingConfig ?? null,
     minParticipants: 4,
     maxParticipants: 16,
     minTeams: format === "fixed_partner" ? 2 : null,
@@ -86,11 +89,51 @@ export async function mockEventDetailApi(
     }
 
     if (pathname === `${eventPath}/registrations/request-code`) {
-      await route.fulfill({ json: { sent: true, cooldownSeconds: 30 } });
+      await route.fulfill({
+        json: {
+          sent: true,
+          cooldownSeconds: 30,
+          selfRatingRequired: false,
+        },
+      });
       return;
     }
 
     if (pathname === `${eventPath}/registrations`) {
+      if (route.request().method() === "POST") {
+        const body = JSON.parse(route.request().postData() ?? "{}");
+        const config = event.ratingConfig as Record<string, number> | null;
+        if (
+          event.ratingTypeRequired === "self_numeric" &&
+          config &&
+          (typeof body.selfRating !== "string" ||
+            Number(body.selfRating) < config.min ||
+            Number(body.selfRating) > config.max)
+        ) {
+          await route.fulfill({
+            status: 400,
+            json: {
+              error: `Self-rating must be between ${config.min.toFixed(1)} and ${config.max.toFixed(1)}.`,
+            },
+          });
+          return;
+        }
+        if (
+          event.ratingTypeRequired === "self_skill" &&
+          config &&
+          (typeof body.selfRating !== "string" ||
+            Number(body.selfRating) < config.minLevel ||
+            Number(body.selfRating) > config.maxLevel)
+        ) {
+          await route.fulfill({
+            status: 400,
+            json: {
+              error: `Self-rating must be a skill level between ${config.minLevel} and ${config.maxLevel}.`,
+            },
+          });
+          return;
+        }
+      }
       await route.fulfill({
         json:
           route.request().method() === "POST"
@@ -102,7 +145,20 @@ export async function mockEventDetailApi(
 
     if (pathname === "/api/settings") {
       await route.fulfill({
-        json: { maintenanceMode: false, joinInstructions: "" },
+        json: {
+          maintenanceMode: false,
+          joinInstructions: "",
+          ratingRequirementsConfig: {
+            selfSkill: {
+              levels:
+                options.selfSkillLevels ?? [
+                  { text: "Beginner", level: 1 },
+                  { text: "Intermediate", level: 2 },
+                  { text: "Advanced", level: 3 },
+                ],
+            },
+          },
+        },
       });
       return;
     }
