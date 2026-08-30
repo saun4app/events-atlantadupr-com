@@ -31,6 +31,8 @@ const FIXED_PARTNER_EVENT = {
 };
 
 export async function mockFixedPartnerAdminApi(page: Page) {
+  let currentEvent = { ...FIXED_PARTNER_EVENT };
+
   await page.route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -48,7 +50,11 @@ export async function mockFixedPartnerAdminApi(page: Page) {
     }
 
     if (pathname === "/api/events/fixed_partner/1") {
-      await route.fulfill({ json: FIXED_PARTNER_EVENT });
+      if (route.request().method() === "PATCH") {
+        const updates = JSON.parse(route.request().postData() ?? "{}");
+        currentEvent = { ...currentEvent, ...updates };
+      }
+      await route.fulfill({ json: currentEvent });
       return;
     }
 

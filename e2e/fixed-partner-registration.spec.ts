@@ -66,3 +66,31 @@ test("organizer fixed-partner event detail and edit form load cleanly", async ({
 
   expect(runtimeErrors).toEqual([]);
 });
+
+test("organizer can save fixed-partner team settings", async ({ page }) => {
+  await mockFixedPartnerAdminApi(page);
+  await page.goto("/admin/events/fixed_partner/1");
+
+  await page.getByTestId("button-edit-event").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  await dialog.getByLabel("Max Teams").fill("10");
+  const updateRequestPromise = page.waitForRequest(
+    (request) =>
+      request.url().includes("/api/events/fixed_partner/1") &&
+      request.method() === "PATCH",
+  );
+  await page.getByTestId("button-submit-edit-event").click();
+
+  const updateRequest = await updateRequestPromise;
+  const payload = JSON.parse(updateRequest.postData() ?? "{}");
+  expect(payload).toMatchObject({
+    minTeams: 2,
+    maxTeams: 10,
+  });
+  expect(payload).not.toHaveProperty("minParticipants");
+  expect(payload).not.toHaveProperty("maxParticipants");
+
+  await expect(page.getByText("/ 10 max teams")).toBeVisible();
+});
