@@ -7,16 +7,49 @@ const EVENTS = [
     id: 1,
     name: "Older Smash",
     startDatetime: "2026-08-01T18:00:00.000Z",
+    description: "<p>Test guidelines</p>",
+    eventDescription: "<p>Older event details</p>",
+    locationName: "Test Courts",
+    locationAddress: "100 Test Lane",
+    ratingTypeRequired: "none",
+    waitlistEnabled: true,
+    minParticipants: 4,
+    maxParticipants: 16,
+    minTeams: 2,
+    maxTeams: 8,
+    requireApproval: "none",
   },
   {
     id: 2,
     name: "Newest Smash",
     startDatetime: "2026-08-20T18:00:00.000Z",
+    description: "<p>Test guidelines</p>",
+    eventDescription: "<p>Newest event details</p>",
+    locationName: "Test Courts",
+    locationAddress: "100 Test Lane",
+    ratingTypeRequired: "none",
+    waitlistEnabled: true,
+    minParticipants: 20,
+    maxParticipants: 10,
+    minTeams: 20,
+    maxTeams: 10,
+    requireApproval: "none",
   },
   {
     id: 3,
     name: "Court Rally",
     startDatetime: "2026-08-10T18:00:00.000Z",
+    description: "<p>Test guidelines</p>",
+    eventDescription: "<p>Court event details</p>",
+    locationName: "Test Courts",
+    locationAddress: "100 Test Lane",
+    ratingTypeRequired: "none",
+    waitlistEnabled: true,
+    minParticipants: 4,
+    maxParticipants: 16,
+    minTeams: 2,
+    maxTeams: 8,
+    requireApproval: "none",
   },
 ];
 
@@ -41,7 +74,17 @@ export async function mockCloneEventApi(
     }
 
     if (pathname === `/api/events/${eventType}`) {
-      await route.fulfill({ json: EVENTS });
+      if (route.request().method() === "POST") {
+        await route.fulfill({
+          json: {
+            ...EVENTS[1],
+            id: 4,
+            name: "Newest Smash (Copy)",
+          },
+        });
+      } else {
+        await route.fulfill({ json: EVENTS });
+      }
       return;
     }
 
