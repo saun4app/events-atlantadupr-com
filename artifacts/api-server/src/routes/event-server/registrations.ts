@@ -49,6 +49,147 @@ function isStaffRequest(req: Request): boolean {
   return typeof role === "string" && STAFF_ROLES.includes(role);
 }
 
+type RatingParticipant = {
+  doubles: string | null | undefined;
+  selfRating: string | null | undefined;
+};
+
+function isNR(rating: string | null | undefined): boolean {
+  if (!rating || rating === "NR") return true;
+  return isNaN(parseFloat(rating));
+}
+
+/**
+ * Validate the final pair for a fixed-partner roster edit. Registration
+ * creation has the same rules, but PATCH needs to validate after resolving
+ * whichever participant was replaced.
+ */
+function fixedPartnerRosterValidationError(
+  event: NonNullable<Awaited<ReturnType<typeof getNormalizedEvent>>>,
+  primary: RatingParticipant,
+  partner: RatingParticipant,
+  bypassRatings: boolean,
+): string | null {
+  const rc = event.ratingConfig as { min?: number; max?: number; nrAllowed?: boolean; maxPartnerGap?: number } | null;
+  const nrNotAllowed =
+    NR_PARTNER_REQUIREMENT.condition.ratingType === event.ratingTypeRequired &&
+    NR_PARTNER_REQUIREMENT.condition.publicRequest === true &&
+    !!rc &&
+    typeof rc === "object" &&
+    "nrAllowed" in rc &&
+    rc.nrAllowed === false;
+
+  if (!bypassRatings && nrNotAllowed) {
+    if (isNR(primary.doubles)) {
+      return "This event does not allow non-rated (NR) players. A DUPR doubles rating is required to remain on the roster.";
+    }
+    if (isNR(partner.doubles)) {
+      return "This event does not allow non-rated (NR) players. Your partner needs a DUPR doubles rating to remain on the roster.";
+    }
+  }
+
+  if (event.requireApproval !== "enforce_rating" || bypassRatings) return null;
+
+  const type = event.ratingTypeRequired;
+  const hasRange = !!rc && typeof rc.min === "number" && typeof rc.max === "number";
+  if (!hasRange || (type !== "dupr" && type !== "self_numeric")) return null;
+
+  const min = rc!.min!;
+  const max = rc!.max!;
+  const range = `${min.toFixed(1)}–${max.toFixed(1)}`;
+  const outOfRange = (raw: string | null | undefined): { ok: boolean; val?: number } => {
+    const value = raw != null ? parseFloat(raw) : NaN;
+    if (isNaN(value)) return { ok: false };
+    return { ok: value >= min && value <= max, val: value };
+  };
+
+  if (type === "dupr") {
+    let primaryEffectiveRating: number | undefined;
+    let partnerEffectiveRating: number | undefined;
+
+    if (isNR(primary.doubles)) {
+      if (!rc!.nrAllowed) {
+        return `This event enforces a DUPR rating between ${range}, and non-rated (NR) players are not allowed.`;
+      }
+      const result = outOfRange(primary.selfRating);
+      if (result.val === undefined) {
+        return `This event enforces a rating between ${range}. A valid self-rating is required for non-rated (NR) players.`;
+      }
+      if (!result.ok) {
+        return `Your self-rating (${result.val}) is outside this event's enforced rating range of ${range}.`;
+      }
+      primaryEffectiveRating = result.val;
+    } else {
+      const result = outOfRange(primary.doubles);
+      if (!result.ok) {
+        return `Your DUPR rating (${result.val ?? "unknown"}) is outside this event's enforced rating range of ${range}.`;
+      }
+      primaryEffectiveRating = result.val;
+    }
+
+    if (
+      PARTNER_RANGE_REQUIREMENT.condition.ratingType === type &&
+      PARTNER_RANGE_REQUIREMENT.condition.approvalMode === event.requireApproval &&
+      PARTNER_RANGE_REQUIREMENT.condition.resolvedPartner === true &&
+      PARTNER_RANGE_REQUIREMENT.includePartner === true
+    ) {
+      if (isNR(partner.doubles)) {
+        if (!rc!.nrAllowed) {
+          return `This event enforces a DUPR rating between ${range}, and non-rated (NR) players are not allowed. Your partner needs a DUPR doubles rating.`;
+        }
+        const result = outOfRange(partner.selfRating);
+        if (result.val === undefined) {
+          return `This event enforces a rating between ${range}. Your non-rated (NR) partner needs a valid self-rating on file.`;
+        }
+        if (!result.ok) {
+          return `Your partner's self-rating (${result.val}) is outside this event's enforced rating range of ${range}.`;
+        }
+        partnerEffectiveRating = result.val;
+      } else {
+        const result = outOfRange(partner.doubles);
+        if (!result.ok) {
+          return `Your partner's DUPR rating (${result.val ?? "unknown"}) is outside this event's enforced rating range of ${range}.`;
+        }
+        partnerEffectiveRating = result.val;
+      }
+    }
+
+    const maxPartnerGap =
+      typeof rc?.maxPartnerGap === "number" ? rc.maxPartnerGap : PARTNER_GAP_FALLBACK;
+    if (
+      PARTNER_GAP_REQUIREMENT.condition.ratingType === type &&
+      PARTNER_GAP_REQUIREMENT.condition.approvalMode === event.requireApproval &&
+      PARTNER_GAP_REQUIREMENT.condition.resolvedPartner === true &&
+      PARTNER_GAP_REQUIREMENT.condition.bothEffectiveRatings === true &&
+      typeof maxPartnerGap === "number" &&
+      maxPartnerGap >= 0 &&
+      primaryEffectiveRating !== undefined &&
+      partnerEffectiveRating !== undefined &&
+      Math.abs(primaryEffectiveRating - partnerEffectiveRating) > maxPartnerGap
+    ) {
+      return `Partners' DUPR ratings may differ by at most ${maxPartnerGap.toFixed(2)}. This team's difference is ${Math.abs(primaryEffectiveRating - partnerEffectiveRating).toFixed(2)}.`;
+    }
+  } else {
+    const primaryResult = outOfRange(primary.selfRating);
+    if (primaryResult.val === undefined) {
+      return `This event enforces a self-rating between ${range}. A valid self-rating is required to register.`;
+    }
+    if (!primaryResult.ok) {
+      return `Your self-rating (${primaryResult.val}) is outside this event's enforced rating range of ${range}.`;
+    }
+
+    const partnerResult = outOfRange(partner.selfRating);
+    if (partnerResult.val === undefined) {
+      return `This event enforces a self-rating between ${range}. Your partner needs a valid self-rating on file.`;
+    }
+    if (!partnerResult.ok) {
+      return `Your partner's self-rating (${partnerResult.val}) is outside this event's enforced rating range of ${range}.`;
+    }
+  }
+
+  return null;
+}
+
 // Registrations are referenced by event id plus the format discriminator, since
 // ids are independent across the two event tables.
 function regScope(eventId: number, eventType: EventFormat) {
@@ -643,6 +784,14 @@ router.patch(
       .where(and(eq(registrationsTable.id, Number(req.params.regId)), regScope(eventId, eventType)));
     if (!existing) return res.status(404).json({ error: "Registration not found" });
 
+    const event =
+      eventType === FIXED_PARTNER_FORMAT
+        ? await getNormalizedEvent(eventType, eventId)
+        : null;
+    if (eventType === FIXED_PARTNER_FORMAT && !event) {
+      return res.status(404).json({ error: "Event not found" });
+    }
+
     const updates: any = {};
     if (req.body.status !== undefined) updates.status = req.body.status;
 
@@ -650,8 +799,8 @@ router.patch(
     // verify the member exists and is not already registered for this event,
     // then rebuild the player snapshot and reset the assigned rating to the
     // new member's DUPR.
+    let newMember: typeof membersTable.$inferSelect | undefined;
     if (req.body.memberEmail !== undefined || req.body.memberDuprId !== undefined) {
-      let newMember: typeof membersTable.$inferSelect | undefined;
       if (req.body.memberEmail) {
         [newMember] = await db
           .select()
@@ -685,30 +834,81 @@ router.patch(
     // Replace the partner. Accept a partner by email or DUPR ID; email takes
     // precedence and is resolved to the member's DUPR ID.
     let partnerDuprIdToSet: string | null | undefined;
-    if (req.body.partnerEmail) {
-      const [partner] = await db
-        .select()
-        .from(membersTable)
-        .where(sql`lower(${membersTable.email}) = lower(${req.body.partnerEmail})`);
-      if (!partner) return res.status(404).json({ error: "No partner found with that email address" });
-      partnerDuprIdToSet = partner.duprId;
-    } else if (req.body.partnerDuprId !== undefined) {
-      partnerDuprIdToSet = req.body.partnerDuprId;
-    }
-    if (partnerDuprIdToSet !== undefined) {
-      updates.partnerDuprId = partnerDuprIdToSet;
-      if (partnerDuprIdToSet) {
-        const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprIdToSet));
-        if (!partner && req.body.partnerEmail === undefined) {
-          return res.status(404).json({ error: "No partner found with that DUPR ID" });
+    let partnerMember: typeof membersTable.$inferSelect | undefined;
+    if (eventType === FIXED_PARTNER_FORMAT) {
+      const partnerWasProvided =
+        req.body.partnerEmail !== undefined || req.body.partnerDuprId !== undefined;
+
+      if (partnerWasProvided) {
+        if (req.body.partnerEmail !== undefined) {
+          const partnerEmail =
+            typeof req.body.partnerEmail === "string" ? req.body.partnerEmail.trim() : "";
+          if (!partnerEmail) {
+            return res.status(400).json({ error: "A partner is required for fixed-partner events" });
+          }
+          [partnerMember] = await db
+            .select()
+            .from(membersTable)
+            .where(sql`lower(${membersTable.email}) = lower(${partnerEmail})`);
+          if (!partnerMember) return res.status(404).json({ error: "No partner found with that email address" });
+        } else {
+          const partnerDuprId =
+            typeof req.body.partnerDuprId === "string" ? req.body.partnerDuprId.trim() : "";
+          if (!partnerDuprId) {
+            return res.status(400).json({ error: "A partner is required for fixed-partner events" });
+          }
+          [partnerMember] = await db
+            .select()
+            .from(membersTable)
+            .where(eq(membersTable.duprId, partnerDuprId));
+          if (!partnerMember) return res.status(404).json({ error: "No partner found with that DUPR ID" });
         }
+
+        partnerDuprIdToSet = partnerMember.duprId;
+        updates.partnerDuprId = partnerDuprIdToSet;
         updates.partnerSnapshot = {
-          partnerName: partner?.name ?? partnerDuprIdToSet,
-          partnerDoubles: partner?.doubles ?? null,
-          partnerSelfRating: partner?.selfRating ?? null,
+          partnerName: partnerMember.name ?? partnerMember.duprId,
+          partnerDoubles: partnerMember.doubles ?? null,
+          partnerSelfRating: partnerMember.selfRating ?? null,
         };
       } else {
-        updates.partnerSnapshot = null;
+        if (!existing.partnerDuprId) {
+          return res.status(400).json({ error: "A partner is required for fixed-partner events" });
+        }
+        [partnerMember] = await db
+          .select()
+          .from(membersTable)
+          .where(eq(membersTable.duprId, existing.partnerDuprId));
+        if (!partnerMember) {
+          return res.status(404).json({ error: "No partner found with that DUPR ID" });
+        }
+      }
+    } else {
+      if (req.body.partnerEmail) {
+        const [partner] = await db
+          .select()
+          .from(membersTable)
+          .where(sql`lower(${membersTable.email}) = lower(${req.body.partnerEmail})`);
+        if (!partner) return res.status(404).json({ error: "No partner found with that email address" });
+        partnerDuprIdToSet = partner.duprId;
+      } else if (req.body.partnerDuprId !== undefined) {
+        partnerDuprIdToSet = req.body.partnerDuprId;
+      }
+      if (partnerDuprIdToSet !== undefined) {
+        updates.partnerDuprId = partnerDuprIdToSet;
+        if (partnerDuprIdToSet) {
+          [partnerMember] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprIdToSet));
+          if (!partnerMember && req.body.partnerEmail === undefined) {
+            return res.status(404).json({ error: "No partner found with that DUPR ID" });
+          }
+          updates.partnerSnapshot = {
+            partnerName: partnerMember?.name ?? partnerDuprIdToSet,
+            partnerDoubles: partnerMember?.doubles ?? null,
+            partnerSelfRating: partnerMember?.selfRating ?? null,
+          };
+        } else {
+          updates.partnerSnapshot = null;
+        }
       }
     }
     if (req.body.eventRole !== undefined) updates.eventRole = req.body.eventRole ?? null;
@@ -740,6 +940,31 @@ router.patch(
       } else {
         // Clear self-rating if null/empty
         updates.playerSnapshot = { ...baseSnapshot, selfRating: null };
+      }
+    }
+
+    if (eventType === FIXED_PARTNER_FORMAT && event && partnerMember) {
+      let currentMember: typeof membersTable.$inferSelect | undefined;
+      if (!newMember) {
+        [currentMember] = await db
+          .select()
+          .from(membersTable)
+          .where(eq(membersTable.duprId, existing.memberDuprId));
+      }
+
+      const primarySnapshot = (updates.playerSnapshot ?? existing.playerSnapshot) as any;
+      const primary = newMember ?? currentMember ?? {
+        doubles: primarySnapshot?.doubles ?? primarySnapshot?.doubleRating ?? null,
+        selfRating: primarySnapshot?.selfRating ?? null,
+      };
+      const partnerValidationError = fixedPartnerRosterValidationError(
+        event,
+        primary,
+        partnerMember,
+        isStaffRequest(req) && req.body.bypassRatingRequirements === true,
+      );
+      if (partnerValidationError) {
+        return res.status(400).json({ error: partnerValidationError });
       }
     }
 

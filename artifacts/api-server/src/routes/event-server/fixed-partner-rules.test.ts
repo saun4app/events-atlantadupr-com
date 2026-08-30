@@ -8,6 +8,7 @@ import {
   emailVerificationCodesTable,
   eventDefaultsTable,
   eventsFixedTable,
+  eventsRotatingTable,
   membersTable,
   registrationsTable,
   sessionsTable,
@@ -23,6 +24,7 @@ let server: Server;
 let baseUrl: string;
 
 const createdEventIds: number[] = [];
+const createdRotatingEventIds: number[] = [];
 const createdMemberIds: string[] = [];
 const createdEmails: string[] = [];
 
@@ -119,6 +121,74 @@ async function registerPublic(
   };
 }
 
+async function registerRotatingStaff(
+  eventId: number,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(
+    `${baseUrl}/events/rotating/${eventId}/registrations`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${STAFF_TOKEN}`,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  return {
+    status: response.status,
+    body: (await response.json().catch(() => null)) as any,
+  };
+}
+
+async function updateRegistration(
+  eventType: "fixed_partner" | "rotating",
+  eventId: number,
+  registrationId: number,
+  body: Record<string, unknown>,
+) {
+  const response = await fetch(
+    `${baseUrl}/events/${eventType}/${eventId}/registrations/${registrationId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${STAFF_TOKEN}`,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  return {
+    status: response.status,
+    body: (await response.json().catch(() => null)) as any,
+  };
+}
+
+async function createRotatingEvent(
+  overrides: Partial<typeof eventsRotatingTable.$inferInsert> = {},
+) {
+  const now = Date.now();
+  const [event] = await db
+    .insert(eventsRotatingTable)
+    .values({
+      name: "Rotating Test " + Math.random().toString(36).slice(2),
+      startDatetime: new Date(now + 7 * 86_400_000),
+      endDatetime: new Date(now + 7 * 86_400_000 + 3_600_000),
+      locationName: "Test Court",
+      signupStartDatetime: new Date(now - 86_400_000),
+      signupEndDatetime: new Date(now + 6 * 86_400_000),
+      status: "upcoming",
+      maxParticipants: 16,
+      waitlistEnabled: true,
+      requireApproval: "none",
+      ...overrides,
+    })
+    .returning();
+  createdRotatingEventIds.push(event.id);
+  return event;
+}
+
 before(async () => {
   await db
     .insert(sessionsTable)
@@ -146,6 +216,17 @@ afterEach(async () => {
       );
     await db.delete(eventsFixedTable).where(eq(eventsFixedTable.id, eventId));
   }
+  for (const eventId of createdRotatingEventIds) {
+    await db
+      .delete(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, "rotating"),
+        ),
+      );
+    await db.delete(eventsRotatingTable).where(eq(eventsRotatingTable.id, eventId));
+  }
   for (const duprId of createdMemberIds) {
     await db.delete(membersTable).where(eq(membersTable.duprId, duprId));
   }
@@ -155,6 +236,7 @@ afterEach(async () => {
       .where(eq(emailVerificationCodesTable.email, email.toLowerCase()));
   }
   createdEventIds.length = 0;
+  createdRotatingEventIds.length = 0;
   createdMemberIds.length = 0;
   createdEmails.length = 0;
 });
@@ -269,6 +351,146 @@ describe("fixed-partner registration requirements", () => {
 
     assert.equal(result.status, 201);
     assert.equal(result.body.status, "confirmed");
+  });
+});
+
+describe("fixed-partner roster edits", () => {
+  it("requires a known partner and rechecks NR and enforced rating rules when replacing either player", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "dupr",
+      requireApproval: "enforce_rating",
+      ratingConfig: { min: 3, max: 4.5, nrAllowed: false },
+    });
+    const primary = await createMember({ doubles: "4.00" });
+    const partner = await createMember({ doubles: "4.00" });
+    const registration = await registerStaff(event.id, {
+      memberDuprId: primary.duprId,
+      partnerDuprId: partner.duprId,
+    });
+    assert.equal(registration.status, 201);
+
+    const nrPrimary = await createMember({ doubles: null });
+    const nrResult = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      { memberEmail: nrPrimary.email },
+    );
+    assert.equal(nrResult.status, 400);
+    assert.match(nrResult.body.error, /does not allow non-rated/);
+
+    const outOfRangePrimary = await createMember({ doubles: "4.75" });
+    const primaryResult = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      { memberDuprId: outOfRangePrimary.duprId },
+    );
+    assert.equal(primaryResult.status, 400);
+    assert.match(primaryResult.body.error, /Your DUPR rating .* outside/);
+
+    const outOfRangePartner = await createMember({ doubles: "4.75" });
+    const partnerResult = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      { partnerEmail: outOfRangePartner.email },
+    );
+    assert.equal(partnerResult.status, 400);
+    assert.match(partnerResult.body.error, /partner's DUPR rating .* outside/);
+
+    const missingPartnerResult = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      { partnerDuprId: "" },
+    );
+    assert.equal(missingPartnerResult.status, 400);
+    assert.match(missingPartnerResult.body.error, /partner is required/);
+
+    const unknownPartnerResult = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      { partnerDuprId: "UNKNOWN-FIXED-PARTNER" },
+    );
+    assert.equal(unknownPartnerResult.status, 404);
+    assert.match(unknownPartnerResult.body.error, /No partner found/);
+  });
+
+  it("enforces the 0.5 DUPR partner gap when replacing a fixed-partner player", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "dupr",
+      requireApproval: "enforce_rating",
+      ratingConfig: { min: 2, max: 5, nrAllowed: true },
+    });
+    const primary = await createMember({ doubles: "4.00" });
+    const partner = await createMember({ doubles: "4.00" });
+    const registration = await registerStaff(event.id, {
+      memberDuprId: primary.duprId,
+      partnerDuprId: partner.duprId,
+    });
+    assert.equal(registration.status, 201);
+
+    const replacementPartner = await createMember({ doubles: "4.51" });
+    const result = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      { partnerDuprId: replacementPartner.duprId },
+    );
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /at most 0\.50/);
+  });
+
+  it("allows authorized staff to bypass fixed-partner rating checks explicitly", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "dupr",
+      requireApproval: "enforce_rating",
+      ratingConfig: { min: 3, max: 4, nrAllowed: false },
+    });
+    const primary = await createMember({ doubles: "4.00" });
+    const partner = await createMember({ doubles: "4.00" });
+    const registration = await registerStaff(event.id, {
+      memberDuprId: primary.duprId,
+      partnerDuprId: partner.duprId,
+    });
+    assert.equal(registration.status, 201);
+
+    const nrPrimary = await createMember({ doubles: null });
+    const outOfRangePartner = await createMember({ doubles: "5.00" });
+    const result = await updateRegistration(
+      "fixed_partner",
+      event.id,
+      registration.body.id,
+      {
+        memberEmail: nrPrimary.email,
+        partnerEmail: outOfRangePartner.email,
+        bypassRatingRequirements: true,
+      },
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.memberDuprId, nrPrimary.duprId);
+    assert.equal(result.body.partnerDuprId, outOfRangePartner.duprId);
+  });
+
+  it("retains rotating-event roster edit behavior without requiring a partner", async () => {
+    const event = await createRotatingEvent();
+    const primary = await createMember({ doubles: "4.00" });
+    const replacement = await createMember({ doubles: "4.00" });
+    const registration = await registerRotatingStaff(event.id, {
+      memberDuprId: primary.duprId,
+    });
+    assert.equal(registration.status, 201);
+
+    const result = await updateRegistration(
+      "rotating",
+      event.id,
+      registration.body.id,
+      { memberDuprId: replacement.duprId },
+    );
+    assert.equal(result.status, 200);
+    assert.equal(result.body.memberDuprId, replacement.duprId);
   });
 });
 
