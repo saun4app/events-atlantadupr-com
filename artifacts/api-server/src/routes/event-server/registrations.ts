@@ -696,7 +696,100 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     : null;
 
   let reg;
-  if (reactivatingCancelled && existingReg) {
+  if (eventType === FIXED_PARTNER_FORMAT) {
+    // The membership check above is useful for the common case, but it is not
+    // sufficient on its own: another request can insert a team between that
+    // read and this write. Serialize fixed-partner membership changes for the
+    // event and repeat the check on the same transaction/connection.
+    const writeResult = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:fixed-partner:${eventId}`}, 0))`,
+      );
+
+      const currentMemberRegs = await tx
+        .select()
+        .from(registrationsTable)
+        .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
+      if (currentMemberRegs.some((r) => ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
+        return { kind: "conflict" as const, error: "Member already registered for this event" };
+      }
+
+      const currentRegs = await tx.select().from(registrationsTable).where(regScope(eventId, FIXED_PARTNER_FORMAT));
+      const candidates = new Set(
+        [finalMemberDuprId, resolvedPartnerDuprId].filter((id): id is string => Boolean(id)),
+      );
+      const duplicate = currentRegs.find(
+        (registration) =>
+          ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
+          (candidates.has(registration.memberDuprId) ||
+            (registration.partnerDuprId !== null && candidates.has(registration.partnerDuprId))),
+      );
+      if (duplicate) {
+        return {
+          kind: "conflict" as const,
+          error: "A player is already assigned to another team in this event",
+        };
+      }
+
+      const currentExistingReg = currentMemberRegs
+        .filter((r) => r.status === "cancelled")
+        .sort((a, b) => b.id - a.id)[0];
+      const currentConfirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
+      let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
+      if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
+        currentStatus = "pending_approval";
+      } else if (currentConfirmedCount >= event.maxParticipants) {
+        if (!event.waitlistEnabled) {
+          return {
+            kind: "conflict" as const,
+            error: "Event is full and waitlist is disabled",
+            status: 400,
+          };
+        }
+        currentStatus = "waitlisted";
+      }
+
+      if (currentExistingReg) {
+        const [updated] = await tx
+          .update(registrationsTable)
+          .set({
+            partnerDuprId: resolvedPartnerDuprId,
+            playerSnapshot,
+            partnerSnapshot,
+            status: currentStatus,
+            assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
+            registeredAt: new Date(),
+            cancelledAt: null,
+            cancelledBy: null,
+            approvedAt: null,
+            approvedBy: null,
+          })
+          .where(eq(registrationsTable.id, currentExistingReg.id))
+          .returning();
+        return { kind: "created" as const, registration: updated };
+      }
+
+      const [inserted] = await tx
+        .insert(registrationsTable)
+        .values({
+          eventId,
+          eventType,
+          memberDuprId: finalMemberDuprId,
+          partnerDuprId: resolvedPartnerDuprId,
+          playerSnapshot,
+          partnerSnapshot,
+          status: currentStatus,
+          assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
+        })
+        .returning();
+      return { kind: "created" as const, registration: inserted };
+    });
+
+    if (writeResult.kind === "conflict") {
+      return res.status(writeResult.status ?? 409).json({ error: writeResult.error });
+    }
+    reg = writeResult.registration;
+  } else if (reactivatingCancelled && existingReg) {
     // Reactivate the player's cancelled registration in place: refresh the
     // snapshots, partner, status and assigned rating, stamp a fresh
     // registered-at time, and clear stale cancellation/approval metadata.
@@ -1021,12 +1114,54 @@ router.patch(
 
     let updatedReg = existing;
     if (Object.keys(updates).length > 0) {
-      const [updated] = await db
-        .update(registrationsTable)
-        .set(updates)
-        .where(eq(registrationsTable.id, Number(req.params.regId)))
-        .returning();
-      updatedReg = updated;
+      if (eventType === FIXED_PARTNER_FORMAT && event && partnerMember) {
+        // Keep the duplicate-membership check and replacement in one
+        // transaction. A concurrent signup or roster edit for the same event
+        // must observe this update before it can claim either player.
+        const updateResult = await db.transaction(async (tx) => {
+          await tx.execute(
+            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:fixed-partner:${eventId}`}, 0))`,
+          );
+
+          const currentRegs = await tx
+            .select()
+            .from(registrationsTable)
+            .where(regScope(eventId, FIXED_PARTNER_FORMAT));
+          const candidates = new Set(
+            [newMember?.duprId ?? existing.memberDuprId, partnerMember.duprId].filter(
+              (id): id is string => Boolean(id),
+            ),
+          );
+          const duplicate = currentRegs.find(
+            (registration) =>
+              registration.id !== existing.id &&
+              ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
+              (candidates.has(registration.memberDuprId) ||
+                (registration.partnerDuprId !== null && candidates.has(registration.partnerDuprId))),
+          );
+          if (duplicate) {
+            return { kind: "conflict" as const };
+          }
+
+          const [updated] = await tx
+            .update(registrationsTable)
+            .set(updates)
+            .where(eq(registrationsTable.id, Number(req.params.regId)))
+            .returning();
+          return { kind: "updated" as const, registration: updated };
+        });
+        if (updateResult.kind === "conflict") {
+          return res.status(409).json({ error: "A player is already assigned to another team in this event" });
+        }
+        updatedReg = updateResult.registration ?? existing;
+      } else {
+        const [updated] = await db
+          .update(registrationsTable)
+          .set(updates)
+          .where(eq(registrationsTable.id, Number(req.params.regId)))
+          .returning();
+        updatedReg = updated;
+      }
     }
 
     return res.json(buildRosterEntry(updatedReg, true, eventType));

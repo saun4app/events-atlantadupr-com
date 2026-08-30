@@ -286,6 +286,45 @@ describe("fixed-partner registration requirements", () => {
     assert.match(duplicatePartnerResult.body.error, /already assigned to another team/);
   });
 
+  it("serializes concurrent sign-ups that claim the same player", async () => {
+    const event = await createEvent();
+    const sharedPlayer = await createMember();
+    const firstPartner = await createMember();
+    const secondPartner = await createMember();
+
+    const results = await Promise.all([
+      registerStaff(event.id, {
+        memberDuprId: sharedPlayer.duprId,
+        partnerDuprId: firstPartner.duprId,
+      }),
+      registerStaff(event.id, {
+        memberDuprId: secondPartner.duprId,
+        partnerDuprId: sharedPlayer.duprId,
+      }),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [201, 409],
+    );
+    const registrations = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, event.id), eq(registrationsTable.eventType, "fixed_partner")));
+    const activeRegistrations = registrations.filter((registration) =>
+      ["confirmed", "waitlisted", "pending_approval"].includes(registration.status),
+    );
+    assert.equal(activeRegistrations.length, 1);
+    assert.equal(
+      activeRegistrations.filter(
+        (registration) =>
+          registration.memberDuprId === sharedPlayer.duprId ||
+          registration.partnerDuprId === sharedPlayer.duprId,
+      ).length,
+      1,
+    );
+  });
+
   it("rejects NR players and NR partners on a public event when NR is disabled", async () => {
     const event = await createEvent({
       ratingTypeRequired: "dupr",
@@ -426,6 +465,52 @@ describe("fixed-partner roster edits", () => {
     );
     assert.equal(duplicatePrimary.status, 409);
     assert.match(duplicatePrimary.body.error, /already assigned to another team/);
+  });
+
+  it("serializes concurrent roster edits that claim the same player", async () => {
+    const event = await createEvent();
+    const firstPrimary = await createMember();
+    const firstPartner = await createMember();
+    const secondPrimary = await createMember();
+    const secondPartner = await createMember();
+    const sharedReplacement = await createMember();
+    const firstTeam = await registerStaff(event.id, {
+      memberDuprId: firstPrimary.duprId,
+      partnerDuprId: firstPartner.duprId,
+    });
+    const secondTeam = await registerStaff(event.id, {
+      memberDuprId: secondPrimary.duprId,
+      partnerDuprId: secondPartner.duprId,
+    });
+    assert.equal(firstTeam.status, 201);
+    assert.equal(secondTeam.status, 201);
+
+    const results = await Promise.all([
+      updateRegistration("fixed_partner", event.id, firstTeam.body.id, {
+        partnerDuprId: sharedReplacement.duprId,
+      }),
+      updateRegistration("fixed_partner", event.id, secondTeam.body.id, {
+        partnerDuprId: sharedReplacement.duprId,
+      }),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 409],
+    );
+    const registrations = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, event.id), eq(registrationsTable.eventType, "fixed_partner")));
+    assert.equal(
+      registrations.filter(
+        (registration) =>
+          ["confirmed", "waitlisted", "pending_approval"].includes(registration.status) &&
+          (registration.memberDuprId === sharedReplacement.duprId ||
+            registration.partnerDuprId === sharedReplacement.duprId),
+      ).length,
+      1,
+    );
   });
 
   it("requires a known partner and rechecks NR and enforced rating rules when replacing either player", async () => {
