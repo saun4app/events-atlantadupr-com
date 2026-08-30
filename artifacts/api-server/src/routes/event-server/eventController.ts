@@ -10,9 +10,10 @@ import {
 } from "@workspace/db";
 import { eq, and, count } from "drizzle-orm";
 import { randomUUID } from "crypto";
+import { fixedPartnerConfig } from "../../lib/fixed-partner-config.js";
 
 export function parseEventType(raw: string | undefined): EventFormat | null {
-  if (raw === "rotating" || raw === "fixed_partner") return raw;
+  if (raw === "rotating" || raw === fixedPartnerConfig.format) return raw;
   return null;
 }
 
@@ -372,7 +373,7 @@ class RotatingEventController extends BaseEventController {
 }
 
 class FixedEventController extends BaseEventController {
-  readonly format = "fixed_partner" as const;
+  readonly format = fixedPartnerConfig.format;
 
   protected get table() {
     return eventsFixedTable;
@@ -382,7 +383,7 @@ class FixedEventController extends BaseEventController {
     const { minTeams, maxTeams, ...rest } = r;
     return {
       ...rest,
-      teamFormat: "fixed_partner",
+      teamFormat: fixedPartnerConfig.format,
       minTeams,
       maxTeams,
       minParticipants: minTeams * 2,
@@ -391,7 +392,10 @@ class FixedEventController extends BaseEventController {
   }
 
   protected capacityForCreate(body: any) {
-    return { minTeams: body.minTeams ?? 2, maxTeams: body.maxTeams ?? 8 };
+    return {
+      minTeams: body.minTeams ?? fixedPartnerConfig.defaults.capacity.minTeams,
+      maxTeams: body.maxTeams ?? fixedPartnerConfig.defaults.capacity.maxTeams,
+    };
   }
 
   protected applyCapacityUpdate(updates: any, b: any) {
@@ -406,7 +410,7 @@ class FixedEventController extends BaseEventController {
 
 export const eventControllers: Record<EventFormat, BaseEventController> = {
   rotating: new RotatingEventController(),
-  fixed_partner: new FixedEventController(),
+  [fixedPartnerConfig.format]: new FixedEventController(),
 };
 
 export async function getNormalizedEvent(

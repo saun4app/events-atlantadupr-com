@@ -15,6 +15,7 @@ import {
   ChevronUp, ChevronDown, Mail, Users,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
+import fixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
@@ -56,7 +57,14 @@ export default function AdminEventSetup({ eventType }: { eventType: "rotating" |
   });
   const updateEventDefaults = useUpdateEventDefaults();
 
-  const [capacity, setCapacity] = useState({ minCapacity: 8, maxCapacity: 24 });
+  const [capacity, setCapacity] = useState(() =>
+    eventType === fixedPartnerConfig.format
+      ? {
+          minCapacity: fixedPartnerConfig.defaults.capacity.minParticipants,
+          maxCapacity: fixedPartnerConfig.defaults.capacity.maxParticipants,
+        }
+      : { minCapacity: 8, maxCapacity: 24 },
+  );
   const lastSyncedDefaults = useRef<typeof eventDefaults | null>(null);
   const capacityRef = useRef(capacity);
   capacityRef.current = capacity;
@@ -85,8 +93,8 @@ export default function AdminEventSetup({ eventType }: { eventType: "rotating" |
     }, 500);
   }
 
-  const formatLabel = eventType === "fixed_partner" ? "Fixed Partners" : "Rotating Partners";
-  const capacityNoun = eventType === "fixed_partner" ? "Teams" : "Participants";
+  const formatLabel = eventType === fixedPartnerConfig.format ? "Fixed Partners" : "Rotating Partners";
+  const capacityNoun = eventType === fixedPartnerConfig.format ? "Teams" : "Participants";
 
   const [form, setForm] = useState({
     defaultEventDurationHours: 2,

@@ -2,14 +2,18 @@ import { Router } from "express";
 import { db, eventDefaultsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
+import { fixedPartnerConfig } from "../../lib/fixed-partner-config.js";
 
 const router = Router();
 
-const VALID_EVENT_TYPES = new Set(["rotating", "fixed_partner"]);
+const VALID_EVENT_TYPES = new Set(["rotating", fixedPartnerConfig.format]);
 
 const DEFAULTS: Record<string, { minCapacity: number; maxCapacity: number }> = {
   rotating: { minCapacity: 8, maxCapacity: 24 },
-  fixed_partner: { minCapacity: 4, maxCapacity: 12 },
+  [fixedPartnerConfig.format]: {
+    minCapacity: fixedPartnerConfig.defaults.capacity.minParticipants,
+    maxCapacity: fixedPartnerConfig.defaults.capacity.maxParticipants,
+  },
 };
 
 async function ensureRow(eventType: string) {

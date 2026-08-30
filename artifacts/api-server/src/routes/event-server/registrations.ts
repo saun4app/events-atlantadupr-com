@@ -14,6 +14,7 @@ import {
   recordSuccess,
   rateLimitErrorResponse,
 } from "../../lib/rate-limit.js";
+import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
 
 const router = Router({ mergeParams: true });
 
@@ -33,6 +34,15 @@ const REGISTRATION_SUBMIT_CONFIG = {
 };
 
 const STAFF_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
+const FIXED_PARTNER_FORMAT = fixedPartnerConfig.format;
+const PARTNER_REGISTRATION_REQUIREMENT = getFixedPartnerRequirement("partner_registration");
+const PARTNER_GAP_REQUIREMENT = getFixedPartnerRequirement("partner_rating_gap");
+const NR_PARTNER_REQUIREMENT = getFixedPartnerRequirement("nr_partner_check");
+const PARTNER_RANGE_REQUIREMENT = getFixedPartnerRequirement("partner_rating_range");
+const PARTNER_GAP_DEFAULT = fixedPartnerConfig.defaults.rating.maxPartnerGap;
+const PARTNER_GAP_FALLBACK = PARTNER_GAP_DEFAULT;
+const ACCEPTED_PARTNER_IDENTIFIERS = new Set(PARTNER_REGISTRATION_REQUIREMENT.acceptedIdentifiers ?? []);
+const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = getFixedPartnerRequirement("public_partner_preflight");
 
 function isStaffRequest(req: Request): boolean {
   const role = (req as any).session?.role;
@@ -69,7 +79,7 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
     partnerDuprId: reg.partnerDuprId ?? null,
     status: reg.status,
     eventRole: reg.eventRole ?? null,
-    ...(eventType !== "fixed_partner" ? { isNew: reg.isNew === "true" } : {}),
+    ...(eventType !== FIXED_PARTNER_FORMAT ? { isNew: reg.isNew === "true" } : {}),
     ...(includeAdminFields ? { assignedRating: reg.assignedRating ?? null } : {}),
     registeredAt: reg.registeredAt,
     approvedAt: reg.approvedAt ?? null,
@@ -152,7 +162,12 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   // partner email isn't supplied or isn't a known member, treat it as not NR
   // (the submit handler surfaces "partner not found" separately).
   let partnerSelfRatingRequired = false;
-  if (eventType === "fixed_partner" && partnerEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail)) {
+  if (
+    eventType === FIXED_PARTNER_FORMAT &&
+    PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT.condition.publicSignup === true &&
+    partnerEmail &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(partnerEmail)
+  ) {
     const [partner] = await db
       .select()
       .from(membersTable)
@@ -283,8 +298,8 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   let resolvedPartnerDuprId: string | null = null;
   let partnerMember: typeof membersTable.$inferSelect | undefined;
-  if (event.teamFormat === "fixed_partner") {
-    if (partnerEmail) {
+  if (event.teamFormat === FIXED_PARTNER_FORMAT && PARTNER_REGISTRATION_REQUIREMENT.required === true) {
+    if (partnerEmail && ACCEPTED_PARTNER_IDENTIFIERS.has("partnerEmail")) {
       const [partner] = await db
         .select()
         .from(membersTable)
@@ -292,7 +307,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       if (!partner) return res.status(404).json({ error: "Partner email not found in member list" });
       partnerMember = partner;
       resolvedPartnerDuprId = partner.duprId;
-    } else if (partnerDuprId) {
+    } else if (partnerDuprId && ACCEPTED_PARTNER_IDENTIFIERS.has("partnerDuprId")) {
       const [partner] = await db.select().from(membersTable).where(eq(membersTable.duprId, partnerDuprId));
       if (!partner) return res.status(404).json({ error: "Partner member not found in member list" });
       partnerMember = partner;
@@ -334,7 +349,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   // with the self-rating exemption below.
   const rc = event.ratingConfig as { nrAllowed?: boolean } | null;
   const nrNotAllowed =
-    event.teamFormat === "fixed_partner" && !!rc && typeof rc === "object" && "nrAllowed" in rc && rc.nrAllowed === false;
+    event.teamFormat === FIXED_PARTNER_FORMAT &&
+    NR_PARTNER_REQUIREMENT.condition.ratingType === event.ratingTypeRequired &&
+    NR_PARTNER_REQUIREMENT.condition.publicRequest === true &&
+    !!rc &&
+    typeof rc === "object" &&
+    "nrAllowed" in rc &&
+    rc.nrAllowed === false;
   if (nrNotAllowed && !staff) {
     if (isNR(member?.doubles ?? null)) {
       return res.status(400).json({ error: "This event does not allow non-rated (NR) players. A DUPR doubles rating is required to register." });
@@ -404,7 +425,13 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
           registrantEffectiveRating = r.val;
         }
         // Partner (fixed-partner events)
-        if (resolvedPartnerDuprId) {
+        if (
+          resolvedPartnerDuprId &&
+          PARTNER_RANGE_REQUIREMENT.condition.ratingType === type &&
+          PARTNER_RANGE_REQUIREMENT.condition.approvalMode === event.requireApproval &&
+          PARTNER_RANGE_REQUIREMENT.condition.resolvedPartner === true &&
+          PARTNER_RANGE_REQUIREMENT.includePartner === true
+        ) {
           if (isNR(partnerMember?.doubles ?? null)) {
             if (!cfg!.nrAllowed) {
               return res.status(400).json({ error: `This event enforces a DUPR rating between ${range}, and non-rated (NR) players are not allowed. Your partner needs a DUPR doubles rating.` });
@@ -425,9 +452,14 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
             partnerEffectiveRating = pr.val;
           }
         }
-        const maxPartnerGap = typeof cfg?.maxPartnerGap === "number" ? cfg.maxPartnerGap : 0.5;
+        const maxPartnerGap =
+          typeof cfg?.maxPartnerGap === "number" ? cfg.maxPartnerGap : PARTNER_GAP_FALLBACK;
         if (
-          event.teamFormat === "fixed_partner" &&
+          event.teamFormat === FIXED_PARTNER_FORMAT &&
+          PARTNER_GAP_REQUIREMENT.condition.ratingType === type &&
+          PARTNER_GAP_REQUIREMENT.condition.approvalMode === event.requireApproval &&
+          PARTNER_GAP_REQUIREMENT.condition.resolvedPartner === true &&
+          PARTNER_GAP_REQUIREMENT.condition.bothEffectiveRatings === true &&
           resolvedPartnerDuprId &&
           typeof maxPartnerGap === "number" &&
           maxPartnerGap >= 0 &&

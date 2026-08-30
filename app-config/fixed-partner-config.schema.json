@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fixed-partner round-robin configuration",
+  "type": "object",
+  "required": [
+    "version",
+    "format",
+    "defaults",
+    "requirements"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "format": {
+      "const": "fixed_partner"
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/requirement"
+      }
+    }
+  },
+  "$defs": {
+    "defaults": {
+      "type": "object",
+      "required": [
+        "capacity",
+        "rating"
+      ],
+      "properties": {
+        "capacity": {
+          "type": "object",
+          "required": [
+            "minTeams",
+            "maxTeams",
+            "minParticipants",
+            "maxParticipants"
+          ],
+          "properties": {
+            "minTeams": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxTeams": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minParticipants": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "maxParticipants": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        "rating": {
+          "type": "object",
+          "required": [
+            "maxPartnerGap"
+          ],
+          "properties": {
+            "maxPartnerGap": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maxPartnerGapInput": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirement": {
+      "type": "object",
+      "required": [
+        "id",
+        "key",
+        "condition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}$"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "condition": {
+          "type": "object",
+          "required": [
+            "eventFormat"
+          ],
+          "properties": {
+            "eventFormat": {
+              "const": "fixed_partner"
+            },
+            "ratingType": {
+              "type": "string"
+            },
+            "approvalMode": {
+              "type": "string"
+            },
+            "resolvedPartner": {
+              "type": "boolean"
+            },
+            "bothEffectiveRatings": {
+              "type": "boolean"
+            },
+            "nrAllowed": {
+              "type": "boolean"
+            },
+            "publicRequest": {
+              "type": "boolean"
+            },
+            "adminAdd": {
+              "type": "boolean"
+            },
+            "publicSignup": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

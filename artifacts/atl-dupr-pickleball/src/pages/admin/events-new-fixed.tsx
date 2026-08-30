@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { ChevronLeft, Calendar, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
+import fixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
 
 interface DefaultLocation { id: string; name: string; address: string; memberFee?: number; nonMemberFee?: number; courtFeeEnabled?: boolean; }
 interface SkillLevel { text: string; level: number; }
@@ -88,7 +89,12 @@ function getDefaultRatingType(rrc: RatingRequirementsConfig): string {
 }
 
 function getDefaultRatingConfig(type: string, rrc: RatingRequirementsConfig): any {
-  if (type === "dupr") return { min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed, maxPartnerGap: 0.5 };
+  if (type === "dupr") return {
+    min: rrc.dupr.defaultMin,
+    max: rrc.dupr.defaultMax,
+    nrAllowed: rrc.dupr.defaultNrAllowed,
+    maxPartnerGap: fixedPartnerConfig.defaults.rating.maxPartnerGap,
+  };
   if (type === "self_numeric") return { min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax };
   if (type === "self_skill") return { minLevel: rrc.selfSkill.defaultMinLevel, maxLevel: rrc.selfSkill.defaultMaxLevel };
   return null;
@@ -99,7 +105,7 @@ export default function AdminEventNewFixed() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const eventType = "fixed_partner" as const;
+  const eventType = fixedPartnerConfig.format as "fixed_partner";
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) setLocation("/login");
@@ -124,8 +130,8 @@ export default function AdminEventNewFixed() {
     locationName: "",
     locationAddress: "",
     ratingTypeRequired: "none" as string,
-    minParticipants: 8,
-    maxParticipants: 24,
+    minParticipants: fixedPartnerConfig.defaults.capacity.minTeams,
+    maxParticipants: fixedPartnerConfig.defaults.capacity.maxTeams,
     waitlistEnabled: true,
     requireApproval: "none" as "none" | "all" | "nr_only" | "enforce_rating",
     signupStartDatetime: "",
@@ -567,7 +573,7 @@ export default function AdminEventNewFixed() {
                   </div>
                   <div className="space-y-1">
                     <Label className="text-xs">Maximum Partner DUPR Difference</Label>
-                    <NumericInput data-testid="input-max-partner-gap" step={0.01} min={0} max={8} value={ratingConfig.maxPartnerGap ?? 0.5} onChange={v => setRatingConfig((c: any) => ({ ...c, maxPartnerGap: v }))} />
+                    <NumericInput data-testid="input-max-partner-gap" step={0.01} min={0} max={fixedPartnerConfig.defaults.rating.maxPartnerGapInput} value={ratingConfig.maxPartnerGap ?? fixedPartnerConfig.defaults.rating.maxPartnerGap} onChange={v => setRatingConfig((c: any) => ({ ...c, maxPartnerGap: v }))} />
                     <p className="text-xs text-muted-foreground">Teams are blocked when partners differ by more than this amount.</p>
                   </div>
                   <div className="flex items-center gap-2">

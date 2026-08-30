@@ -35,6 +35,13 @@ import {
 } from "@/components/ui/dialog";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import fixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+
+const ADMIN_ADD_INPUT_REQUIREMENT = fixedPartnerConfig.requirements.find(
+  (requirement) => requirement.key === "admin_add_input",
+) as { maxPrimaryEmailsPerSubmission?: number } | undefined;
+const ADMIN_MAX_PRIMARY_EMAILS =
+  ADMIN_ADD_INPUT_REQUIREMENT?.maxPrimaryEmailsPerSubmission ?? 1;
 
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
@@ -106,7 +113,7 @@ function toLocalInput(dt: string | null | undefined): string {
 
 export default function AdminEventDetailFixed() {
   const { id } = useParams<{ id: string }>();
-  const eventType = "fixed_partner" as const;
+  const eventType = fixedPartnerConfig.format as "fixed_partner";
   const eventId = Number(id);
   const { isAuthenticated, isLoading, user, canAccessAdmin } = useAuth();
   const [, setLocation] = useLocation();
@@ -266,8 +273,8 @@ export default function AdminEventDetailFixed() {
       locationName: event.locationName ?? "",
       locationAddress: event.locationAddress ?? "",
       ratingTypeRequired: event.ratingTypeRequired ?? "none",
-      minParticipants: String((event.teamFormat === "fixed_partner" ? event.minTeams : event.minParticipants) ?? ""),
-      maxParticipants: String((event.teamFormat === "fixed_partner" ? event.maxTeams : event.maxParticipants) ?? ""),
+      minParticipants: String((event.teamFormat === fixedPartnerConfig.format ? event.minTeams : event.minParticipants) ?? ""),
+      maxParticipants: String((event.teamFormat === fixedPartnerConfig.format ? event.maxTeams : event.maxParticipants) ?? ""),
       waitlistEnabled: event.waitlistEnabled ?? false,
       requireApproval: (event.requireApproval as any) || "none",
       signupStartDatetime: toLocalInput(event.signupStartDatetime),
@@ -279,7 +286,10 @@ export default function AdminEventDetailFixed() {
       memberFee: String((event as any).memberFee ?? ""),
       nonMemberFee: String((event as any).nonMemberFee ?? ""),
     });
-    setEditRatingConfig((event as any).ratingConfig ? { ...(event as any).ratingConfig, maxPartnerGap: (event as any).ratingConfig.maxPartnerGap ?? 0.5 } : null);
+    setEditRatingConfig((event as any).ratingConfig ? {
+      ...(event as any).ratingConfig,
+      maxPartnerGap: (event as any).ratingConfig.maxPartnerGap ?? fixedPartnerConfig.defaults.rating.maxPartnerGap,
+    } : null);
     setShowEditDialog(true);
   }
 
@@ -288,7 +298,12 @@ export default function AdminEventDetailFixed() {
     if (type === "none") {
       setEditRatingConfig(null);
     } else if (type === "dupr") {
-      setEditRatingConfig({ min: rrc.dupr.defaultMin, max: rrc.dupr.defaultMax, nrAllowed: rrc.dupr.defaultNrAllowed, maxPartnerGap: 0.5 });
+      setEditRatingConfig({
+        min: rrc.dupr.defaultMin,
+        max: rrc.dupr.defaultMax,
+        nrAllowed: rrc.dupr.defaultNrAllowed,
+        maxPartnerGap: fixedPartnerConfig.defaults.rating.maxPartnerGap,
+      });
     } else if (type === "self_numeric") {
       setEditRatingConfig({ min: rrc.selfNumeric.defaultMin, max: rrc.selfNumeric.defaultMax });
     } else if (type === "self_skill") {
@@ -415,7 +430,10 @@ export default function AdminEventDetailFixed() {
     e.preventDefault();
     const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
     if (emails.length === 0) return;
-    if (event?.teamFormat === "fixed_partner" && emails.length > 1) {
+    if (
+      event?.teamFormat === fixedPartnerConfig.format &&
+      emails.length > ADMIN_MAX_PRIMARY_EMAILS
+    ) {
       toast({ title: "Only one email allowed", description: "Fixed-partner events require a single participant email.", variant: "destructive" });
       return;
     }
@@ -1418,7 +1436,7 @@ export default function AdminEventDetailFixed() {
                       </div>
                       <div className="space-y-1">
                         <Label className="text-xs">Maximum Partner DUPR Difference</Label>
-                        <Input data-testid="input-edit-max-partner-gap" type="number" step={0.01} min={0} max={8} value={editRatingConfig.maxPartnerGap ?? 0.5} onChange={e => setEditRatingConfig((c: any) => ({ ...c, maxPartnerGap: Number(e.target.value) }))} />
+                        <Input data-testid="input-edit-max-partner-gap" type="number" step={0.01} min={0} max={fixedPartnerConfig.defaults.rating.maxPartnerGapInput} value={editRatingConfig.maxPartnerGap ?? fixedPartnerConfig.defaults.rating.maxPartnerGap} onChange={e => setEditRatingConfig((c: any) => ({ ...c, maxPartnerGap: Number(e.target.value) }))} />
                         <p className="text-xs text-muted-foreground">Teams are blocked when partners differ by more than this amount.</p>
                       </div>
                       <div className="flex items-center gap-2">

@@ -44,6 +44,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
+import fixedPartnerConfig from "../../../../app-config/fixed-partner-config.json";
+
+const PARTNER_REGISTRATION_REQUIREMENT = fixedPartnerConfig.requirements.find(
+  (requirement) => requirement.key === "partner_registration",
+);
+const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = fixedPartnerConfig.requirements.find(
+  (requirement) => requirement.key === "public_partner_preflight",
+);
+const PARTNER_REQUIRED =
+  PARTNER_REGISTRATION_REQUIREMENT?.required === true;
+const REQUIRE_PARTNER_BEFORE_CODE =
+  (PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT as {
+    requirePartnerBeforeCode?: boolean;
+  } | undefined)?.requirePartnerBeforeCode === true;
 
 interface SkillLevel {
   text: string;
@@ -151,7 +165,7 @@ function ParticipantTable({
       return { key, dir: "asc" };
     });
   }
-  const isFixed = event.teamFormat === "fixed_partner";
+  const isFixed = event.teamFormat === fixedPartnerConfig.format;
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -260,7 +274,7 @@ export default function EventDetail() {
     id: string;
   }>();
   const validEventType =
-    rawEventType === "rotating" || rawEventType === "fixed_partner";
+    rawEventType === "rotating" || rawEventType === fixedPartnerConfig.format;
   const eventType = (validEventType ? rawEventType : "rotating") as
     | "rotating"
     | "fixed_partner";
@@ -399,7 +413,7 @@ export default function EventDetail() {
   // the case and the registrant is NR (selfRatingRequired), block registration
   // instead of prompting for a self-rating.
   const eventNrNotAllowed =
-    event.teamFormat === "fixed_partner" &&
+    event.teamFormat === fixedPartnerConfig.format &&
     !!(event as any).ratingConfig &&
     (event as any).ratingConfig.nrAllowed === false;
   const nrBlocked = eventNrNotAllowed && selfRatingRequired;
@@ -407,7 +421,12 @@ export default function EventDetail() {
 
   function handleSendCode(e: React.FormEvent) {
     e.preventDefault();
-    if (event?.teamFormat === "fixed_partner" && !partnerEmail.trim()) {
+    if (
+      event?.teamFormat === fixedPartnerConfig.format &&
+      REQUIRE_PARTNER_BEFORE_CODE &&
+      PARTNER_REQUIRED &&
+      !partnerEmail.trim()
+    ) {
       toast({
         title: "Partner email required",
         description: "Enter your partner's email before requesting a code.",
@@ -422,7 +441,8 @@ export default function EventDetail() {
         data: {
           email: email.trim(),
           partnerEmail:
-            event?.teamFormat === "fixed_partner"
+            event?.teamFormat === fixedPartnerConfig.format &&
+            PARTNER_REQUIRED
               ? partnerEmail.trim().toLowerCase()
               : undefined,
         },
@@ -565,7 +585,8 @@ export default function EventDetail() {
           email: email.trim(),
           code: code.trim(),
           partnerEmail:
-            event?.teamFormat === "fixed_partner"
+            event?.teamFormat === fixedPartnerConfig.format &&
+            PARTNER_REQUIRED
               ? partnerEmail.trim().toLowerCase() || null
               : null,
           selfRating: ratingVal || null,
@@ -831,17 +852,17 @@ export default function EventDetail() {
               <div className="flex items-center gap-2 text-muted-foreground col-span-2">
                 <Users className="w-4 h-4 text-primary" />
                 <span className="text-muted-foreground">
-                  {event.teamFormat === "fixed_partner" ? "Teams" : "Players"}:
+                  {event.teamFormat === fixedPartnerConfig.format ? "Teams" : "Players"}:
                 </span>
                 <span data-testid="text-confirmed-count">
                   <span className="font-semibold text-primary">
-                    {event.teamFormat === "fixed_partner"
+                    {event.teamFormat === fixedPartnerConfig.format
                       ? (rosterSummary.confirmedTeams ??
                         rosterSummary.confirmed)
                       : rosterSummary.confirmed}
                   </span>{" "}
                   /{" "}
-                  {event.teamFormat === "fixed_partner"
+                  {event.teamFormat === fixedPartnerConfig.format
                     ? (rosterSummary.maxTeams ?? rosterSummary.maxParticipants)
                     : rosterSummary.maxParticipants}
                 </span>
@@ -890,7 +911,7 @@ export default function EventDetail() {
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="w-4 h-4 text-primary" />
               Team Format:{" "}
-              {event.teamFormat === "fixed_partner"
+              {event.teamFormat === fixedPartnerConfig.format
                 ? "Fixed-Partner"
                 : "Rotating Partners"}
             </div>
@@ -994,7 +1015,8 @@ export default function EventDetail() {
                     )}
                   </p>
                 </div>
-                {event.teamFormat === "fixed_partner" && (
+                {event.teamFormat === fixedPartnerConfig.format &&
+                  PARTNER_REQUIRED && (
                   <div className="space-y-1.5">
                     <Label htmlFor="partner-email">Partner's Email</Label>
                     <Input
