@@ -11,7 +11,10 @@ import {
 import { eq, and, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
-import { rotatingPartnerConfig } from "../../lib/rotating-partner-config.js";
+import {
+  getRotatingPartnerRequirement,
+  rotatingPartnerConfig,
+} from "../../lib/rotating-partner-config.js";
 
 const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement(
   "team_capacity_enforcement",
@@ -27,6 +30,17 @@ const FIXED_PARTNER_CAPACITY_OPERATIONS = new Set(
 );
 const FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE =
   CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT =
+  getRotatingPartnerRequirement("participant_capacity");
+const ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT =
+  getRotatingPartnerRequirement("event_limit_safety");
+const ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT =
+  getRotatingPartnerRequirement("capacity_write_serialization");
+const ROTATING_CAPACITY_WRITE_OPERATIONS = new Set(
+  ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.condition.operations,
+);
+const ROTATING_CAPACITY_LOCK_NAMESPACE =
+  ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
 
 function fixedPartnerEventLimitUpdateIsConfigured(): boolean {
   return (
@@ -41,6 +55,22 @@ function fixedPartnerEventLimitUpdateIsConfigured(): boolean {
       "postgres_advisory_xact" &&
     CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
     FIXED_PARTNER_CAPACITY_OPERATIONS.has("event_limit_update")
+  );
+}
+
+function rotatingPartnerEventLimitUpdateIsConfigured(): boolean {
+  return (
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.condition.operation ===
+      "event_limit_update" &&
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField ===
+      ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.capacityField &&
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.minimumSource ===
+      "confirmed_participant_count" &&
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.onConflict === "reject" &&
+    ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy ===
+      "postgres_advisory_xact" &&
+    ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    ROTATING_CAPACITY_WRITE_OPERATIONS.has("event_limit_update")
   );
 }
 
@@ -294,6 +324,67 @@ export abstract class BaseEventController {
     this.applyCapacityUpdate(updates, b);
 
     const fixedPartnerLimitField = EVENT_LIMIT_SAFETY_REQUIREMENT.limitField;
+    const rotatingLimitField = ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField;
+    if (
+      this.format === rotatingPartnerConfig.format &&
+      typeof updates[rotatingLimitField] === "number" &&
+      rotatingPartnerEventLimitUpdateIsConfigured()
+    ) {
+      const capacityUpdate = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${ROTATING_CAPACITY_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+        );
+
+        const [current] = await tx
+          .select()
+          .from(this.table)
+          .where(eq(this.table.id, eventId));
+        if (!current) return { kind: "missing" as const };
+
+        const [{ confirmedCount }] = await tx
+          .select({ confirmedCount: count() })
+          .from(registrationsTable)
+          .where(
+            and(
+              eq(registrationsTable.eventId, eventId),
+              eq(registrationsTable.eventType, this.format),
+              eq(
+                registrationsTable.status,
+                ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.countedStatus,
+              ),
+            ),
+          );
+        const confirmedParticipants = Number(confirmedCount);
+        if (updates[rotatingLimitField] < confirmedParticipants) {
+          return {
+            kind: "capacity_conflict" as const,
+            requestedMaxParticipants: updates[rotatingLimitField],
+            confirmedParticipants,
+          };
+        }
+
+        const [updated] = (await tx
+          .update(this.table)
+          .set(updates)
+          .where(eq(this.table.id, eventId))
+          .returning()) as any[];
+        return { kind: "updated" as const, event: updated };
+      });
+
+      if (capacityUpdate.kind === "missing") {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (capacityUpdate.kind === "capacity_conflict") {
+        return res.status(400).json({
+          error:
+            `Cannot lower the participant limit to ${capacityUpdate.requestedMaxParticipants}: ` +
+            `this event already has ${capacityUpdate.confirmedParticipants} confirmed participants. ` +
+            `Set the limit to at least ${capacityUpdate.confirmedParticipants} or remove participants first.`,
+        });
+      }
+      return res.json(this.normalize(capacityUpdate.event));
+    }
+
     if (
       this.format === fixedPartnerConfig.format &&
       typeof updates[fixedPartnerLimitField] === "number" &&

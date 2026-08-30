@@ -85,6 +85,17 @@
       }
     },
     {
+      "id": "6e3b7a91",
+      "key": "event_limit_safety",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "event_limit_update"
+      },
+      "limitField": "maxParticipants",
+      "minimumSource": "confirmed_participant_count",
+      "onConflict": "reject"
+    },
+    {
       "id": "e4d71b83",
       "key": "active_registration",
       "condition": {
@@ -111,7 +122,8 @@
           "registration_reactivate",
           "approval",
           "waitlist_promotion",
-          "roster_edit"
+          "roster_edit",
+          "event_limit_update"
         ]
       },
       "lockStrategy": "postgres_advisory_xact",

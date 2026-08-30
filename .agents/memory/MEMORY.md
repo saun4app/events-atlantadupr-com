@@ -9,3 +9,4 @@
 - [Shared runtime configuration package](shared-config-package.md) — shared API/browser config logic needs its own workspace package boundary, not a direct app-config TS import
 - [Stateful browser mutation fixtures](stateful-e2e-mocks.md) — mutation tests should model server state so post-save refetches prove the UI persisted changes
 - [Playwright system browser](playwright-system-browser.md) — use the repository e2e script to select Nix Chromium instead of the bundled browser
+- [Rotating capacity lock discipline](rotating-capacity-locks.md) — rotating limit edits share the event lock and reread the limit after locking

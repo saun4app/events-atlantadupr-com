@@ -72,6 +72,15 @@ const ROTATING_REQUIREMENT_CONTRACT: Record<
       "fullCapacityActions.roster_edit.waitlistEnabled",
     ],
   },
+  event_limit_safety: {
+    consumer: "eventController.ts rotating event-limit updates",
+    fields: [
+      "condition.operation",
+      "limitField",
+      "minimumSource",
+      "onConflict",
+    ],
+  },
   active_registration: {
     consumer: "registrations.ts duplicate rotating signup checks",
     fields: ["condition.operations", "scope", "activeStatuses"],

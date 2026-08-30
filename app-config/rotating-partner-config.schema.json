@@ -24,8 +24,8 @@
     },
     "requirements": {
       "type": "array",
-      "minItems": 8,
-      "maxItems": 8,
+      "minItems": 9,
+      "maxItems": 9,
       "items": {
         "$ref": "#/$defs/requirement"
       },
@@ -71,6 +71,18 @@
             "properties": {
               "key": {
                 "const": "capacity_enforcement"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "event_limit_safety"
               }
             },
             "required": [
@@ -175,7 +187,8 @@
             "registration_create",
             "approval",
             "waitlist_promotion",
-            "roster_edit"
+            "roster_edit",
+            "event_limit_update"
           ]
         },
         "operations": {
@@ -186,7 +199,8 @@
               "registration_reactivate",
               "approval",
               "waitlist_promotion",
-              "roster_edit"
+              "roster_edit",
+              "event_limit_update"
             ]
           },
           "uniqueItems": true
@@ -394,6 +408,39 @@
                   "$ref": "#/$defs/capacityActions"
                 }
               }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "limitField",
+            "minimumSource",
+            "onConflict"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "event_limit_safety"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "limitField": {
+              "const": "maxParticipants"
+            },
+            "minimumSource": {
+              "const": "confirmed_participant_count"
+            },
+            "onConflict": {
+              "const": "reject"
             }
           }
         },

@@ -6,6 +6,7 @@ import {
   appSettingsTable,
   emailSendFailuresTable,
   eventsFixedTable,
+  eventsRotatingTable,
 } from "@workspace/db";
 import type { EventFormat } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
@@ -425,7 +426,7 @@ function regScope(eventId: number, eventType: EventFormat) {
 function eventCapacityLockKey(
   eventType: EventFormat,
   eventId: number,
-  operation: FixedPartnerCapacityDecisionOperation,
+  operation: FixedPartnerCapacityDecisionOperation | RotatingPartnerCapacityOperation,
 ): string | null {
   if (
     eventType === ROTATING_PARTNER_FORMAT &&
@@ -467,7 +468,13 @@ async function currentEventCapacityLimit(
   event: NonNullable<Awaited<ReturnType<typeof getNormalizedEvent>>>,
 ): Promise<number | null> {
   if (eventType !== FIXED_PARTNER_FORMAT) {
-    return eventCapacityLimit(eventType, event);
+    const [currentEvent] = await tx
+      .select({
+        capacityLimit: eventsRotatingTable[ROTATING_PARTNER_CAPACITY_FIELD],
+      })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, eventId));
+    return currentEvent?.capacityLimit ?? null;
   }
 
   const [currentEvent] = await tx
@@ -1663,9 +1670,18 @@ router.patch(
             const confirmedCount = currentRegs.filter(
               (r) => r.status === ROTATING_PARTNER_CAPACITY_COUNTED_STATUS,
             ).length;
+            const capacityLimit = await currentEventCapacityLimit(
+              tx,
+              eventType,
+              eventId,
+              event,
+            );
+            if (capacityLimit === null) {
+              return { kind: "missing" as const };
+            }
             if (
               rotatingPartnerCapacityIsEnforced("roster_edit") &&
-              confirmedCount >= eventCapacityLimit(eventType, event)
+              confirmedCount >= capacityLimit
             ) {
               const fullCapacityAction = rotatingPartnerFullCapacityAction(
                 "roster_edit",

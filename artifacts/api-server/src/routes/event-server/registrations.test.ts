@@ -161,6 +161,19 @@ async function updateFixedEvent(eventId: number, body: Record<string, unknown>) 
   return { status: res.status, body: responseBody };
 }
 
+async function updateRotatingEvent(eventId: number, body: Record<string, unknown>) {
+  const res = await fetch(`${baseUrl}/events/rotating/${eventId}`, {
+    method: "PATCH",
+    headers: {
+      "content-type": "application/json",
+      authorization: `Bearer ${STAFF_TOKEN}`,
+    },
+    body: JSON.stringify(body),
+  });
+  const responseBody = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body: responseBody };
+}
+
 async function registerPublic(
   eventId: number,
   email: string,
@@ -1446,5 +1459,47 @@ describe("fixed-partner event limit updates", () => {
       .from(eventsFixedTable)
       .where(eq(eventsFixedTable.id, ev.id));
     assert.equal(unchanged.maxTeams, 2);
+  });
+});
+
+describe("rotating event limit updates", () => {
+  it("rejects lowering maxParticipants below the current confirmed-participant count", async () => {
+    const ev = await createEvent({ maxParticipants: 3 });
+    const first = await createMember();
+    const second = await createMember();
+    await insertReg(ev.id, first.duprId, "confirmed");
+    await insertReg(ev.id, second.duprId, "confirmed");
+
+    const result = await updateRotatingEvent(ev.id, { maxParticipants: 1 });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /already has 2 confirmed participants/);
+    const [unchanged] = await db
+      .select({ maxParticipants: eventsRotatingTable.maxParticipants })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, ev.id));
+    assert.equal(unchanged.maxParticipants, 3);
+  });
+
+  it("serializes concurrent limit changes against the confirmed-participant count", async () => {
+    const ev = await createEvent({ maxParticipants: 3 });
+    const first = await createMember();
+    const second = await createMember();
+    await insertReg(ev.id, first.duprId, "confirmed");
+    await insertReg(ev.id, second.duprId, "confirmed");
+
+    const results = await Promise.all([
+      updateRotatingEvent(ev.id, { maxParticipants: 1 }),
+      updateRotatingEvent(ev.id, { maxParticipants: 2 }),
+    ]);
+
+    assert.deepEqual(results.map((result) => result.status).sort((a, b) => a - b), [200, 400]);
+    assert.equal(results.filter((result) => result.status === 200)[0].body.maxParticipants, 2);
+    assert.ok(results.some((result) => result.status === 400 && /confirmed participants/.test(result.body.error)));
+    const [unchanged] = await db
+      .select({ maxParticipants: eventsRotatingTable.maxParticipants })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, ev.id));
+    assert.equal(unchanged.maxParticipants, 2);
   });
 });

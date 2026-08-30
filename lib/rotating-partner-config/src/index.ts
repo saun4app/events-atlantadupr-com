@@ -35,6 +35,10 @@ export type RotatingPartnerCapacityOperation =
   | "waitlist_promotion"
   | "roster_edit";
 
+export type RotatingPartnerCapacityWriteOperation =
+  | RotatingPartnerCapacityOperation
+  | "event_limit_update";
+
 export type RotatingPartnerFullCapacityAction = "waitlisted" | "reject";
 
 export interface RotatingPartnerCapacityBehavior {
@@ -62,6 +66,16 @@ export interface CapacityEnforcementRequirement
   >;
 }
 
+export interface EventLimitSafetyRequirement
+  extends RotatingPartnerRequirementBase<"event_limit_safety"> {
+  condition: RotatingPartnerRequirementCondition & {
+    operation: "event_limit_update";
+  };
+  limitField: "maxParticipants";
+  minimumSource: "confirmed_participant_count";
+  onConflict: "reject";
+}
+
 export interface ActiveRegistrationRequirement
   extends RotatingPartnerRequirementBase<"active_registration"> {
   condition: RotatingPartnerRequirementCondition & {
@@ -74,7 +88,7 @@ export interface ActiveRegistrationRequirement
 export interface CapacityWriteSerializationRequirement
   extends RotatingPartnerRequirementBase<"capacity_write_serialization"> {
   condition: RotatingPartnerRequirementCondition & {
-    operations: RotatingPartnerCapacityOperation[];
+    operations: RotatingPartnerCapacityWriteOperation[];
   };
   lockStrategy: "postgres_advisory_xact";
   lockScope: "event";
@@ -111,6 +125,7 @@ export type RotatingPartnerRequirement =
   | ParticipantCapacityRequirement
   | CapacityDefaultsRequirement
   | CapacityEnforcementRequirement
+  | EventLimitSafetyRequirement
   | ActiveRegistrationRequirement
   | CapacityWriteSerializationRequirement
   | SelfRatingInputRequirement
@@ -123,6 +138,7 @@ export interface RotatingPartnerRequirementByKey {
   participant_capacity: ParticipantCapacityRequirement;
   capacity_defaults: CapacityDefaultsRequirement;
   capacity_enforcement: CapacityEnforcementRequirement;
+  event_limit_safety: EventLimitSafetyRequirement;
   active_registration: ActiveRegistrationRequirement;
   capacity_write_serialization: CapacityWriteSerializationRequirement;
   self_rating_input: SelfRatingInputRequirement;
@@ -146,6 +162,7 @@ const ROTATING_PARTNER_REQUIREMENT_KEYS = [
   "participant_capacity",
   "capacity_defaults",
   "capacity_enforcement",
+  "event_limit_safety",
   "active_registration",
   "capacity_write_serialization",
   "self_rating_input",
@@ -171,6 +188,7 @@ const REQUIREMENT_FIELDS_BY_KEY: Record<
     "approvalPrecedesCapacity",
     "fullCapacityActions",
   ],
+  event_limit_safety: ["limitField", "minimumSource", "onConflict"],
   active_registration: ["scope", "activeStatuses"],
   capacity_write_serialization: [
     "lockStrategy",
@@ -198,6 +216,7 @@ const CONDITION_FIELDS_BY_KEY: Record<
   participant_capacity: [],
   capacity_defaults: [],
   capacity_enforcement: ["operations"],
+  event_limit_safety: ["operation"],
   active_registration: ["operations"],
   capacity_write_serialization: ["operations"],
   self_rating_input: ["operation", "ratingTypes", "publicRequest"],
@@ -235,7 +254,7 @@ function hasExactValues(
 
 function hasExactOperations(
   value: unknown,
-  expected: readonly RotatingPartnerCapacityOperation[],
+  expected: readonly string[],
 ): value is RotatingPartnerCapacityOperation[] {
   return hasExactValues(value, expected);
 }
@@ -417,16 +436,34 @@ export function loadRotatingPartnerConfig(
     );
   }
 
+  const eventLimitSafety = byKey.get(
+    "event_limit_safety",
+  ) as EventLimitSafetyRequirement;
+  if (
+    eventLimitSafety.condition.operation !== "event_limit_update" ||
+    eventLimitSafety.limitField !== "maxParticipants" ||
+    eventLimitSafety.minimumSource !== "confirmed_participant_count" ||
+    eventLimitSafety.onConflict !== "reject"
+  ) {
+    throw new Error(
+      "Rotating-partner event-limit safety requirement is invalid",
+    );
+  }
+
   const capacitySerialization = byKey.get(
     "capacity_write_serialization",
   ) as CapacityWriteSerializationRequirement;
+  const capacitySerializationOperations: RotatingPartnerCapacityWriteOperation[] = [
+    ...capacityOperations,
+    "event_limit_update",
+  ];
   if (
     capacitySerialization.lockStrategy !== "postgres_advisory_xact" ||
     capacitySerialization.lockScope !== "event" ||
     capacitySerialization.lockNamespace !== "atl-dupr:rotating" ||
     !hasExactOperations(
       capacitySerialization.condition.operations,
-      capacityOperations,
+      capacitySerializationOperations,
     )
   ) {
     throw new Error(
