@@ -1546,6 +1546,31 @@ describe("fixed-partner event creation limits", () => {
 });
 
 describe("rotating event limit updates", () => {
+  it("accepts safe participant limit changes and preserves the event response shape", async () => {
+    const ev = await createEvent({ minParticipants: 2, maxParticipants: 4 });
+    const confirmed = await createMember();
+    await insertReg(ev.id, confirmed.duprId, "confirmed");
+
+    const result = await updateRotatingEvent(ev.id, {
+      minParticipants: 3,
+      maxParticipants: 6,
+    });
+
+    assert.equal(result.status, 200);
+    assert.deepEqual(Object.keys(result.body).sort(), [
+      ...Object.keys(ev),
+      "maxTeams",
+      "minTeams",
+      "teamFormat",
+    ].sort());
+    assert.equal(result.body.id, ev.id);
+    assert.equal(result.body.teamFormat, "rotating");
+    assert.equal(result.body.minParticipants, 3);
+    assert.equal(result.body.maxParticipants, 6);
+    assert.equal(result.body.minTeams, null);
+    assert.equal(result.body.maxTeams, null);
+  });
+
   it("rejects a minimum participant limit above the existing maximum", async () => {
     const ev = await createEvent({ minParticipants: 4, maxParticipants: 16 });
 
