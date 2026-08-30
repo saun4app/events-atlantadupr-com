@@ -17,6 +17,7 @@ import { and, eq } from "drizzle-orm";
 
 import app from "../../app.js";
 import { issueCode } from "../../lib/verification.js";
+import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
 
 const STAFF_TOKEN = "fixed-partner-test-staff-" + Math.random().toString(36).slice(2);
 
@@ -248,6 +249,32 @@ after(async () => {
 });
 
 describe("fixed-partner registration requirements", () => {
+  it("loads the extracted roster-integrity requirements from configuration", () => {
+    const rosterEdit = getFixedPartnerRequirement("roster_edit_validation");
+    const membership = getFixedPartnerRequirement("active_team_membership");
+    const serialization = getFixedPartnerRequirement("membership_write_serialization");
+
+    assert.equal(fixedPartnerConfig.requirements.length, 11);
+    assert.deepEqual(rosterEdit.condition.ratingTypes, ["dupr", "self_numeric"]);
+    assert.deepEqual(rosterEdit.checks, ["nr", "rating_range", "partner_rating_gap"]);
+    assert.equal(rosterEdit.staffBypass, true);
+    assert.deepEqual(membership.activeStatuses, [
+      "confirmed",
+      "waitlisted",
+      "pending_approval",
+    ]);
+    assert.equal(membership.scope, "event");
+    assert.equal(membership.excludeCurrentRegistrationOnEdit, true);
+    assert.deepEqual(serialization.condition.operations, [
+      "registration_create",
+      "registration_reactivate",
+      "roster_edit",
+    ]);
+    assert.equal(serialization.lockStrategy, "postgres_advisory_xact");
+    assert.equal(serialization.lockScope, "event");
+    assert.equal(serialization.lockNamespace, "atl-dupr:fixed-partner");
+  });
+
   it("requires a partner identifier", async () => {
     const event = await createEvent();
     const player = await createMember();

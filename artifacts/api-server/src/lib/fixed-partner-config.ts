@@ -5,6 +5,9 @@ export interface FixedPartnerRequirement {
   key: string;
   condition: {
     eventFormat: "fixed_partner";
+    operation?: string;
+    operations?: string[];
+    ratingTypes?: string[];
     ratingType?: string;
     approvalMode?: string;
     resolvedPartner?: boolean;
@@ -16,6 +19,15 @@ export interface FixedPartnerRequirement {
   };
   required?: boolean;
   acceptedIdentifiers?: string[];
+  checks?: string[];
+  staffBypass?: boolean;
+  scope?: string;
+  membershipRoles?: string[];
+  activeStatuses?: string[];
+  excludeCurrentRegistrationOnEdit?: boolean;
+  lockStrategy?: string;
+  lockScope?: string;
+  lockNamespace?: string;
   [key: string]: unknown;
 }
 
@@ -91,6 +103,67 @@ export function loadFixedPartnerConfig(value: unknown): FixedPartnerConfig {
   const ids = config.requirements.map((requirement) => requirement.id);
   if (new Set(ids).size !== ids.length) {
     throw new Error("Fixed-partner configuration requirement UUIDs must be unique");
+  }
+  const keys = config.requirements.map((requirement) => requirement.key);
+  if (new Set(keys).size !== keys.length) {
+    throw new Error("Fixed-partner configuration requirement keys must be unique");
+  }
+
+  const requirementsByKey = new Map(
+    config.requirements.map((requirement) => [requirement.key, requirement]),
+  );
+  const rosterEdit = requirementsByKey.get("roster_edit_validation");
+  if (
+    rosterEdit?.condition.operation !== "roster_edit" ||
+    !Array.isArray(rosterEdit.condition.ratingTypes) ||
+    !rosterEdit.condition.ratingTypes.includes("dupr") ||
+    !rosterEdit.condition.ratingTypes.includes("self_numeric") ||
+    rosterEdit.condition.approvalMode !== "enforce_rating" ||
+    rosterEdit.condition.resolvedPartner !== true ||
+    rosterEdit.staffBypass !== true
+  ) {
+    throw new Error("Fixed-partner roster-edit validation requirement is invalid");
+  }
+  const rosterEditChecks = rosterEdit.checks;
+  if (
+    !Array.isArray(rosterEditChecks) ||
+    !["nr", "rating_range", "partner_rating_gap"].every((check) =>
+      rosterEditChecks.includes(check),
+    )
+  ) {
+    throw new Error("Fixed-partner roster-edit validation checks are invalid");
+  }
+
+  const membership = requirementsByKey.get("active_team_membership");
+  if (
+    !Array.isArray(membership?.condition.operations) ||
+    !membership.condition.operations.includes("registration") ||
+    !membership.condition.operations.includes("roster_edit") ||
+    membership.scope !== "event" ||
+    !Array.isArray(membership.membershipRoles) ||
+    !membership.membershipRoles.includes("primary") ||
+    !membership.membershipRoles.includes("partner") ||
+    !Array.isArray(membership.activeStatuses) ||
+    !membership.activeStatuses.includes("confirmed") ||
+    !membership.activeStatuses.includes("waitlisted") ||
+    !membership.activeStatuses.includes("pending_approval") ||
+    membership.excludeCurrentRegistrationOnEdit !== true
+  ) {
+    throw new Error("Fixed-partner active team membership requirement is invalid");
+  }
+
+  const serialization = requirementsByKey.get("membership_write_serialization");
+  if (
+    !Array.isArray(serialization?.condition.operations) ||
+    !serialization.condition.operations.includes("registration_create") ||
+    !serialization.condition.operations.includes("registration_reactivate") ||
+    !serialization.condition.operations.includes("roster_edit") ||
+    serialization.lockStrategy !== "postgres_advisory_xact" ||
+    serialization.lockScope !== "event" ||
+    typeof serialization.lockNamespace !== "string" ||
+    serialization.lockNamespace.length === 0
+  ) {
+    throw new Error("Fixed-partner membership-write serialization requirement is invalid");
   }
 
   return config as FixedPartnerConfig;

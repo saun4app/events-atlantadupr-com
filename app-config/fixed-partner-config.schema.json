@@ -110,6 +110,25 @@
             "eventFormat": {
               "const": "fixed_partner"
             },
+            "operation": {
+              "type": "string"
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "ratingTypes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
             "ratingType": {
               "type": "string"
             },
@@ -138,6 +157,222 @@
           "additionalProperties": false
         }
       },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "roster_edit_validation"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "checks",
+              "staffBypass"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operation",
+                  "ratingTypes",
+                  "approvalMode",
+                  "resolvedPartner"
+                ],
+                "properties": {
+                  "operation": {
+                    "const": "roster_edit"
+                  },
+                  "ratingTypes": {
+                    "contains": {
+                      "const": "dupr"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "self_numeric"
+                        }
+                      }
+                    ]
+                  },
+                  "approvalMode": {
+                    "const": "enforce_rating"
+                  },
+                  "resolvedPartner": {
+                    "const": true
+                  }
+                }
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 3,
+                "contains": {
+                  "const": "nr"
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "rating_range"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "partner_rating_gap"
+                    }
+                  }
+                ]
+              },
+              "staffBypass": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "active_team_membership"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "scope",
+              "membershipRoles",
+              "activeStatuses",
+              "excludeCurrentRegistrationOnEdit"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operations"
+                ],
+                "properties": {
+                  "operations": {
+                    "contains": {
+                      "const": "registration"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "roster_edit"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "scope": {
+                "const": "event"
+              },
+              "membershipRoles": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 2,
+                "contains": {
+                  "const": "primary"
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "partner"
+                    }
+                  }
+                ]
+              },
+              "activeStatuses": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 3,
+                "contains": {
+                  "const": "confirmed"
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "waitlisted"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "pending_approval"
+                    }
+                  }
+                ]
+              },
+              "excludeCurrentRegistrationOnEdit": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "membership_write_serialization"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "lockStrategy",
+              "lockScope",
+              "lockNamespace"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operations"
+                ],
+                "properties": {
+                  "operations": {
+                    "contains": {
+                      "const": "registration_create"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "registration_reactivate"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "roster_edit"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "lockStrategy": {
+                "const": "postgres_advisory_xact"
+              },
+              "lockScope": {
+                "const": "event"
+              },
+              "lockNamespace": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ],
       "additionalProperties": true
     }
   },

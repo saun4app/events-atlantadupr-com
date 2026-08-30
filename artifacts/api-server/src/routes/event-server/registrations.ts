@@ -43,7 +43,77 @@ const PARTNER_GAP_DEFAULT = fixedPartnerConfig.defaults.rating.maxPartnerGap;
 const PARTNER_GAP_FALLBACK = PARTNER_GAP_DEFAULT;
 const ACCEPTED_PARTNER_IDENTIFIERS = new Set(PARTNER_REGISTRATION_REQUIREMENT.acceptedIdentifiers ?? []);
 const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = getFixedPartnerRequirement("public_partner_preflight");
+const ROSTER_EDIT_REQUIREMENT = getFixedPartnerRequirement("roster_edit_validation");
+const ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT = getFixedPartnerRequirement("active_team_membership");
+const MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement("membership_write_serialization");
 const ACTIVE_REGISTRATION_STATUSES = new Set(["confirmed", "waitlisted", "pending_approval"]);
+const FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES = new Set(
+  ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.activeStatuses ?? [],
+);
+const FIXED_PARTNER_MEMBERSHIP_OPERATIONS = new Set(
+  ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.condition.operations ?? [],
+);
+const FIXED_PARTNER_MEMBERSHIP_ROLES = new Set(
+  ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.membershipRoles ?? [],
+);
+const ROSTER_EDIT_CHECKS = new Set(ROSTER_EDIT_REQUIREMENT.checks ?? []);
+const FIXED_PARTNER_WRITE_OPERATIONS = new Set(
+  MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.condition.operations ?? [],
+);
+const FIXED_PARTNER_LOCK_NAMESPACE = MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+
+function isActiveRegistration(
+  registration: { status: string },
+  eventType: EventFormat,
+): boolean {
+  return (eventType === FIXED_PARTNER_FORMAT
+    ? FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES
+    : ACTIVE_REGISTRATION_STATUSES
+  ).has(registration.status);
+}
+
+function fixedPartnerWriteIsSerialized(operation: string): boolean {
+  return (
+    MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy === "postgres_advisory_xact" &&
+    MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    typeof FIXED_PARTNER_LOCK_NAMESPACE === "string" &&
+    FIXED_PARTNER_WRITE_OPERATIONS.has(operation)
+  );
+}
+
+function fixedPartnerMembershipIsEnforced(operation: string): boolean {
+  return (
+    ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.scope === "event" &&
+    FIXED_PARTNER_MEMBERSHIP_OPERATIONS.has(operation) &&
+    FIXED_PARTNER_MEMBERSHIP_ROLES.has("primary") &&
+    FIXED_PARTNER_MEMBERSHIP_ROLES.has("partner")
+  );
+}
+
+function fixedPartnerMembershipMatches(
+  registration: { memberDuprId: string; partnerDuprId: string | null },
+  candidates: Set<string>,
+): boolean {
+  const primaryMatches =
+    FIXED_PARTNER_MEMBERSHIP_ROLES.has("primary") &&
+    candidates.has(registration.memberDuprId);
+  const partnerMatches =
+    FIXED_PARTNER_MEMBERSHIP_ROLES.has("partner") &&
+    registration.partnerDuprId !== null &&
+    candidates.has(registration.partnerDuprId);
+  return primaryMatches || partnerMatches;
+}
+
+function excludesCurrentFixedPartnerRegistration(
+  registrationId: number,
+  currentRegistrationId?: number,
+): boolean {
+  return (
+    ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.excludeCurrentRegistrationOnEdit === true &&
+    currentRegistrationId !== undefined &&
+    registrationId === currentRegistrationId
+  );
+}
 
 function isStaffRequest(req: Request): boolean {
   const role = (req as any).session?.role;
@@ -72,15 +142,22 @@ function fixedPartnerRosterValidationError(
   bypassRatings: boolean,
 ): string | null {
   const rc = event.ratingConfig as { min?: number; max?: number; nrAllowed?: boolean; maxPartnerGap?: number } | null;
+  const rosterEditApplies =
+    ROSTER_EDIT_REQUIREMENT.condition.operation === "roster_edit" &&
+    ROSTER_EDIT_REQUIREMENT.condition.approvalMode === event.requireApproval &&
+    ROSTER_EDIT_REQUIREMENT.condition.resolvedPartner === true &&
+    ROSTER_EDIT_REQUIREMENT.condition.ratingTypes?.includes(event.ratingTypeRequired) === true;
+  const staffBypass = bypassRatings && ROSTER_EDIT_REQUIREMENT.staffBypass === true;
   const nrNotAllowed =
-    NR_PARTNER_REQUIREMENT.condition.ratingType === event.ratingTypeRequired &&
-    NR_PARTNER_REQUIREMENT.condition.publicRequest === true &&
+    rosterEditApplies &&
+    ROSTER_EDIT_CHECKS.has("nr") &&
+    event.ratingTypeRequired === "dupr" &&
     !!rc &&
     typeof rc === "object" &&
     "nrAllowed" in rc &&
     rc.nrAllowed === false;
 
-  if (!bypassRatings && nrNotAllowed) {
+  if (!staffBypass && nrNotAllowed) {
     if (isNR(primary.doubles)) {
       return "This event does not allow non-rated (NR) players. A DUPR doubles rating is required to remain on the roster.";
     }
@@ -89,7 +166,7 @@ function fixedPartnerRosterValidationError(
     }
   }
 
-  if (event.requireApproval !== "enforce_rating" || bypassRatings) return null;
+  if (!rosterEditApplies || staffBypass || event.requireApproval !== "enforce_rating") return null;
 
   const type = event.ratingTypeRequired;
   const hasRange = !!rc && typeof rc.min === "number" && typeof rc.max === "number";
@@ -128,12 +205,7 @@ function fixedPartnerRosterValidationError(
       primaryEffectiveRating = result.val;
     }
 
-    if (
-      PARTNER_RANGE_REQUIREMENT.condition.ratingType === type &&
-      PARTNER_RANGE_REQUIREMENT.condition.approvalMode === event.requireApproval &&
-      PARTNER_RANGE_REQUIREMENT.condition.resolvedPartner === true &&
-      PARTNER_RANGE_REQUIREMENT.includePartner === true
-    ) {
+    if (rosterEditApplies && ROSTER_EDIT_CHECKS.has("rating_range")) {
       if (isNR(partner.doubles)) {
         if (!rc!.nrAllowed) {
           return `This event enforces a DUPR rating between ${range}, and non-rated (NR) players are not allowed. Your partner needs a DUPR doubles rating.`;
@@ -158,6 +230,8 @@ function fixedPartnerRosterValidationError(
     const maxPartnerGap =
       typeof rc?.maxPartnerGap === "number" ? rc.maxPartnerGap : PARTNER_GAP_FALLBACK;
     if (
+      rosterEditApplies &&
+      ROSTER_EDIT_CHECKS.has("partner_rating_gap") &&
       PARTNER_GAP_REQUIREMENT.condition.ratingType === type &&
       PARTNER_GAP_REQUIREMENT.condition.approvalMode === event.requireApproval &&
       PARTNER_GAP_REQUIREMENT.condition.resolvedPartner === true &&
@@ -209,10 +283,9 @@ async function findActiveFixedPartnerMembership(
   const candidates = new Set(memberDuprIds);
   return registrations.find(
     (registration) =>
-      registration.id !== excludeRegistrationId &&
-      ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
-      (candidates.has(registration.memberDuprId) ||
-        (registration.partnerDuprId !== null && candidates.has(registration.partnerDuprId))),
+      !excludesCurrentFixedPartnerRegistration(registration.id, excludeRegistrationId) &&
+      FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
+      fixedPartnerMembershipMatches(registration, candidates),
   );
 }
 
@@ -487,10 +560,14 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     .select()
     .from(registrationsTable)
     .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
-  if (memberRegs.some((r) => ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
+  if (memberRegs.some((r) => isActiveRegistration(r, eventType))) {
     return res.status(409).json({ error: "Member already registered for this event" });
   }
-  if (eventType === FIXED_PARTNER_FORMAT && resolvedPartnerDuprId) {
+  if (
+    eventType === FIXED_PARTNER_FORMAT &&
+    resolvedPartnerDuprId &&
+    fixedPartnerMembershipIsEnforced("registration")
+  ) {
     const duplicate = await findActiveFixedPartnerMembership(eventId, [
       finalMemberDuprId,
       resolvedPartnerDuprId,
@@ -679,21 +756,27 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     : null;
 
   let reg;
-  if (eventType === FIXED_PARTNER_FORMAT) {
+  const fixedPartnerRegistrationWritesSerialized =
+    fixedPartnerWriteIsSerialized("registration_create") &&
+    fixedPartnerWriteIsSerialized("registration_reactivate");
+  if (
+    eventType === FIXED_PARTNER_FORMAT &&
+    fixedPartnerRegistrationWritesSerialized
+  ) {
     // The membership check above is useful for the common case, but it is not
     // sufficient on its own: another request can insert a team between that
     // read and this write. Serialize fixed-partner membership changes for the
     // event and repeat the check on the same transaction/connection.
     const writeResult = await db.transaction(async (tx) => {
       await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:fixed-partner:${eventId}`}, 0))`,
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`}, 0))`,
       );
 
       const currentMemberRegs = await tx
         .select()
         .from(registrationsTable)
         .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
-      if (currentMemberRegs.some((r) => ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
+      if (currentMemberRegs.some((r) => FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
         return { kind: "conflict" as const, error: "Member already registered for this event" };
       }
 
@@ -703,9 +786,8 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       );
       const duplicate = currentRegs.find(
         (registration) =>
-          ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
-          (candidates.has(registration.memberDuprId) ||
-            (registration.partnerDuprId !== null && candidates.has(registration.partnerDuprId))),
+          FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
+          fixedPartnerMembershipMatches(registration, candidates),
       );
       if (duplicate) {
         return {
@@ -1102,11 +1184,13 @@ router.patch(
         doubles: primarySnapshot?.doubles ?? primarySnapshot?.doubleRating ?? null,
         selfRating: primarySnapshot?.selfRating ?? null,
       };
-      const duplicate = await findActiveFixedPartnerMembership(
-        eventId,
-        [newMember?.duprId ?? existing.memberDuprId, partnerMember.duprId],
-        existing.id,
-      );
+      const duplicate = fixedPartnerMembershipIsEnforced("roster_edit")
+        ? await findActiveFixedPartnerMembership(
+            eventId,
+            [newMember?.duprId ?? existing.memberDuprId, partnerMember.duprId],
+            existing.id,
+          )
+        : undefined;
       if (duplicate) {
         return res.status(409).json({ error: "A player is already assigned to another team in this event" });
       }
@@ -1136,13 +1220,18 @@ router.patch(
 
     let updatedReg = existing;
     if (Object.keys(updates).length > 0) {
-      if (eventType === FIXED_PARTNER_FORMAT && event && partnerMember) {
+      if (
+        eventType === FIXED_PARTNER_FORMAT &&
+        event &&
+        partnerMember &&
+        fixedPartnerWriteIsSerialized("roster_edit")
+      ) {
         // Keep the duplicate-membership check and replacement in one
         // transaction. A concurrent signup or roster edit for the same event
         // must observe this update before it can claim either player.
         const updateResult = await db.transaction(async (tx) => {
           await tx.execute(
-            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:fixed-partner:${eventId}`}, 0))`,
+            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_LOCK_NAMESPACE}:${eventId}`}, 0))`,
           );
 
           const currentRegs = await tx
@@ -1156,10 +1245,9 @@ router.patch(
           );
           const duplicate = currentRegs.find(
             (registration) =>
-              registration.id !== existing.id &&
-              ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
-              (candidates.has(registration.memberDuprId) ||
-                (registration.partnerDuprId !== null && candidates.has(registration.partnerDuprId))),
+              !excludesCurrentFixedPartnerRegistration(registration.id, existing.id) &&
+              FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES.has(registration.status) &&
+              fixedPartnerMembershipMatches(registration, candidates),
           );
           if (duplicate) {
             return { kind: "conflict" as const };

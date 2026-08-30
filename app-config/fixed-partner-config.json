@@ -96,6 +96,63 @@
         "publicSignup": true
       },
       "requirePartnerBeforeCode": true
+    },
+    {
+      "id": "9c4e2a71",
+      "key": "roster_edit_validation",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operation": "roster_edit",
+        "ratingTypes": [
+          "dupr",
+          "self_numeric"
+        ],
+        "approvalMode": "enforce_rating",
+        "resolvedPartner": true
+      },
+      "checks": [
+        "nr",
+        "rating_range",
+        "partner_rating_gap"
+      ],
+      "staffBypass": true
+    },
+    {
+      "id": "1b6d8f34",
+      "key": "active_team_membership",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration",
+          "roster_edit"
+        ]
+      },
+      "scope": "event",
+      "membershipRoles": [
+        "primary",
+        "partner"
+      ],
+      "activeStatuses": [
+        "confirmed",
+        "waitlisted",
+        "pending_approval"
+      ],
+      "excludeCurrentRegistrationOnEdit": true
+    },
+    {
+      "id": "5e2a7c90",
+      "key": "membership_write_serialization",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "roster_edit"
+        ]
+      },
+      "lockStrategy": "postgres_advisory_xact",
+      "lockScope": "event",
+      "lockNamespace": "atl-dupr:fixed-partner"
     }
   ]
 }
