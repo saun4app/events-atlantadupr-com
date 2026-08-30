@@ -311,3 +311,54 @@ describe("create-registration: reactivation status depends on event settings", (
     assert.equal(rows[0].id, cancelled.id);
   });
 });
+
+describe("create-registration: concurrent rotating-event capacity", () => {
+  it("confirms only one concurrent signup and waitlists the other when waitlisting is enabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const first = await createMember();
+    const second = await createMember();
+
+    const results = await Promise.all([
+      register(ev.id, first.duprId),
+      register(ev.id, second.duprId),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [201, 201],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+  });
+
+  it("accepts only one concurrent signup when waitlisting is disabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: false });
+    const first = await createMember();
+    const second = await createMember();
+
+    const results = await Promise.all([
+      register(ev.id, first.duprId),
+      register(ev.id, second.duprId),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [201, 400],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].status, "confirmed");
+  });
+});

@@ -490,12 +490,6 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   if (memberRegs.some((r) => ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
     return res.status(409).json({ error: "Member already registered for this event" });
   }
-  const existingReg = memberRegs
-    .filter((r) => r.status === "cancelled")
-    .sort((a, b) => b.id - a.id)[0];
-  const reactivatingCancelled = !!existingReg;
-
-  const allRegs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
   if (eventType === FIXED_PARTNER_FORMAT && resolvedPartnerDuprId) {
     const duplicate = await findActiveFixedPartnerMembership(eventId, [
       finalMemberDuprId,
@@ -505,7 +499,6 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       return res.status(409).json({ error: "A player is already assigned to another team in this event" });
     }
   }
-  const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
 
   function isNR(rating: string | null): boolean {
     if (!rating || rating === "NR") return true;
@@ -663,16 +656,6 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     // self_skill / none / missing range config: no numeric range to enforce.
   }
 
-  let status: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
-  if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
-    status = "pending_approval";
-  } else if (confirmedCount >= event.maxParticipants) {
-    if (!event.waitlistEnabled) {
-      return res.status(400).json({ error: "Event is full and waitlist is disabled" });
-    }
-    status = "waitlisted";
-  }
-
   const assignedRating = member?.doubles ? parseFloat(member.doubles) : null;
 
   // Capture a self-contained snapshot of the registrant (and partner) at signup
@@ -789,40 +772,82 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       return res.status(writeResult.status ?? 409).json({ error: writeResult.error });
     }
     reg = writeResult.registration;
-  } else if (reactivatingCancelled && existingReg) {
-    // Reactivate the player's cancelled registration in place: refresh the
-    // snapshots, partner, status and assigned rating, stamp a fresh
-    // registered-at time, and clear stale cancellation/approval metadata.
-    [reg] = await db
-      .update(registrationsTable)
-      .set({
-        partnerDuprId: resolvedPartnerDuprId,
-        playerSnapshot,
-        partnerSnapshot,
-        status,
-        assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
-        registeredAt: new Date(),
-        cancelledAt: null,
-        cancelledBy: null,
-        approvedAt: null,
-        approvedBy: null,
-      })
-      .where(eq(registrationsTable.id, existingReg.id))
-      .returning();
   } else {
-    [reg] = await db
-      .insert(registrationsTable)
-      .values({
-        eventId,
-        eventType,
-        memberDuprId: finalMemberDuprId,
-        partnerDuprId: resolvedPartnerDuprId,
-        playerSnapshot,
-        partnerSnapshot,
-        status,
-        assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
-      })
-      .returning();
+    // Capacity is derived from the current registrations, so the duplicate
+    // check, capacity decision, and write must share one event-scoped lock.
+    // Otherwise simultaneous signups can both observe the last open slot.
+    const writeResult = await db.transaction(async (tx) => {
+      await tx.execute(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+      );
+
+      const currentMemberRegs = await tx
+        .select()
+        .from(registrationsTable)
+        .where(and(regScope(eventId, eventType), eq(registrationsTable.memberDuprId, finalMemberDuprId)));
+      if (currentMemberRegs.some((r) => ACTIVE_REGISTRATION_STATUSES.has(r.status))) {
+        return { kind: "conflict" as const, error: "Member already registered for this event" };
+      }
+
+      const currentRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
+      const currentExistingReg = currentMemberRegs
+        .filter((r) => r.status === "cancelled")
+        .sort((a, b) => b.id - a.id)[0];
+      const currentConfirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
+      let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
+      if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
+        currentStatus = "pending_approval";
+      } else if (currentConfirmedCount >= event.maxParticipants) {
+        if (!event.waitlistEnabled) {
+          return {
+            kind: "conflict" as const,
+            error: "Event is full and waitlist is disabled",
+            status: 400,
+          };
+        }
+        currentStatus = "waitlisted";
+      }
+
+      if (currentExistingReg) {
+        const [updated] = await tx
+          .update(registrationsTable)
+          .set({
+            partnerDuprId: resolvedPartnerDuprId,
+            playerSnapshot,
+            partnerSnapshot,
+            status: currentStatus,
+            assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
+            registeredAt: new Date(),
+            cancelledAt: null,
+            cancelledBy: null,
+            approvedAt: null,
+            approvedBy: null,
+          })
+          .where(eq(registrationsTable.id, currentExistingReg.id))
+          .returning();
+        return { kind: "created" as const, registration: updated };
+      }
+
+      const [inserted] = await tx
+        .insert(registrationsTable)
+        .values({
+          eventId,
+          eventType,
+          memberDuprId: finalMemberDuprId,
+          partnerDuprId: resolvedPartnerDuprId,
+          playerSnapshot,
+          partnerSnapshot,
+          status: currentStatus,
+          assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
+        })
+        .returning();
+      return { kind: "created" as const, registration: inserted };
+    });
+
+    if (writeResult.kind === "conflict") {
+      return res.status(writeResult.status ?? 409).json({ error: writeResult.error });
+    }
+    reg = writeResult.registration;
   }
 
   if (!staff && email) {
