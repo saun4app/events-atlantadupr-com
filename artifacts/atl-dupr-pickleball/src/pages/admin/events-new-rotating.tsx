@@ -22,6 +22,8 @@ import { useToast } from "@/hooks/use-toast";
 import { format, addDays, addWeeks, addMonths } from "date-fns";
 import { ChevronLeft, Calendar, ChevronDown } from "lucide-react";
 import { Link } from "wouter";
+import { loadRotatingPartnerConfig } from "@workspace/rotating-partner-config";
+import rawRotatingPartnerConfig from "../../../../../app-config/rotating-partner-config.json";
 
 interface DefaultLocation { id: string; name: string; address: string; memberFee?: number; nonMemberFee?: number; courtFeeEnabled?: boolean; }
 interface SkillLevel { text: string; level: number; }
@@ -29,6 +31,8 @@ interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: n
 interface SelfNumericConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; }
 interface SelfSkillConfig { enabled: boolean; levels: SkillLevel[]; defaultMinLevel: number; defaultMaxLevel: number; }
 interface RatingRequirementsConfig { dupr: DuprRatingConfig; selfNumeric: SelfNumericConfig; selfSkill: SelfSkillConfig; }
+
+const rotatingPartnerConfig = loadRotatingPartnerConfig(rawRotatingPartnerConfig);
 
 const DEFAULT_RRC: RatingRequirementsConfig = {
   dupr: { enabled: true, minAllowed: 2.0, maxAllowed: 8.0, defaultMin: 2.0, defaultMax: 4.0, defaultNrAllowed: false },
@@ -124,8 +128,8 @@ export default function AdminEventNewRotating() {
     locationName: "",
     locationAddress: "",
     ratingTypeRequired: "none" as string,
-    minParticipants: 8,
-    maxParticipants: 24,
+    minParticipants: rotatingPartnerConfig.defaults.capacity.minParticipants,
+    maxParticipants: rotatingPartnerConfig.defaults.capacity.maxParticipants,
     waitlistEnabled: true,
     requireApproval: "none" as "none" | "all" | "nr_only" | "enforce_rating",
     signupStartDatetime: "",

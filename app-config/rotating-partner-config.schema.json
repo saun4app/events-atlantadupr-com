@@ -1,0 +1,545 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rotating-partner round-robin configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "format",
+    "defaults",
+    "requirements"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "format": {
+      "const": "rotating"
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 8,
+      "maxItems": 8,
+      "items": {
+        "$ref": "#/$defs/requirement"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "participant_registration"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "participant_capacity"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_defaults"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_enforcement"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "active_registration"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_write_serialization"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "self_rating_input"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "rating_enforcement"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "uniqueItems": true
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capacity"
+      ],
+      "properties": {
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minParticipants",
+            "maxParticipants"
+          ],
+          "properties": {
+            "minParticipants": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxParticipants": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventFormat"
+      ],
+      "properties": {
+        "eventFormat": {
+          "const": "rotating"
+        },
+        "operation": {
+          "enum": [
+            "registration_create",
+            "approval",
+            "waitlist_promotion",
+            "roster_edit"
+          ]
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "registration_create",
+              "registration_reactivate",
+              "approval",
+              "waitlist_promotion",
+              "roster_edit"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "ratingTypes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "dupr",
+              "self_numeric",
+              "self_skill"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "publicRequest": {
+          "type": "boolean"
+        },
+        "approvalMode": {
+          "const": "enforce_rating"
+        }
+      }
+    },
+    "capacityActions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "waitlistEnabled",
+        "waitlistDisabled"
+      ],
+      "properties": {
+        "waitlistEnabled": {
+          "enum": [
+            "waitlisted",
+            "reject"
+          ]
+        },
+        "waitlistDisabled": {
+          "const": "reject"
+        }
+      }
+    },
+    "requirement": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "required",
+            "acceptedIdentifiers"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "participant_registration"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "required": {
+              "const": true
+            },
+            "acceptedIdentifiers": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "email",
+                  "memberDuprId"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "capacityUnit",
+            "capacityField",
+            "countedStatus",
+            "registrationRepresents"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "participant_capacity"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "capacityUnit": {
+              "const": "participant"
+            },
+            "capacityField": {
+              "const": "maxParticipants"
+            },
+            "countedStatus": {
+              "const": "confirmed"
+            },
+            "registrationRepresents": {
+              "const": "participant"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "defaultsPath"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "capacity_defaults"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "defaultsPath": {
+              "const": "defaults.capacity"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "capacityUnit",
+            "capacityField",
+            "countedStatus",
+            "approvalPrecedesCapacity",
+            "fullCapacityActions"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "capacity_enforcement"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "capacityUnit": {
+              "const": "participant"
+            },
+            "capacityField": {
+              "const": "maxParticipants"
+            },
+            "countedStatus": {
+              "const": "confirmed"
+            },
+            "approvalPrecedesCapacity": {
+              "const": true
+            },
+            "fullCapacityActions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "registration_create",
+                "registration_reactivate",
+                "approval",
+                "waitlist_promotion",
+                "roster_edit"
+              ],
+              "properties": {
+                "registration_create": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "registration_reactivate": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "approval": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "waitlist_promotion": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "roster_edit": {
+                  "$ref": "#/$defs/capacityActions"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "scope",
+            "activeStatuses"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "active_registration"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "scope": {
+              "const": "event"
+            },
+            "activeStatuses": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "confirmed",
+                  "waitlisted",
+                  "pending_approval"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 3,
+              "maxItems": 3
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "lockStrategy",
+            "lockScope",
+            "lockNamespace"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "capacity_write_serialization"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "lockStrategy": {
+              "const": "postgres_advisory_xact"
+            },
+            "lockScope": {
+              "const": "event"
+            },
+            "lockNamespace": {
+              "const": "atl-dupr:rotating"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "required",
+            "valueSource",
+            "validationSource",
+            "snapshotPath"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "self_rating_input"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "required": {
+              "const": true
+            },
+            "valueSource": {
+              "const": "request.selfRating"
+            },
+            "validationSource": {
+              "const": "event.ratingConfig"
+            },
+            "snapshotPath": {
+              "const": "playerSnapshot.selfRating"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "staffBypassRequiresExplicitFlag",
+            "nrUsesEventConfiguration",
+            "rangeSource"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "rating_enforcement"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "staffBypassRequiresExplicitFlag": {
+              "const": true
+            },
+            "nrUsesEventConfiguration": {
+              "const": true
+            },
+            "rangeSource": {
+              "const": "event.ratingConfig"
+            }
+          }
+        }
+      ]
+    }
+  }
+}

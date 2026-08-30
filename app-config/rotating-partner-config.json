@@ -1,0 +1,155 @@
+{
+  "$schema": "./rotating-partner-config.schema.json",
+  "version": 1,
+  "format": "rotating",
+  "defaults": {
+    "capacity": {
+      "minParticipants": 4,
+      "maxParticipants": 16
+    }
+  },
+  "requirements": [
+    {
+      "id": "a1c4e7b2",
+      "key": "participant_registration",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate"
+        ]
+      },
+      "required": true,
+      "acceptedIdentifiers": [
+        "email",
+        "memberDuprId"
+      ]
+    },
+    {
+      "id": "d9f2036a",
+      "key": "participant_capacity",
+      "condition": {
+        "eventFormat": "rotating"
+      },
+      "capacityUnit": "participant",
+      "capacityField": "maxParticipants",
+      "countedStatus": "confirmed",
+      "registrationRepresents": "participant"
+    },
+    {
+      "id": "7b8e1d45",
+      "key": "capacity_defaults",
+      "condition": {
+        "eventFormat": "rotating"
+      },
+      "defaultsPath": "defaults.capacity"
+    },
+    {
+      "id": "c2a96f10",
+      "key": "capacity_enforcement",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit"
+        ]
+      },
+      "capacityUnit": "participant",
+      "capacityField": "maxParticipants",
+      "countedStatus": "confirmed",
+      "approvalPrecedesCapacity": true,
+      "fullCapacityActions": {
+        "registration_create": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "registration_reactivate": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "approval": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "waitlist_promotion": {
+          "waitlistEnabled": "reject",
+          "waitlistDisabled": "reject"
+        },
+        "roster_edit": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        }
+      }
+    },
+    {
+      "id": "e4d71b83",
+      "key": "active_registration",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate"
+        ]
+      },
+      "scope": "event",
+      "activeStatuses": [
+        "confirmed",
+        "waitlisted",
+        "pending_approval"
+      ]
+    },
+    {
+      "id": "5f0a3c9e",
+      "key": "capacity_write_serialization",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit"
+        ]
+      },
+      "lockStrategy": "postgres_advisory_xact",
+      "lockScope": "event",
+      "lockNamespace": "atl-dupr:rotating"
+    },
+    {
+      "id": "8a6e2d14",
+      "key": "self_rating_input",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_create",
+        "ratingTypes": [
+          "self_numeric",
+          "self_skill"
+        ],
+        "publicRequest": true
+      },
+      "required": true,
+      "valueSource": "request.selfRating",
+      "validationSource": "event.ratingConfig",
+      "snapshotPath": "playerSnapshot.selfRating"
+    },
+    {
+      "id": "b3c7f905",
+      "key": "rating_enforcement",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_create",
+        "ratingTypes": [
+          "dupr",
+          "self_numeric"
+        ],
+        "approvalMode": "enforce_rating"
+      },
+      "staffBypassRequiresExplicitFlag": true,
+      "nrUsesEventConfiguration": true,
+      "rangeSource": "event.ratingConfig"
+    }
+  ]
+}

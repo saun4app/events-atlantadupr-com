@@ -188,6 +188,9 @@ importers:
       '@workspace/fixed-partner-config':
         specifier: workspace:*
         version: link:../../lib/fixed-partner-config
+      '@workspace/rotating-partner-config':
+        specifier: workspace:*
+        version: link:../../lib/rotating-partner-config
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -391,6 +394,9 @@ importers:
       '@workspace/fixed-partner-config':
         specifier: workspace:*
         version: link:../../lib/fixed-partner-config
+      '@workspace/rotating-partner-config':
+        specifier: workspace:*
+        version: link:../../lib/rotating-partner-config
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -700,6 +706,8 @@ importers:
         version: 4.21.0
 
   lib/fixed-partner-config: {}
+
+  lib/rotating-partner-config: {}
 
   scripts:
     devDependencies:

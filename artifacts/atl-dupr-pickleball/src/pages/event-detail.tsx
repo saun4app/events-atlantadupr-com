@@ -56,8 +56,14 @@ import {
   loadFixedPartnerConfig,
 } from "@workspace/fixed-partner-config";
 import rawFixedPartnerConfig from "../../../../app-config/fixed-partner-config.json";
+import {
+  getRotatingPartnerRequirement,
+  loadRotatingPartnerConfig,
+} from "@workspace/rotating-partner-config";
+import rawRotatingPartnerConfig from "../../../../app-config/rotating-partner-config.json";
 
 const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
+const rotatingPartnerConfig = loadRotatingPartnerConfig(rawRotatingPartnerConfig);
 
 const PARTNER_REGISTRATION_REQUIREMENT = getFixedPartnerRequirement(
   fixedPartnerConfig,
@@ -70,6 +76,10 @@ const PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT = getFixedPartnerRequirement(
 const PARTNER_REQUIRED = PARTNER_REGISTRATION_REQUIREMENT.required;
 const REQUIRE_PARTNER_BEFORE_CODE =
   PUBLIC_PARTNER_PREFLIGHT_REQUIREMENT.requirePartnerBeforeCode;
+const SELF_RATING_INPUT_REQUIREMENT = getRotatingPartnerRequirement(
+  rotatingPartnerConfig,
+  "self_rating_input",
+);
 
 interface SkillLevel {
   text: string;
@@ -435,9 +445,16 @@ export default function EventDetail() {
     unknown
   > | null;
   const eventSelfRatingMode =
-    event.teamFormat === "rotating" && event.ratingTypeRequired === "self_numeric"
+    event.teamFormat === rotatingPartnerConfig.format &&
+    SELF_RATING_INPUT_REQUIREMENT.condition.ratingTypes.includes(
+      event.ratingTypeRequired,
+    ) &&
+    event.ratingTypeRequired === "self_numeric"
       ? "numeric"
-      : event.teamFormat === "rotating" &&
+      : event.teamFormat === rotatingPartnerConfig.format &&
+          SELF_RATING_INPUT_REQUIREMENT.condition.ratingTypes.includes(
+            event.ratingTypeRequired,
+          ) &&
           event.ratingTypeRequired === "self_skill"
         ? "skill"
         : null;

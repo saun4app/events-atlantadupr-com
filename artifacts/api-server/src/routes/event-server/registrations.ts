@@ -21,6 +21,10 @@ import {
   rateLimitErrorResponse,
 } from "../../lib/rate-limit.js";
 import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
+import {
+  getRotatingPartnerRequirement,
+  rotatingPartnerConfig,
+} from "../../lib/rotating-partner-config.js";
 import type {
   FixedPartnerCapacityDecisionOperation,
   FixedPartnerCapacityWriteOperation,
@@ -45,6 +49,7 @@ const REGISTRATION_SUBMIT_CONFIG = {
 
 const STAFF_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
 const FIXED_PARTNER_FORMAT = fixedPartnerConfig.format;
+const ROTATING_PARTNER_FORMAT = rotatingPartnerConfig.format;
 const PARTNER_REGISTRATION_REQUIREMENT = getFixedPartnerRequirement("partner_registration");
 const PARTNER_GAP_REQUIREMENT = getFixedPartnerRequirement("partner_rating_gap");
 const NR_PARTNER_REQUIREMENT = getFixedPartnerRequirement("nr_partner_check");
@@ -58,7 +63,23 @@ const ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT = getFixedPartnerRequirement("active_te
 const MEMBERSHIP_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement("membership_write_serialization");
 const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement("team_capacity_enforcement");
 const CAPACITY_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement("capacity_write_serialization");
-const ACTIVE_REGISTRATION_STATUSES = new Set(["confirmed", "waitlisted", "pending_approval"]);
+const ROTATING_PARTICIPANT_REGISTRATION_REQUIREMENT =
+  getRotatingPartnerRequirement("participant_registration");
+const ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT =
+  getRotatingPartnerRequirement("participant_capacity");
+const ROTATING_CAPACITY_ENFORCEMENT_REQUIREMENT =
+  getRotatingPartnerRequirement("capacity_enforcement");
+const ROTATING_ACTIVE_REGISTRATION_REQUIREMENT =
+  getRotatingPartnerRequirement("active_registration");
+const ROTATING_CAPACITY_SERIALIZATION_REQUIREMENT =
+  getRotatingPartnerRequirement("capacity_write_serialization");
+const ROTATING_SELF_RATING_INPUT_REQUIREMENT =
+  getRotatingPartnerRequirement("self_rating_input");
+const ROTATING_RATING_ENFORCEMENT_REQUIREMENT =
+  getRotatingPartnerRequirement("rating_enforcement");
+const ACTIVE_REGISTRATION_STATUSES = new Set(
+  ROTATING_ACTIVE_REGISTRATION_REQUIREMENT.activeStatuses,
+);
 const FIXED_PARTNER_ACTIVE_REGISTRATION_STATUSES = new Set(
   ACTIVE_TEAM_MEMBERSHIP_REQUIREMENT.activeStatuses ?? [],
 );
@@ -86,6 +107,21 @@ const FIXED_PARTNER_CAPACITY_FIELD =
   TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.capacityField;
 const FIXED_PARTNER_CAPACITY_COUNTED_STATUS =
   TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.countedStatus;
+const ROTATING_PARTNER_CAPACITY_OPERATIONS = new Set(
+  ROTATING_CAPACITY_ENFORCEMENT_REQUIREMENT.condition.operations,
+);
+const ROTATING_PARTNER_CAPACITY_WRITE_OPERATIONS = new Set(
+  ROTATING_CAPACITY_SERIALIZATION_REQUIREMENT.condition.operations,
+);
+const ROTATING_PARTNER_CAPACITY_LOCK_NAMESPACE =
+  ROTATING_CAPACITY_SERIALIZATION_REQUIREMENT.lockNamespace;
+const ROTATING_PARTNER_CAPACITY_FIELD =
+  ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.capacityField;
+const ROTATING_PARTNER_CAPACITY_COUNTED_STATUS =
+  ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.countedStatus;
+const ROTATING_PARTNER_ACCEPTED_IDENTIFIERS = new Set(
+  ROTATING_PARTICIPANT_REGISTRATION_REQUIREMENT.acceptedIdentifiers,
+);
 
 function isActiveRegistration(
   registration: { status: string },
@@ -128,6 +164,45 @@ function fixedPartnerCapacityWriteIsSerialized(
   );
 }
 
+function rotatingPartnerCapacityIsEnforced(operation: string): boolean {
+  return (
+    ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.capacityUnit === "participant" &&
+    ROTATING_PARTNER_CAPACITY_FIELD === "maxParticipants" &&
+    ROTATING_PARTNER_CAPACITY_OPERATIONS.has(operation)
+  );
+}
+
+function rotatingPartnerCapacityWriteIsSerialized(operation: string): boolean {
+  return (
+    ROTATING_CAPACITY_SERIALIZATION_REQUIREMENT.lockStrategy ===
+      "postgres_advisory_xact" &&
+    ROTATING_CAPACITY_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    ROTATING_PARTNER_CAPACITY_LOCK_NAMESPACE.length > 0 &&
+    ROTATING_PARTNER_CAPACITY_WRITE_OPERATIONS.has(operation)
+  );
+}
+
+function rotatingPartnerFullCapacityAction(
+  operation:
+    | "registration_create"
+    | "registration_reactivate"
+    | "approval"
+    | "waitlist_promotion"
+    | "roster_edit",
+  waitlistEnabled: boolean,
+) {
+  if (!rotatingPartnerCapacityIsEnforced(operation)) {
+    throw new Error(
+      `Rotating-partner capacity enforcement is not configured for ${operation}`,
+    );
+  }
+  const behavior =
+    ROTATING_CAPACITY_ENFORCEMENT_REQUIREMENT.fullCapacityActions[operation];
+  return waitlistEnabled
+    ? behavior.waitlistEnabled
+    : behavior.waitlistDisabled;
+}
+
 function fixedPartnerFullCapacityAction(
   operation: FixedPartnerCapacityDecisionOperation,
   waitlistEnabled: boolean,
@@ -147,7 +222,7 @@ function fixedPartnerFullCapacityAction(
 function capacityCountedStatus(eventType: EventFormat): string {
   return eventType === FIXED_PARTNER_FORMAT
     ? FIXED_PARTNER_CAPACITY_COUNTED_STATUS
-    : "confirmed";
+    : ROTATING_PARTNER_CAPACITY_COUNTED_STATUS;
 }
 
 function fixedPartnerMembershipIsEnforced(operation: string): boolean {
@@ -345,8 +420,12 @@ function eventCapacityLockKey(
   eventId: number,
   operation: FixedPartnerCapacityDecisionOperation,
 ): string | null {
-  if (eventType === "rotating") {
-    return `atl-dupr:rotating:${eventId}`;
+  if (
+    eventType === ROTATING_PARTNER_FORMAT &&
+    rotatingPartnerCapacityIsEnforced(operation) &&
+    rotatingPartnerCapacityWriteIsSerialized(operation)
+  ) {
+    return `${ROTATING_PARTNER_CAPACITY_LOCK_NAMESPACE}:${eventId}`;
   }
   if (
     eventType === FIXED_PARTNER_FORMAT &&
@@ -363,6 +442,9 @@ function eventCapacityLimit(
   event: NonNullable<Awaited<ReturnType<typeof getNormalizedEvent>>>,
 ): number {
   if (eventType !== FIXED_PARTNER_FORMAT) {
+    if (ROTATING_PARTNER_CAPACITY_FIELD !== "maxParticipants") {
+      throw new Error("Rotating-partner capacity field is not configured");
+    }
     return event.maxParticipants;
   }
   return (
@@ -605,7 +687,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "Provide only email or memberDuprId, not both" });
   }
   if (!email && !memberDuprId) {
-    return res.status(400).json({ error: "email or memberDuprId is required" });
+    const identifiers = eventType === ROTATING_PARTNER_FORMAT
+      ? [...ROTATING_PARTNER_ACCEPTED_IDENTIFIERS].join(" or ")
+      : "email or memberDuprId";
+    return res.status(400).json({ error: `${identifiers} is required` });
   }
 
   // Public self-registration (email-based, unauthenticated) requires a verified
@@ -707,9 +792,11 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   // organizer routes registrations through approval or accepts them directly.
   if (
     !staff &&
-    event.teamFormat === "rotating" &&
-    (event.ratingTypeRequired === "self_numeric" ||
-      event.ratingTypeRequired === "self_skill")
+    event.teamFormat === ROTATING_PARTNER_FORMAT &&
+    ROTATING_SELF_RATING_INPUT_REQUIREMENT.condition.publicRequest === true &&
+    ROTATING_SELF_RATING_INPUT_REQUIREMENT.condition.ratingTypes.includes(
+      event.ratingTypeRequired,
+    )
   ) {
     const config = event.ratingConfig as {
       min?: number;
@@ -801,11 +888,19 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   // reject registrations whose rating falls outside the event's configured
   // rating requirement. Applies to public signups AND staff adds, and to the
   // partner on fixed-partner events.
-  if (event.requireApproval === "enforce_rating" && !bypassRatings) {
+  if (
+    event.requireApproval ===
+      ROTATING_RATING_ENFORCEMENT_REQUIREMENT.condition.approvalMode &&
+    !(bypassRatings &&
+      ROTATING_RATING_ENFORCEMENT_REQUIREMENT.staffBypassRequiresExplicitFlag)
+  ) {
     const cfg = event.ratingConfig as { min?: number; max?: number; nrAllowed?: boolean; maxPartnerGap?: number } | null;
     const type = event.ratingTypeRequired;
     const hasRange = !!cfg && typeof cfg.min === "number" && typeof cfg.max === "number";
-    if (hasRange && (type === "dupr" || type === "self_numeric")) {
+    if (
+      hasRange &&
+      ROTATING_RATING_ENFORCEMENT_REQUIREMENT.condition.ratingTypes.includes(type)
+    ) {
       const min = cfg!.min!;
       const max = cfg!.max!;
       const range = `${min.toFixed(1)}–${max.toFixed(1)}`;
@@ -919,9 +1014,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     !staff &&
     selfRating &&
     (isNR(member?.doubles ?? null) ||
-      (event.teamFormat === "rotating" &&
-        (event.ratingTypeRequired === "self_numeric" ||
-          event.ratingTypeRequired === "self_skill")))
+      (event.teamFormat === ROTATING_PARTNER_FORMAT &&
+        ROTATING_SELF_RATING_INPUT_REQUIREMENT.condition.ratingTypes.includes(
+          event.ratingTypeRequired,
+        )))
       ? String(selfRating)
       : member?.selfRating ?? null;
   const playerSnapshot = {
@@ -1062,9 +1158,16 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     // check, capacity decision, and write must share one event-scoped lock.
     // Otherwise simultaneous signups can both observe the last open slot.
     const writeResult = await db.transaction(async (tx) => {
-      await tx.execute(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+      const capacityLockKey = eventCapacityLockKey(
+        eventType,
+        eventId,
+        "registration_create",
       );
+      if (capacityLockKey) {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${capacityLockKey}, 0))`,
+        );
+      }
 
       const currentMemberRegs = await tx
         .select()
@@ -1082,19 +1185,26 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       const currentExistingReg = currentMemberRegs
         .filter((r) => r.status === "cancelled")
         .sort((a, b) => b.id - a.id)[0];
+      const capacityOperation = currentExistingReg
+        ? "registration_reactivate"
+        : "registration_create";
       const currentConfirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
       let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
       if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
         currentStatus = "pending_approval";
       } else if (currentConfirmedCount >= capacityLimit) {
-        if (!event.waitlistEnabled) {
+        const fullCapacityAction = rotatingPartnerFullCapacityAction(
+          capacityOperation,
+          event.waitlistEnabled,
+        );
+        if (fullCapacityAction === "reject") {
           return {
             kind: "conflict" as const,
             error: "Event is full and waitlist is disabled",
             status: 400,
           };
         }
-        currentStatus = "waitlisted";
+        currentStatus = fullCapacityAction;
       }
 
       if (currentExistingReg) {
@@ -1513,9 +1623,16 @@ router.patch(
         // directly to confirmed. Serialize that decision with sign-ups and
         // approvals so it cannot claim the same final slot concurrently.
         const updateResult = await db.transaction(async (tx) => {
-          await tx.execute(
-            sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+          const capacityLockKey = eventCapacityLockKey(
+            eventType,
+            eventId,
+            "roster_edit",
           );
+          if (capacityLockKey) {
+            await tx.execute(
+              sql`SELECT pg_advisory_xact_lock(hashtextextended(${capacityLockKey}, 0))`,
+            );
+          }
 
           const [currentExisting] = await tx
             .select()
@@ -1536,12 +1653,21 @@ router.patch(
               .select()
               .from(registrationsTable)
               .where(regScope(eventId, eventType));
-            const confirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
-            if (confirmedCount >= eventCapacityLimit(eventType, event)) {
-              if (!event.waitlistEnabled) {
+            const confirmedCount = currentRegs.filter(
+              (r) => r.status === ROTATING_PARTNER_CAPACITY_COUNTED_STATUS,
+            ).length;
+            if (
+              rotatingPartnerCapacityIsEnforced("roster_edit") &&
+              confirmedCount >= eventCapacityLimit(eventType, event)
+            ) {
+              const fullCapacityAction = rotatingPartnerFullCapacityAction(
+                "roster_edit",
+                event.waitlistEnabled,
+              );
+              if (fullCapacityAction === "reject") {
                 return { kind: "full" as const };
               }
-              transactionUpdates.status = "waitlisted";
+              transactionUpdates.status = fullCapacityAction;
             }
           }
 
@@ -1653,9 +1779,10 @@ router.post(
                 "approval",
                 event.waitlistEnabled,
               )
-            : event.waitlistEnabled
-              ? "waitlisted"
-              : "reject";
+            : rotatingPartnerFullCapacityAction(
+                "approval",
+                event.waitlistEnabled,
+              );
         if (fullCapacityAction === "reject") {
           return { kind: "full" as const };
         }

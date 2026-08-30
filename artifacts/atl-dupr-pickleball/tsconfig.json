@@ -22,6 +22,9 @@
     },
     {
       "path": "../../lib/fixed-partner-config"
+    },
+    {
+      "path": "../../lib/rotating-partner-config"
     }
   ]
 }

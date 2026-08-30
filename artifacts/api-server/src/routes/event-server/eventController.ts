@@ -11,6 +11,7 @@ import {
 import { eq, and, count, sql } from "drizzle-orm";
 import { randomUUID } from "crypto";
 import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
+import { rotatingPartnerConfig } from "../../lib/rotating-partner-config.js";
 
 const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement(
   "team_capacity_enforcement",
@@ -454,7 +455,14 @@ class RotatingEventController extends BaseEventController {
   }
 
   protected capacityForCreate(body: any) {
-    return { minParticipants: body.minParticipants ?? 4, maxParticipants: body.maxParticipants ?? 16 };
+    return {
+      minParticipants:
+        body.minParticipants ??
+        rotatingPartnerConfig.defaults.capacity.minParticipants,
+      maxParticipants:
+        body.maxParticipants ??
+        rotatingPartnerConfig.defaults.capacity.maxParticipants,
+    };
   }
 
   protected applyCapacityUpdate(updates: any, b: any) {
