@@ -496,10 +496,10 @@ export abstract class BaseEventController {
             ),
           );
         const confirmedTeams = Number(confirmedCount);
-        if (updates[fixedPartnerLimitField] < confirmedTeams) {
+        if (requestedMaxTeams < confirmedTeams) {
           return {
             kind: "capacity_conflict" as const,
-            requestedMaxTeams: updates[fixedPartnerLimitField],
+            requestedMaxTeams,
             confirmedTeams,
           };
         }

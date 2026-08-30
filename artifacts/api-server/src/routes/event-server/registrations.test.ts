@@ -1439,6 +1439,16 @@ describe("mixed fixed-partner roster edit capacity operations", () => {
 });
 
 describe("fixed-partner event limit updates", () => {
+  it("accepts equal minimum and maximum team limits", async () => {
+    const ev = await createFixedEvent({ minTeams: 2, maxTeams: 8 });
+
+    const result = await updateFixedEvent(ev.id, { minTeams: 6, maxTeams: 6 });
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.minTeams, 6);
+    assert.equal(result.body.maxTeams, 6);
+  });
+
   it("rejects a minimum team limit above the existing maximum", async () => {
     const ev = await createFixedEvent({ minTeams: 2, maxTeams: 8 });
 
@@ -1549,6 +1559,15 @@ describe("fixed-partner event limit updates", () => {
 });
 
 describe("fixed-partner event creation limits", () => {
+  it("accepts equal minimum and maximum team limits", async () => {
+    const result = await createFixedEventViaApi({ minTeams: 6, maxTeams: 6 });
+
+    assert.equal(result.status, 201);
+    assert.equal(result.body[0].minTeams, 6);
+    assert.equal(result.body[0].maxTeams, 6);
+    createdFixedEventIds.push(result.body[0].id);
+  });
+
   it("rejects minTeams above the default maxTeams without persisting an event", async () => {
     const result = await createFixedEventViaApi({ minTeams: 9 });
 
@@ -1581,6 +1600,18 @@ describe("fixed-partner event creation limits", () => {
 });
 
 describe("rotating event creation limits", () => {
+  it("accepts equal minimum and maximum participant limits", async () => {
+    const result = await createRotatingEventViaApi({
+      minParticipants: 12,
+      maxParticipants: 12,
+    });
+
+    assert.equal(result.status, 201);
+    assert.equal(result.body[0].minParticipants, 12);
+    assert.equal(result.body[0].maxParticipants, 12);
+    createdEventIds.push(result.body[0].id);
+  });
+
   it("rejects minParticipants above the default maxParticipants without persisting an event", async () => {
     const result = await createRotatingEventViaApi({ minParticipants: 17 });
 
@@ -1616,6 +1647,19 @@ describe("rotating event creation limits", () => {
 });
 
 describe("rotating event limit updates", () => {
+  it("accepts equal minimum and maximum participant limits", async () => {
+    const ev = await createEvent({ minParticipants: 2, maxParticipants: 16 });
+
+    const result = await updateRotatingEvent(ev.id, {
+      minParticipants: 8,
+      maxParticipants: 8,
+    });
+
+    assert.equal(result.status, 200);
+    assert.equal(result.body.minParticipants, 8);
+    assert.equal(result.body.maxParticipants, 8);
+  });
+
   it("accepts safe participant limit changes and preserves the event response shape", async () => {
     const ev = await createEvent({ minParticipants: 2, maxParticipants: 4 });
     const confirmed = await createMember();
