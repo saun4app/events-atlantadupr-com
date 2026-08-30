@@ -327,7 +327,8 @@ export abstract class BaseEventController {
     const rotatingLimitField = ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField;
     if (
       this.format === rotatingPartnerConfig.format &&
-      typeof updates[rotatingLimitField] === "number" &&
+      (typeof updates.minParticipants === "number" ||
+        typeof updates[rotatingLimitField] === "number") &&
       rotatingPartnerEventLimitUpdateIsConfigured()
     ) {
       const capacityUpdate = await db.transaction(async (tx) => {
@@ -340,6 +341,18 @@ export abstract class BaseEventController {
           .from(this.table)
           .where(eq(this.table.id, eventId));
         if (!current) return { kind: "missing" as const };
+
+        const requestedMinParticipants =
+          updates.minParticipants ?? current.minParticipants;
+        const requestedMaxParticipants =
+          updates[rotatingLimitField] ?? current[rotatingLimitField];
+        if (requestedMinParticipants > requestedMaxParticipants) {
+          return {
+            kind: "range_conflict" as const,
+            requestedMinParticipants,
+            requestedMaxParticipants,
+          };
+        }
 
         const [{ confirmedCount }] = await tx
           .select({ confirmedCount: count() })
@@ -355,10 +368,10 @@ export abstract class BaseEventController {
             ),
           );
         const confirmedParticipants = Number(confirmedCount);
-        if (updates[rotatingLimitField] < confirmedParticipants) {
+        if (requestedMaxParticipants < confirmedParticipants) {
           return {
             kind: "capacity_conflict" as const,
-            requestedMaxParticipants: updates[rotatingLimitField],
+            requestedMaxParticipants,
             confirmedParticipants,
           };
         }
@@ -373,6 +386,13 @@ export abstract class BaseEventController {
 
       if (capacityUpdate.kind === "missing") {
         return res.status(404).json({ error: "Event not found" });
+      }
+      if (capacityUpdate.kind === "range_conflict") {
+        return res.status(400).json({
+          error:
+            `Cannot set the minimum participant limit to ${capacityUpdate.requestedMinParticipants}: ` +
+            `it cannot exceed the maximum participant limit of ${capacityUpdate.requestedMaxParticipants}.`,
+        });
       }
       if (capacityUpdate.kind === "capacity_conflict") {
         return res.status(400).json({

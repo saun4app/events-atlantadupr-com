@@ -1463,8 +1463,45 @@ describe("fixed-partner event limit updates", () => {
 });
 
 describe("rotating event limit updates", () => {
+  it("rejects a minimum participant limit above the existing maximum", async () => {
+    const ev = await createEvent({ minParticipants: 4, maxParticipants: 16 });
+
+    const result = await updateRotatingEvent(ev.id, { minParticipants: 17 });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /minimum participant limit.*maximum participant limit/i);
+    const [unchanged] = await db
+      .select({
+        minParticipants: eventsRotatingTable.minParticipants,
+        maxParticipants: eventsRotatingTable.maxParticipants,
+      })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, ev.id));
+    assert.deepEqual(unchanged, { minParticipants: 4, maxParticipants: 16 });
+  });
+
+  it("rejects contradictory participant limits without persisting either value", async () => {
+    const ev = await createEvent({ minParticipants: 4, maxParticipants: 16 });
+
+    const result = await updateRotatingEvent(ev.id, {
+      minParticipants: 12,
+      maxParticipants: 8,
+    });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /cannot exceed.*maximum participant limit/i);
+    const [unchanged] = await db
+      .select({
+        minParticipants: eventsRotatingTable.minParticipants,
+        maxParticipants: eventsRotatingTable.maxParticipants,
+      })
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, ev.id));
+    assert.deepEqual(unchanged, { minParticipants: 4, maxParticipants: 16 });
+  });
+
   it("rejects lowering maxParticipants below the current confirmed-participant count", async () => {
-    const ev = await createEvent({ maxParticipants: 3 });
+    const ev = await createEvent({ minParticipants: 1, maxParticipants: 3 });
     const first = await createMember();
     const second = await createMember();
     await insertReg(ev.id, first.duprId, "confirmed");
@@ -1482,7 +1519,7 @@ describe("rotating event limit updates", () => {
   });
 
   it("serializes concurrent limit changes against the confirmed-participant count", async () => {
-    const ev = await createEvent({ maxParticipants: 3 });
+    const ev = await createEvent({ minParticipants: 1, maxParticipants: 3 });
     const first = await createMember();
     const second = await createMember();
     await insertReg(ev.id, first.duprId, "confirmed");
