@@ -62,6 +62,9 @@ test("organizer fixed-partner event detail and edit form load cleanly", async ({
   ).toBeVisible();
   await expect(dialog.getByLabel("Min Teams")).toHaveValue("2");
   await expect(dialog.getByLabel("Max Teams")).toHaveValue("8");
+  await expect(page.getByTestId("input-edit-max-partner-gap")).toHaveValue(
+    "0.5",
+  );
   await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
 
   expect(runtimeErrors).toEqual([]);
@@ -93,4 +96,43 @@ test("organizer can save fixed-partner team settings", async ({ page }) => {
   expect(payload).not.toHaveProperty("maxParticipants");
 
   await expect(page.getByText("/ 10 max teams")).toBeVisible();
+});
+
+test("organizer can save fixed-partner rating settings", async ({ page }) => {
+  await mockFixedPartnerAdminApi(page);
+  await page.goto("/admin/events/fixed_partner/1");
+
+  await page.getByTestId("button-edit-event").click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+
+  const partnerGapInput = page.getByTestId("input-edit-max-partner-gap");
+  await expect(partnerGapInput).toHaveValue("0.5");
+  await partnerGapInput.fill("1.25");
+
+  const updateRequestPromise = page.waitForRequest(
+    (request) =>
+      request.url().includes("/api/events/fixed_partner/1") &&
+      request.method() === "PATCH",
+  );
+  await page.getByTestId("button-submit-edit-event").click();
+
+  const updateRequest = await updateRequestPromise;
+  const payload = JSON.parse(updateRequest.postData() ?? "{}");
+  expect(payload).toMatchObject({
+    ratingTypeRequired: "dupr",
+    ratingConfig: {
+      min: 2,
+      max: 4,
+      nrAllowed: false,
+      maxPartnerGap: 1.25,
+    },
+  });
+
+  await expect(dialog).toBeHidden();
+  await page.getByTestId("button-edit-event").click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await expect(page.getByTestId("input-edit-max-partner-gap")).toHaveValue(
+    "1.25",
+  );
 });

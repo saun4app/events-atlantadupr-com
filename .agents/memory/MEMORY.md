@@ -8,3 +8,4 @@
 - [Fixed-partner schema validation](fixed-partner-schema-validation.md) — Ajv 2020 needs strictTypes disabled for the schema’s conditional fragments; retain all-errors path formatting
 - [Shared runtime configuration package](shared-config-package.md) — shared API/browser config logic needs its own workspace package boundary, not a direct app-config TS import
 - [Stateful browser mutation fixtures](stateful-e2e-mocks.md) — mutation tests should model server state so post-save refetches prove the UI persisted changes
+- [Playwright system browser](playwright-system-browser.md) — use the repository e2e script to select Nix Chromium instead of the bundled browser
