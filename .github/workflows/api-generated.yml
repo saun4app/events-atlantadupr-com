@@ -1,0 +1,31 @@
+name: Check generated API clients
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api-generated:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check generated API clients
+        run: pnpm run check:api-generated
