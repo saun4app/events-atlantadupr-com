@@ -29,6 +29,9 @@ import type {
   FixedPartnerCapacityDecisionOperation,
   FixedPartnerCapacityWriteOperation,
 } from "../../lib/fixed-partner-config.js";
+import type {
+  RotatingPartnerCapacityOperation,
+} from "../../lib/rotating-partner-config.js";
 
 const router = Router({ mergeParams: true });
 
@@ -164,7 +167,9 @@ function fixedPartnerCapacityWriteIsSerialized(
   );
 }
 
-function rotatingPartnerCapacityIsEnforced(operation: string): boolean {
+function rotatingPartnerCapacityIsEnforced(
+  operation: RotatingPartnerCapacityOperation,
+): boolean {
   return (
     ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.capacityUnit === "participant" &&
     ROTATING_PARTNER_CAPACITY_FIELD === "maxParticipants" &&
@@ -172,7 +177,9 @@ function rotatingPartnerCapacityIsEnforced(operation: string): boolean {
   );
 }
 
-function rotatingPartnerCapacityWriteIsSerialized(operation: string): boolean {
+function rotatingPartnerCapacityWriteIsSerialized(
+  operation: RotatingPartnerCapacityOperation,
+): boolean {
   return (
     ROTATING_CAPACITY_SERIALIZATION_REQUIREMENT.lockStrategy ===
       "postgres_advisory_xact" &&
@@ -1618,7 +1625,7 @@ router.patch(
           return res.status(400).json({ error: "Event is full and waitlist is disabled" });
         }
         updatedReg = updateResult.registration ?? existing;
-      } else if (eventType === "rotating" && event) {
+      } else if (eventType === ROTATING_PARTNER_FORMAT && event) {
         // A roster edit can promote a pending or waitlisted registration
         // directly to confirmed. Serialize that decision with sign-ups and
         // approvals so it cannot claim the same final slot concurrently.
