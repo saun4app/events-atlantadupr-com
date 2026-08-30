@@ -128,6 +128,26 @@ async function register(eventId: number, memberDuprId: string) {
   return { status: res.status, body };
 }
 
+async function registerFixed(
+  eventId: number,
+  memberDuprId: string,
+  partnerDuprId: string,
+) {
+  const res = await fetch(
+    `${baseUrl}/events/fixed_partner/${eventId}/registrations`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${STAFF_TOKEN}`,
+      },
+      body: JSON.stringify({ memberDuprId, partnerDuprId }),
+    },
+  );
+  const body = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body };
+}
+
 async function registerPublic(
   eventId: number,
   email: string,
@@ -147,9 +167,13 @@ async function registerPublic(
   return { status: res.status, body: responseBody };
 }
 
-async function approve(eventId: number, registrationId: number) {
+async function approve(
+  eventId: number,
+  registrationId: number,
+  eventType: "rotating" | "fixed_partner" = "rotating",
+) {
   const res = await fetch(
-    `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}/approve`,
+    `${baseUrl}/events/${eventType}/${eventId}/registrations/${registrationId}/approve`,
     {
       method: "POST",
       headers: {
@@ -995,6 +1019,90 @@ describe("promote-from-waitlist: concurrent fixed-partner capacity", () => {
         "concurrent fixed-partner promotions must never exceed maxTeams",
       );
       assert.equal(rows.filter((row) => row.status === "waitlisted").length, 1);
+    });
+  }
+});
+
+describe("mixed fixed-partner capacity operations", () => {
+  for (const waitlistEnabled of [true, false]) {
+    it(`never accepts more than one team when signup, approval, and promotion race with waitlisting ${waitlistEnabled ? "enabled" : "disabled"}`, async () => {
+      const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled });
+      const approvalPrimary = await createMember();
+      const approvalPartner = await createMember();
+      const promotionPrimary = await createMember();
+      const promotionPartner = await createMember();
+      const signupPrimary = await createMember();
+      const signupPartner = await createMember();
+      const approvalReg = await insertReg(
+        ev.id,
+        approvalPrimary.duprId,
+        "pending_approval",
+        { partnerDuprId: approvalPartner.duprId },
+        "fixed_partner",
+      );
+      const promotionReg = await insertReg(
+        ev.id,
+        promotionPrimary.duprId,
+        "waitlisted",
+        { partnerDuprId: promotionPartner.duprId },
+        "fixed_partner",
+      );
+
+      const results = await Promise.all([
+        registerFixed(ev.id, signupPrimary.duprId, signupPartner.duprId),
+        approve(ev.id, approvalReg.id, "fixed_partner"),
+        promote(ev.id, promotionReg.id, "fixed_partner"),
+      ]);
+
+      assert.equal(
+        results.filter(
+          (result) =>
+            (result.status === 201 && result.body.status === "confirmed") ||
+            (result.status === 200 && result.body.status === "confirmed"),
+        ).length,
+        1,
+        "exactly one operation should claim the only team slot",
+      );
+      assert.equal(
+        results.filter((result) => result.status === 400).length,
+        waitlistEnabled ? 1 : 2,
+        "full-event operations should return the correct response",
+      );
+
+      const rows = await db
+        .select()
+        .from(registrationsTable)
+        .where(
+          and(
+            eq(registrationsTable.eventId, ev.id),
+            eq(registrationsTable.eventType, "fixed_partner"),
+          ),
+        );
+      assert.equal(
+        rows.filter((row) => row.status === "confirmed").length,
+        1,
+        "mixed fixed-partner operations must never exceed maxTeams",
+      );
+      assert.ok(
+        rows.filter((row) => row.status === "confirmed").length <= ev.maxTeams,
+        "confirmed teams must stay within maxTeams",
+      );
+      if (waitlistEnabled) {
+        assert.equal(rows.filter((row) => row.status === "waitlisted").length, 2);
+      } else {
+        assert.equal(
+          rows.some((row) => row.id === approvalReg.id && row.status === "pending_approval"),
+          results[1].status === 400,
+        );
+        assert.equal(
+          rows.some((row) => row.memberDuprId === signupPrimary.duprId),
+          results[0].status === 201,
+        );
+        assert.equal(
+          rows.some((row) => row.id === promotionReg.id && row.status === "waitlisted"),
+          results[2].status === 400,
+        );
+      }
     });
   }
 });

@@ -284,6 +284,15 @@ function eventCapacityLockKey(eventType: EventFormat, eventId: number): string |
   return null;
 }
 
+function eventCapacityLimit(
+  eventType: EventFormat,
+  event: NonNullable<Awaited<ReturnType<typeof getNormalizedEvent>>>,
+): number {
+  return eventType === FIXED_PARTNER_FORMAT
+    ? event.maxTeams ?? Math.floor(event.maxParticipants / 2)
+    : event.maxParticipants;
+}
+
 async function findActiveFixedPartnerMembership(
   eventId: number,
   memberDuprIds: string[],
@@ -882,7 +891,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
       if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
         currentStatus = "pending_approval";
-      } else if (currentConfirmedCount >= event.maxParticipants) {
+      } else if (currentConfirmedCount >= eventCapacityLimit(eventType, event)) {
         if (!event.waitlistEnabled) {
           return {
             kind: "conflict" as const,
@@ -958,7 +967,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       let currentStatus: "confirmed" | "waitlisted" | "pending_approval" = "confirmed";
       if (event.requireApproval === "all" || (event.requireApproval === "nr_only" && isNR(member?.doubles ?? null))) {
         currentStatus = "pending_approval";
-      } else if (currentConfirmedCount >= event.maxParticipants) {
+      } else if (currentConfirmedCount >= eventCapacityLimit(eventType, event)) {
         if (!event.waitlistEnabled) {
           return {
             kind: "conflict" as const,
@@ -1372,7 +1381,7 @@ router.patch(
               .from(registrationsTable)
               .where(regScope(eventId, eventType));
             const confirmedCount = currentRegs.filter((r) => r.status === "confirmed").length;
-            if (confirmedCount >= event.maxParticipants) {
+            if (confirmedCount >= eventCapacityLimit(eventType, event)) {
               if (!event.waitlistEnabled) {
                 return { kind: "full" as const };
               }
@@ -1458,12 +1467,12 @@ router.post(
 
     const sessionUserId = (req as any).session?.userId;
     const approvalResult = await db.transaction(async (tx) => {
-      // Rotating-event sign-ups use this event-scoped lock for their capacity
-      // decision. Approval must use the same lock so concurrent sign-ups and
-      // approvals cannot both observe the same open slot.
-      if (eventType === "rotating") {
+      // Approval must use the same event-scoped lock as sign-ups and
+      // promotions so concurrent capacity decisions cannot claim one slot.
+      const capacityLockKey = eventCapacityLockKey(eventType, eventId);
+      if (capacityLockKey) {
         await tx.execute(
-          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${capacityLockKey}, 0))`,
         );
       }
 
@@ -1471,7 +1480,7 @@ router.post(
       const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
 
       let newStatus: "confirmed" | "waitlisted";
-      if (confirmedCount >= event.maxParticipants) {
+      if (confirmedCount >= eventCapacityLimit(eventType, event)) {
         if (!event.waitlistEnabled) {
           return { kind: "full" as const };
         }
@@ -1558,10 +1567,7 @@ router.post(
 
       const allRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
       const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
-      const maxConfirmed =
-        eventType === FIXED_PARTNER_FORMAT
-          ? event?.maxTeams ?? Math.floor((event?.maxParticipants ?? 0) / 2)
-          : event?.maxParticipants ?? 0;
+      const maxConfirmed = eventCapacityLimit(eventType, event!);
 
       if (confirmedCount >= maxConfirmed) {
         return { kind: "full" as const };
