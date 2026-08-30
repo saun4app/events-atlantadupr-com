@@ -8,6 +8,7 @@ import {
   membersTable,
   eventsRotatingTable,
   sessionsTable,
+  usersTable,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
@@ -29,6 +30,7 @@ let baseUrl: string;
 // no uniqueness constraints, so leftover rows could silently corrupt later runs.
 const createdEventIds: number[] = [];
 const createdMemberIds: string[] = [];
+const createdUserIds: number[] = [];
 
 async function createEvent(
   overrides: Partial<typeof eventsRotatingTable.$inferInsert> = {},
@@ -119,6 +121,20 @@ async function register(eventId: number, memberDuprId: string) {
   return { status: res.status, body };
 }
 
+async function approve(eventId: number, registrationId: number) {
+  const res = await fetch(
+    `${baseUrl}/events/rotating/${eventId}/registrations/${registrationId}/approve`,
+    {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${STAFF_TOKEN}`,
+      },
+    },
+  );
+  const body = (await res.json().catch(() => null)) as any;
+  return { status: res.status, body };
+}
+
 async function memberRows(eventId: number, memberDuprId: string) {
   return db
     .select()
@@ -133,12 +149,23 @@ async function memberRows(eventId: number, memberDuprId: string) {
 }
 
 before(async () => {
+  const [staffUser] = await db
+    .insert(usersTable)
+    .values({
+      name: "Test Staff",
+      username: "test-staff-" + Math.random().toString(36).slice(2),
+      passwordHash: "test-password-hash",
+      role: "admin",
+    })
+    .returning();
+  createdUserIds.push(staffUser.id);
+
   await db
     .insert(sessionsTable)
-    .values({ token: STAFF_TOKEN, data: { userId: -1, role: "admin" } })
+    .values({ token: STAFF_TOKEN, data: { userId: staffUser.id, role: "admin" } })
     .onConflictDoUpdate({
       target: sessionsTable.token,
-      set: { data: { userId: -1, role: "admin" } },
+      set: { data: { userId: staffUser.id, role: "admin" } },
     });
 
   server = app.listen(0);
@@ -168,6 +195,9 @@ afterEach(async () => {
 
 after(async () => {
   await db.delete(sessionsTable).where(eq(sessionsTable.token, STAFF_TOKEN));
+  for (const userId of createdUserIds) {
+    await db.delete(usersTable).where(eq(usersTable.id, userId));
+  }
   await new Promise<void>((resolve) => server.close(() => resolve()));
   // Release the pooled DB connections so the test process can exit cleanly.
   await pool.end();
@@ -360,5 +390,61 @@ describe("create-registration: concurrent rotating-event capacity", () => {
       .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
     assert.equal(rows.length, 1);
     assert.equal(rows[0].status, "confirmed");
+  });
+});
+
+describe("approve-registration: concurrent rotating-event capacity", () => {
+  it("confirms only one concurrent approval and waitlists the other when waitlisting is enabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: true });
+    const first = await createMember();
+    const second = await createMember();
+    const firstReg = await insertReg(ev.id, first.duprId, "pending_approval");
+    const secondReg = await insertReg(ev.id, second.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      approve(ev.id, firstReg.id),
+      approve(ev.id, secondReg.id),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 200],
+    );
+    assert.deepEqual(
+      results.map((result) => result.body.status).sort(),
+      ["confirmed", "waitlisted"],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+    assert.equal(rows.filter((row) => row.status === "waitlisted").length, 1);
+  });
+
+  it("approves only one concurrent registration when waitlisting is disabled", async () => {
+    const ev = await createEvent({ maxParticipants: 1, waitlistEnabled: false });
+    const first = await createMember();
+    const second = await createMember();
+    const firstReg = await insertReg(ev.id, first.duprId, "pending_approval");
+    const secondReg = await insertReg(ev.id, second.duprId, "pending_approval");
+
+    const results = await Promise.all([
+      approve(ev.id, firstReg.id),
+      approve(ev.id, secondReg.id),
+    ]);
+
+    assert.deepEqual(
+      results.map((result) => result.status).sort((a, b) => a - b),
+      [200, 400],
+    );
+
+    const rows = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, ev.id), eq(registrationsTable.eventType, "rotating")));
+    assert.equal(rows.filter((row) => row.status === "confirmed").length, 1);
+    assert.equal(rows.filter((row) => row.status === "pending_approval").length, 1);
   });
 });

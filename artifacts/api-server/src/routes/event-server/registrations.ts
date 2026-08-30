@@ -1235,27 +1235,44 @@ router.post(
     const event = await getNormalizedEvent(eventType, eventId);
     if (!event) return res.status(404).json({ error: "Event not found" });
 
-    const allRegs = await db.select().from(registrationsTable).where(regScope(eventId, eventType));
-    const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
-
-    let newStatus: "confirmed" | "waitlisted";
-    if (confirmedCount >= event.maxParticipants) {
-      if (!event.waitlistEnabled) {
-        return res.status(400).json({ error: "Event is full and waitlist is disabled; cannot approve" });
+    const sessionUserId = (req as any).session?.userId;
+    const approvalResult = await db.transaction(async (tx) => {
+      // Rotating-event sign-ups use this event-scoped lock for their capacity
+      // decision. Approval must use the same lock so concurrent sign-ups and
+      // approvals cannot both observe the same open slot.
+      if (eventType === "rotating") {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`atl-dupr:rotating:${eventId}`}, 0))`,
+        );
       }
-      newStatus = "waitlisted";
-    } else {
-      newStatus = "confirmed";
+
+      const allRegs = await tx.select().from(registrationsTable).where(regScope(eventId, eventType));
+      const confirmedCount = allRegs.filter((r) => r.status === "confirmed").length;
+
+      let newStatus: "confirmed" | "waitlisted";
+      if (confirmedCount >= event.maxParticipants) {
+        if (!event.waitlistEnabled) {
+          return { kind: "full" as const };
+        }
+        newStatus = "waitlisted";
+      } else {
+        newStatus = "confirmed";
+      }
+
+      const [updated] = await tx
+        .update(registrationsTable)
+        .set({ status: newStatus, approvedAt: new Date(), approvedBy: sessionUserId })
+        .where(and(eq(registrationsTable.id, Number(req.params.regId)), regScope(eventId, eventType)))
+        .returning();
+
+      return { kind: "approved" as const, registration: updated };
+    });
+
+    if (approvalResult.kind === "full") {
+      return res.status(400).json({ error: "Event is full and waitlist is disabled; cannot approve" });
     }
 
-    const sessionUserId = (req as any).session?.userId;
-    const [updated] = await db
-      .update(registrationsTable)
-      .set({ status: newStatus, approvedAt: new Date(), approvedBy: sessionUserId })
-      .where(eq(registrationsTable.id, Number(req.params.regId)))
-      .returning();
-
-    return res.json(buildRosterEntry(updated, true, eventType));
+    return res.json(buildRosterEntry(approvalResult.registration, true, eventType));
   },
 );
 
