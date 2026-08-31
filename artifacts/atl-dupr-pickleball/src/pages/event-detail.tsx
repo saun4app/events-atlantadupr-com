@@ -320,13 +320,20 @@ export default function EventDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: event, isLoading: evLoading } = useGetEvent(
+  const {
+    data: event,
+    isLoading: evLoading,
+    isError: evError,
+    isFetching: evFetching,
+    refetch: refetchEvent,
+  } = useGetEvent(
     eventType,
     eventId,
     {
       query: {
         enabled: !!eventId && validEventType,
         queryKey: getGetEventQueryKey(eventType, eventId),
+        retry: false,
       },
     },
   );
@@ -416,6 +423,36 @@ export default function EventDetail() {
           <Skeleton className="h-8 w-48" />
           <Skeleton className="h-48 w-full" />
           <Skeleton className="h-48 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (evError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PublicNav />
+        <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+          <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive/70" />
+          <p
+            className="font-medium text-foreground"
+            data-testid="status-event-load-error"
+          >
+            Event details are temporarily unavailable
+          </p>
+          <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+            We couldn&apos;t load this event right now. Please try again.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-5"
+            onClick={() => refetchEvent()}
+            disabled={evFetching}
+            data-testid="button-retry-event-load"
+          >
+            {evFetching ? "Trying again..." : "Try again"}
+          </Button>
         </div>
       </div>
     );
