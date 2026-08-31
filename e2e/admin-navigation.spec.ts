@@ -41,6 +41,45 @@ const SETTINGS = {
   },
 };
 
+const ROTATING_EVENT = {
+  id: 101,
+  seriesId: null,
+  name: "Rotating Partner admin fixture",
+  eventDescription: "<p>Rotating event details.</p>",
+  description: "<p>Rotating event guidelines.</p>",
+  startDatetime: "2099-06-12T18:00:00.000Z",
+  endDatetime: "2099-06-12T20:00:00.000Z",
+  locationName: "Admin Fixture Courts",
+  locationAddress: "100 Test Lane",
+  teamFormat: "rotating",
+  ratingTypeRequired: "none",
+  ratingConfig: null,
+  minParticipants: 4,
+  maxParticipants: 16,
+  minTeams: null,
+  maxTeams: null,
+  waitlistEnabled: true,
+  requireApproval: "none",
+  signupStartDatetime: "2020-01-01T12:00:00.000Z",
+  signupEndDatetime: "2099-01-01T12:00:00.000Z",
+  showSignupEnd: true,
+  status: "upcoming",
+  courtFeeEnabled: false,
+  memberFee: 0,
+  nonMemberFee: 0,
+  contactEmail: null,
+  createdAt: "2026-01-01T00:00:00.000Z",
+};
+
+const FIXED_PARTNER_EVENT = {
+  ...ROTATING_EVENT,
+  id: 202,
+  name: "Fixed Partner admin fixture",
+  teamFormat: "fixed_partner",
+  minTeams: 2,
+  maxTeams: 8,
+};
+
 async function mockAdminNavigationApi(page: Page, role: AdminRole) {
   await page.route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
@@ -58,6 +97,26 @@ async function mockAdminNavigationApi(page: Page, role: AdminRole) {
     if (
       pathname === "/api/events/rotating" ||
       pathname === "/api/events/fixed_partner"
+    ) {
+      await route.fulfill({ json: [] });
+      return;
+    }
+
+    if (pathname === `/api/events/rotating/${ROTATING_EVENT.id}`) {
+      await route.fulfill({ json: ROTATING_EVENT });
+      return;
+    }
+
+    if (pathname === `/api/events/fixed_partner/${FIXED_PARTNER_EVENT.id}`) {
+      await route.fulfill({ json: FIXED_PARTNER_EVENT });
+      return;
+    }
+
+    if (
+      pathname ===
+        `/api/events/rotating/${ROTATING_EVENT.id}/registrations` ||
+      pathname ===
+        `/api/events/fixed_partner/${FIXED_PARTNER_EVENT.id}/registrations`
     ) {
       await route.fulfill({ json: [] });
       return;
@@ -243,6 +302,16 @@ test("admin pages keep their route and active navigation after refresh", async (
       heading: "Manage Events — Fixed-Partner",
       adminNav: ["nav-manage-events", "/admin/events/fixed_partner"] as const,
       eventNav: ["fixed_partner", "events-nav-fixed_partner"] as const,
+    },
+    {
+      path: `/admin/events/rotating/${ROTATING_EVENT.id}`,
+      heading: ROTATING_EVENT.name,
+      adminNav: ["nav-manage-events", "/admin/events/rotating"] as const,
+    },
+    {
+      path: `/admin/events/fixed_partner/${FIXED_PARTNER_EVENT.id}`,
+      heading: FIXED_PARTNER_EVENT.name,
+      adminNav: ["nav-manage-events", "/admin/events/rotating"] as const,
     },
     {
       path: "/admin/events/rotating/new",
