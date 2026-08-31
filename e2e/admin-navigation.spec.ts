@@ -220,6 +220,76 @@ test("admin can navigate every admin area and event format", async (
   await expectAdminNavigation(page, "nav-settings", "/admin/settings");
 });
 
+test("admin pages keep their route and active navigation after refresh", async (
+  { page },
+  testInfo,
+) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chromium",
+    "The desktop refresh coverage is covered by the desktop browser project",
+  );
+
+  await mockAdminNavigationApi(page, "admin");
+
+  const routes = [
+    {
+      path: "/admin/events/rotating",
+      heading: "Manage Events — Rotating Partners",
+      adminNav: ["nav-manage-events", "/admin/events/rotating"] as const,
+      eventNav: ["rotating", "events-nav-rotating"] as const,
+    },
+    {
+      path: "/admin/events/fixed_partner",
+      heading: "Manage Events — Fixed-Partner",
+      adminNav: ["nav-manage-events", "/admin/events/fixed_partner"] as const,
+      eventNav: ["fixed_partner", "events-nav-fixed_partner"] as const,
+    },
+    {
+      path: "/admin/events/rotating/new",
+      heading: "Create New Event",
+      adminNav: ["nav-manage-events", "/admin/events/rotating"] as const,
+      eventNav: ["rotating", "events-nav-new-event"] as const,
+    },
+    {
+      path: "/admin/events/fixed_partner/new",
+      heading: "Create New Event",
+      adminNav: ["nav-manage-events", "/admin/events/rotating"] as const,
+      eventNav: ["fixed_partner", "events-nav-new-event"] as const,
+    },
+    {
+      path: "/admin/members",
+      heading: "Manage Members",
+      adminNav: ["nav-manage-members", "/admin/members"] as const,
+    },
+    {
+      path: "/admin/users",
+      heading: "Manage Users",
+      adminNav: ["nav-manage-users", "/admin/users"] as const,
+    },
+    {
+      path: "/admin/settings",
+      heading: "App Settings",
+      adminNav: ["nav-settings", "/admin/settings"] as const,
+    },
+  ] as const;
+
+  for (const route of routes) {
+    await page.goto(route.path);
+    await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+    await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
+
+    await page.reload();
+
+    await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+    await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
+    await expectAdminNavigation(page, route.adminNav[0], route.adminNav[1]);
+
+    if ("eventNav" in route) {
+      await expectEventsNavigation(page, route.eventNav[0], route.eventNav[1]);
+    }
+  }
+});
+
 test("event organizers see event navigation but not admin-only areas", async ({
   page,
 }) => {
