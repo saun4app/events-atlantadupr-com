@@ -2,23 +2,23 @@ import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
 import { useLogout, getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Calendar, Users, Shield, LogOut, Menu, Settings, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import {
+  getAdminNavigationItems,
+  isNavigationItemActive,
+  navigationTestId,
+} from "@/lib/site-nav";
 
 export function AdminNav() {
-  const { user, isAdmin, setAuthToken } = useAuth();
+  const { user, setAuthToken } = useAuth();
   const [location] = useLocation();
   const queryClient = useQueryClient();
   const logout = useLogout();
   const [open, setOpen] = useState(false);
 
-  const links = [
-    { href: "/admin/events/rotating", match: "/admin/events", label: "Manage Events", icon: Calendar, roles: ["admin", "event_organizer", "event_captain", "court_leader"] },
-    { href: "/admin/members", match: "/admin/members", label: "Manage Members", icon: Users, roles: ["admin"] },
-    { href: "/admin/users", match: "/admin/users", label: "Manage Users", icon: Shield, roles: ["admin"] },
-    { href: "/admin/settings", match: "/admin/settings", label: "Settings", icon: Settings, roles: ["admin"] },
-  ].filter(l => l.roles.includes(user?.role ?? ""));
+  const links = getAdminNavigationItems(user?.role);
 
   function handleLogout() {
     logout.mutate(undefined, {
@@ -40,19 +40,18 @@ export function AdminNav() {
             </Link>
             <nav className="hidden md:flex items-center gap-1">
               {links.map(l => {
-                const Icon = l.icon;
-                const active = location.startsWith(l.match);
+                const active = isNavigationItemActive(l, location);
                 return (
                   <Link key={l.href} href={l.href}>
                     <span
-                      data-testid={`nav-${l.label.toLowerCase().replace(/ /g, "-")}`}
+                      data-testid={navigationTestId(l)}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
                         active
                           ? "bg-primary text-primary-foreground"
                           : "text-muted-foreground hover:text-foreground hover:bg-muted"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <l.icon className="w-4 h-4" />
                       {l.label}
                     </span>
                   </Link>
@@ -91,19 +90,18 @@ export function AdminNav() {
       {open && (
         <div className="md:hidden border-t border-border bg-white px-4 py-2 space-y-1">
           {links.map(l => {
-            const Icon = l.icon;
-            const active = location.startsWith(l.match);
+            const active = isNavigationItemActive(l, location);
             return (
               <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>
                 <span
-                  data-testid={`nav-mobile-${l.label.toLowerCase().replace(/ /g, "-")}`}
+                  data-testid={navigationTestId(l, true)}
                   className={`flex items-center gap-3 px-3 py-2.5 rounded text-sm font-medium transition-colors ${
                     active
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <l.icon className="w-4 h-4" />
                   {l.label}
                 </span>
               </Link>
