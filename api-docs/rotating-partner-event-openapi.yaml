@@ -1,0 +1,1805 @@
+openapi: 3.1.0
+info:
+  title: Rotating-Partner Event API
+  version: 1.0.0
+  summary: Headless API for rotating-partner events
+  description: >-
+    A standalone, versioned API for rotating-partner event management,
+    registration, verification, capacity, ratings, and roster operations.
+    This contract is intentionally limited to the rotating-partner module.
+    Fixed-partner events must use a separate module and contract.
+  contact:
+    name: API support
+  license:
+    name: Proprietary
+servers:
+  - url: /api/v1/rotating-partner-events
+    description: Rotating-partner API base path
+externalDocs:
+  description: Rotating-partner JSON document model
+  url: ./rotating-partner-event-data-model.json
+x-rotating-partner-config: ./rotating-partner-event-config.json
+x-rotating-partner-data-model: ./rotating-partner-event-data-model.json
+tags:
+  - name: events
+    description: Rotating-partner event lifecycle and discovery
+  - name: registrations
+    description: Participant registration and roster lifecycle
+  - name: participants
+    description: Participant profile lookup and management
+  - name: assignments
+    description: Event staff assignments
+  - name: defaults
+    description: Rotating event defaults
+  - name: communications
+    description: Verification and participant email operations
+paths:
+  /events:
+    get:
+      operationId: listRotatingEvents
+      tags: [events]
+      summary: List rotating-partner events
+      description: Public clients may list upcoming events. Staff may request historical or cancelled events.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Status"
+        - $ref: "#/components/parameters/From"
+        - $ref: "#/components/parameters/To"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paginated rotating-partner events
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventListResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    post:
+      operationId: createRotatingEvent
+      tags: [events]
+      summary: Create a rotating-partner event
+      description: Event-specific values override rotating defaults; missing or invalid server configuration fails closed.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCreateRequest"
+      responses:
+        "201":
+          description: Event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /events/{eventId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: getRotatingEvent
+      tags: [events]
+      summary: Get a rotating-partner event
+      security: []
+      responses:
+        "200":
+          description: Rotating-partner event
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDocument"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateRotatingEvent
+      tags: [events]
+      summary: Update a rotating-partner event
+      description: Capacity reductions are rejected when they would put the confirmed roster over the new limit.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventPatchRequest"
+      responses:
+        "200":
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+    delete:
+      operationId: deleteRotatingEvent
+      tags: [events]
+      summary: Delete a rotating-partner event
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      responses:
+        "204":
+          description: Event deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /events/{eventId}/clone:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: cloneRotatingEvent
+      tags: [events]
+      summary: Clone a rotating-partner event
+      description: Creates a new event using the source event's settings and the configured defaults precedence.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCloneRequest"
+      responses:
+        "201":
+          description: Cloned event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/{eventId}/close:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: closeRotatingEvent
+      tags: [events]
+      summary: Close registration for an event
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      responses:
+        "200":
+          description: Event closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /events/{eventId}/roster-summary:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: getRotatingRosterSummary
+      tags: [events]
+      summary: Get the event roster summary
+      description: Counts confirmed, waitlisted, and pending-approval registrations; cancelled, rejected, and no-show registrations are excluded.
+      security: []
+      responses:
+        "200":
+          description: Roster summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterSummary"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/{eventId}/registrations:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: listRotatingRegistrations
+      tags: [registrations]
+      summary: List registrations for an event
+      description: Public clients receive the public roster view; authorized staff may receive administrative fields.
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/RegistrationStatus"
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paginated event registrations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationListResponse"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createRotatingRegistration
+      tags: [registrations]
+      summary: Register a participant for an event
+      description: >-
+        Supply exactly one accepted participant identifier. Public email-based
+        registration requires a valid verification code. The server resolves
+        the participant, validates any configured rating requirement, captures a
+        registration snapshot, and makes an atomic capacity decision.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationCreateRequest"
+      responses:
+        "201":
+          description: Registration created or reactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRegistrationDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
+
+  /events/{eventId}/registrations/request-code:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: requestRotatingRegistrationCode
+      tags: [communications]
+      summary: Request an email verification code
+      description: The response does not reveal whether an email belongs to a participant.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationCodeRequest"
+      responses:
+        "200":
+          description: Code request accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationCodeResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /events/{eventId}/registrations/cancel:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: cancelRotatingRegistrationByParticipant
+      tags: [registrations]
+      summary: Cancel a registration using email verification
+      description: Looks up the registration from its captured snapshot email and consumes the verification code on success.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationCancelRequest"
+      responses:
+        "200":
+          description: Registration cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PublicRegistrationDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+
+  /events/{eventId}/registrations/{registrationId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/RegistrationId"
+    get:
+      operationId: getRotatingRegistration
+      tags: [registrations]
+      summary: Get a registration
+      description: Full registration documents contain contact snapshots and are never returned to unauthenticated clients.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "200":
+          description: Registration document
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateRotatingRegistration
+      tags: [registrations]
+      summary: Update a registration
+      description: Staff roster edits use the same event-scoped capacity lock as registration and approval operations.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationPatchRequest"
+      responses:
+        "200":
+          description: Registration updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+    delete:
+      operationId: deleteRotatingRegistration
+      tags: [registrations]
+      summary: Remove a registration
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "204":
+          description: Registration removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/{eventId}/registrations/{registrationId}/approve:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/RegistrationId"
+    post:
+      operationId: approveRotatingRegistration
+      tags: [registrations]
+      summary: Approve a pending registration
+      description: Approval is serialized with signups and waitlist promotion; if full, the configured waitlist action is applied.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "200":
+          description: Registration approved or waitlisted according to capacity
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /events/{eventId}/registrations/{registrationId}/reject:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/RegistrationId"
+    post:
+      operationId: rejectRotatingRegistration
+      tags: [registrations]
+      summary: Reject a pending registration
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "200":
+          description: Registration rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/{eventId}/registrations/{registrationId}/promote:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/RegistrationId"
+    post:
+      operationId: promoteRotatingRegistration
+      tags: [registrations]
+      summary: Promote a waitlisted registration
+      description: The promotion is rejected when the confirmed participant capacity remains full.
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "200":
+          description: Registration promoted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RegistrationDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /events/{eventId}/registrations/bulk-set-assigned-ratings:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: bulkSetRotatingAssignedRatings
+      tags: [registrations]
+      summary: Initialize missing assigned ratings from participant snapshots
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "200":
+          description: Number of updated registrations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BulkAssignedRatingsResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /events/{eventId}/broadcast:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    post:
+      operationId: broadcastRotatingEventEmail
+      tags: [communications]
+      summary: Broadcast an email to confirmed participants
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastRequest"
+      responses:
+        "200":
+          description: Broadcast accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BroadcastResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /participants:
+    get:
+      operationId: listRotatingParticipants
+      tags: [participants]
+      summary: List participant profiles
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+            minLength: 1
+          description: Search by name, normalized email, or DUPR member identifier.
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/PageSize"
+      responses:
+        "200":
+          description: Paginated participant profiles
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantListResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    post:
+      operationId: createRotatingParticipant
+      tags: [participants]
+      summary: Create a participant profile
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantProfileInput"
+      responses:
+        "201":
+          description: Participant profile created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /participants/{participantId}:
+    parameters:
+      - $ref: "#/components/parameters/ParticipantId"
+    get:
+      operationId: getRotatingParticipant
+      tags: [participants]
+      summary: Get a participant profile
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer, event_captain, court_leader]
+      responses:
+        "200":
+          description: Participant profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      operationId: updateRotatingParticipant
+      tags: [participants]
+      summary: Update a participant profile
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      parameters:
+        - $ref: "#/components/parameters/IfMatch"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ParticipantProfilePatch"
+      responses:
+        "200":
+          description: Participant profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ParticipantDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /events/{eventId}/assignments:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+    get:
+      operationId: listRotatingEventAssignments
+      tags: [assignments]
+      summary: List staff assignments for an event
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      responses:
+        "200":
+          description: Event assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssignmentDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    post:
+      operationId: createRotatingEventAssignment
+      tags: [assignments]
+      summary: Assign a staff member to an event
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignmentInput"
+      responses:
+        "201":
+          description: Assignment created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AssignmentDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+  /events/{eventId}/assignments/{assignmentId}:
+    parameters:
+      - $ref: "#/components/parameters/EventId"
+      - $ref: "#/components/parameters/AssignmentId"
+    delete:
+      operationId: deleteRotatingEventAssignment
+      tags: [assignments]
+      summary: Remove a staff assignment
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      responses:
+        "204":
+          description: Assignment removed
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /defaults:
+    get:
+      operationId: getRotatingEventDefaults
+      tags: [defaults]
+      summary: Get rotating event defaults
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin, event_organizer]
+      responses:
+        "200":
+          description: Rotating event defaults
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDefaultsDocument"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+    put:
+      operationId: updateRotatingEventDefaults
+      tags: [defaults]
+      summary: Replace rotating event defaults
+      security:
+        - bearerAuth: []
+        - sessionCookieAuth: []
+      x-required-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventDefaultsInput"
+      responses:
+        "200":
+          description: Rotating event defaults updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDefaultsDocument"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque-session-token
+      description: API session or access token issued by the host authentication service.
+    sessionCookieAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+      description: Host session cookie. CSRF protection is required for cookie-authenticated mutations.
+
+  parameters:
+    EventId:
+      name: eventId
+      in: path
+      required: true
+      description: Stable rotating event document ID.
+      schema:
+        type: string
+        minLength: 1
+    RegistrationId:
+      name: registrationId
+      in: path
+      required: true
+      description: Stable registration document ID.
+      schema:
+        type: string
+        minLength: 1
+    ParticipantId:
+      name: participantId
+      in: path
+      required: true
+      description: Stable participant document ID.
+      schema:
+        type: string
+        minLength: 1
+    AssignmentId:
+      name: assignmentId
+      in: path
+      required: true
+      description: Stable assignment document ID.
+      schema:
+        type: string
+        minLength: 1
+    Status:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/EventStatus"
+    RegistrationStatus:
+      name: status
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/RegistrationStatus"
+    From:
+      name: from
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Include events starting at or after this timestamp.
+    To:
+      name: to
+      in: query
+      required: false
+      schema:
+        type: string
+        format: date-time
+      description: Include events starting before or at this timestamp.
+    Page:
+      name: page
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 25
+    IfMatch:
+      name: If-Match
+      in: header
+      required: false
+      description: Optional expected document version or updatedAt value for optimistic concurrency.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Request syntax or business rule is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Unauthorized:
+      description: Authentication is required or invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Forbidden:
+      description: The authenticated principal lacks the required role or event access.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    NotFound:
+      description: Resource was not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    Conflict:
+      description: The mutation conflicts with current state, capacity, or document version.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    RateLimited:
+      description: Request rate exceeded the configured IP or email limit.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+            minimum: 1
+          description: Seconds until retry is permitted.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    UnprocessableEntity:
+      description: Request is syntactically valid but fails event-specific validation.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+    ServiceUnavailable:
+      description: The module configuration or a required dependency is unavailable.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Problem"
+
+  schemas:
+    DocumentEnvelope:
+      type: object
+      required: [documentId, documentType, schemaVersion, module, createdAt, updatedAt, data]
+      properties:
+        documentId:
+          type: string
+          minLength: 1
+        documentType:
+          type: string
+        schemaVersion:
+          type: integer
+          minimum: 1
+        module:
+          type: string
+          const: rotating-partner-events
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        data:
+          type: object
+      additionalProperties: false
+
+    EventDocument:
+      allOf:
+        - $ref: "#/components/schemas/DocumentEnvelope"
+        - type: object
+          properties:
+            documentType:
+              const: rotating_event
+            data:
+              $ref: "#/components/schemas/Event"
+
+    RegistrationDocument:
+      allOf:
+        - $ref: "#/components/schemas/DocumentEnvelope"
+        - type: object
+          properties:
+            documentType:
+              const: rotating_registration
+            data:
+              $ref: "#/components/schemas/Registration"
+
+    PublicRegistrationDocument:
+      description: Public registration view with contact details and private lifecycle metadata removed.
+      allOf:
+        - $ref: "#/components/schemas/DocumentEnvelope"
+        - type: object
+          properties:
+            documentType:
+              const: rotating_registration
+            data:
+              $ref: "#/components/schemas/PublicRegistration"
+
+    ParticipantDocument:
+      allOf:
+        - $ref: "#/components/schemas/DocumentEnvelope"
+        - type: object
+          properties:
+            documentType:
+              const: participant_profile
+            data:
+              $ref: "#/components/schemas/ParticipantProfile"
+
+    AssignmentDocument:
+      allOf:
+        - $ref: "#/components/schemas/DocumentEnvelope"
+        - type: object
+          properties:
+            documentType:
+              const: event_assignment
+            data:
+              $ref: "#/components/schemas/Assignment"
+
+    EventDefaultsDocument:
+      allOf:
+        - $ref: "#/components/schemas/DocumentEnvelope"
+        - type: object
+          properties:
+            documentType:
+              const: rotating_event_defaults
+            data:
+              $ref: "#/components/schemas/EventDefaults"
+
+    Event:
+      type: object
+      required:
+        - eventId
+        - name
+        - startDatetime
+        - endDatetime
+        - timeZone
+        - locationName
+        - ratingTypeRequired
+        - minParticipants
+        - maxParticipants
+        - waitlistEnabled
+        - requireApproval
+        - signupStartDatetime
+        - signupEndDatetime
+        - showSignupEnd
+        - status
+        - courtFeeEnabled
+        - memberFee
+        - nonMemberFee
+      properties:
+        eventId:
+          type: string
+          minLength: 1
+        seriesId:
+          type: [string, "null"]
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: [string, "null"]
+        eventDescription:
+          type: [string, "null"]
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        timeZone:
+          type: string
+          description: IANA timezone for event-local input.
+        locationName:
+          type: string
+          minLength: 1
+        locationAddress:
+          type: string
+        ratingTypeRequired:
+          $ref: "#/components/schemas/RatingType"
+        ratingConfig:
+          type: [object, "null"]
+          additionalProperties: true
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+        waitlistEnabled:
+          type: boolean
+        requireApproval:
+          $ref: "#/components/schemas/ApprovalMode"
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+        showSignupEnd:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+          minimum: 0
+        nonMemberFee:
+          type: number
+          minimum: 0
+        contactEmail:
+          type: [string, "null"]
+          format: email
+      additionalProperties: false
+
+    EventCreateRequest:
+      allOf:
+        - $ref: "#/components/schemas/EventInput"
+        - type: object
+          required: [name, startDatetime, endDatetime, timeZone, locationName, signupStartDatetime, signupEndDatetime]
+
+    EventInput:
+      type: object
+      required: [name, startDatetime, endDatetime, timeZone, locationName, ratingTypeRequired, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime]
+      properties:
+        seriesId:
+          type: [string, "null"]
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: [string, "null"]
+        eventDescription:
+          type: [string, "null"]
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        timeZone:
+          type: string
+        locationName:
+          type: string
+          minLength: 1
+        locationAddress:
+          type: string
+          default: ""
+        ratingTypeRequired:
+          $ref: "#/components/schemas/RatingType"
+        ratingConfig:
+          type: [object, "null"]
+          additionalProperties: true
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+        waitlistEnabled:
+          type: boolean
+        requireApproval:
+          $ref: "#/components/schemas/ApprovalMode"
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+        showSignupEnd:
+          type: boolean
+          default: true
+        courtFeeEnabled:
+          type: boolean
+          default: false
+        memberFee:
+          type: number
+          minimum: 0
+          default: 0
+        nonMemberFee:
+          type: number
+          minimum: 0
+          default: 0
+        contactEmail:
+          type: [string, "null"]
+          format: email
+      additionalProperties: false
+
+    EventPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+        description:
+          type: [string, "null"]
+        eventDescription:
+          type: [string, "null"]
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        timeZone:
+          type: string
+        locationName:
+          type: string
+          minLength: 1
+        locationAddress:
+          type: string
+        ratingTypeRequired:
+          $ref: "#/components/schemas/RatingType"
+        ratingConfig:
+          type: [object, "null"]
+          additionalProperties: true
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+        waitlistEnabled:
+          type: boolean
+        requireApproval:
+          $ref: "#/components/schemas/ApprovalMode"
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+        showSignupEnd:
+          type: boolean
+        status:
+          $ref: "#/components/schemas/EventStatus"
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+          minimum: 0
+        nonMemberFee:
+          type: number
+          minimum: 0
+        contactEmail:
+          type: [string, "null"]
+          format: email
+      additionalProperties: false
+
+    EventCloneRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Optional name override for the cloned event.
+        startDatetime:
+          type: string
+          format: date-time
+          description: Optional new start timestamp.
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    Registration:
+      type: object
+      required: [registrationId, eventId, participantId, status, playerSnapshot, registeredAt]
+      properties:
+        registrationId:
+          type: string
+        eventId:
+          type: string
+        participantId:
+          type: string
+        partnerId:
+          type: [string, "null"]
+        status:
+          $ref: "#/components/schemas/RegistrationStatus"
+        eventRole:
+          type: [string, "null"]
+        isNew:
+          type: boolean
+          default: false
+        assignedRating:
+          type: [number, "null"]
+        playerSnapshot:
+          $ref: "#/components/schemas/PlayerSnapshot"
+        partnerSnapshot:
+          anyOf:
+            - $ref: "#/components/schemas/PartnerSnapshot"
+            - type: "null"
+        registeredAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: [string, "null"]
+          format: date-time
+        approvedBy:
+          type: [string, "null"]
+        cancelledAt:
+          type: [string, "null"]
+          format: date-time
+        cancelledBy:
+          type: [string, "null"]
+      additionalProperties: false
+
+    PublicRegistration:
+      type: object
+      required: [registrationId, eventId, status, publicProfile, registeredAt]
+      properties:
+        registrationId:
+          type: string
+        eventId:
+          type: string
+        status:
+          $ref: "#/components/schemas/RegistrationStatus"
+        publicProfile:
+          $ref: "#/components/schemas/PublicPlayerProfile"
+        assignedRating:
+          type: [number, "null"]
+        registeredAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    RegistrationCreateRequest:
+      type: object
+      description: >-
+        Supply exactly one non-null identifier. The email branch is the public
+        flow and requires a verification code. The memberDuprId branch is
+        available only to authenticated staff.
+      x-conditional-security:
+        email: public_with_verification_code
+        memberDuprId: authenticated_staff_only
+      properties:
+        email:
+          type: string
+          format: email
+        memberDuprId:
+          type: string
+          minLength: 1
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: Required for the public email branch.
+        selfRating:
+          type: [string, "null"]
+          description: Required when the event's rotating configuration requires a public self-rating.
+        bypassRatingRequirements:
+          type: boolean
+          default: false
+          description: Staff-only explicit bypass; ignored for public requests.
+      oneOf:
+        - title: Public email registration
+          required: [email, code]
+          not:
+            required: [memberDuprId]
+        - title: Staff DUPR registration
+          required: [memberDuprId]
+          not:
+            anyOf:
+              - required: [email]
+              - required: [code]
+      additionalProperties: false
+
+    RegistrationPatchRequest:
+      type: object
+      minProperties: 1
+      properties:
+        status:
+          $ref: "#/components/schemas/RegistrationStatus"
+        participantId:
+          type: string
+        partnerId:
+          type: [string, "null"]
+        eventRole:
+          type: [string, "null"]
+        isNew:
+          type: boolean
+        assignedRating:
+          type: [number, "null"]
+        selfRating:
+          type: [string, "null"]
+      additionalProperties: false
+
+    RegistrationCancelRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+      additionalProperties: false
+
+    PlayerSnapshot:
+      type: object
+      required: [name, doubles, singles, selfRating, email, phone]
+      properties:
+        name:
+          type: string
+        doubles:
+          type: [string, "null"]
+        singles:
+          type: [string, "null"]
+        selfRating:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+          format: email
+        phone:
+          type: [string, "null"]
+      additionalProperties: false
+
+    PublicPlayerProfile:
+      type: object
+      description: Explicitly public roster fields; email, phone, participant ID, and private metadata are excluded.
+      required: [displayName, doubles, selfRating]
+      properties:
+        displayName:
+          type: string
+          description: Participant-approved public display name.
+        doubles:
+          type: [string, "null"]
+        selfRating:
+          type: [string, "null"]
+      additionalProperties: false
+
+    PartnerSnapshot:
+      type: object
+      required: [partnerName, partnerDoubles, partnerSelfRating]
+      properties:
+        partnerName:
+          type: string
+        partnerDoubles:
+          type: [string, "null"]
+        partnerSelfRating:
+          type: [string, "null"]
+      additionalProperties: false
+
+    ParticipantProfile:
+      type: object
+      required: [participantId, name]
+      properties:
+        participantId:
+          type: string
+        memberDuprId:
+          type: [string, "null"]
+        name:
+          type: string
+          minLength: 1
+        doubles:
+          type: [string, "null"]
+        doublesReliability:
+          type: [integer, "null"]
+        singles:
+          type: [string, "null"]
+        singlesReliability:
+          type: [integer, "null"]
+        selfRating:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+          format: email
+        phone:
+          type: [string, "null"]
+      additionalProperties: false
+
+    ParticipantProfileInput:
+      type: object
+      required: [name]
+      properties:
+        memberDuprId:
+          type: [string, "null"]
+        name:
+          type: string
+          minLength: 1
+        doubles:
+          type: [string, "null"]
+        doublesReliability:
+          type: [integer, "null"]
+        singles:
+          type: [string, "null"]
+        singlesReliability:
+          type: [integer, "null"]
+        selfRating:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+          format: email
+        phone:
+          type: [string, "null"]
+      additionalProperties: false
+
+    ParticipantProfilePatch:
+      type: object
+      minProperties: 1
+      properties:
+        memberDuprId:
+          type: [string, "null"]
+        name:
+          type: string
+          minLength: 1
+        doubles:
+          type: [string, "null"]
+        doublesReliability:
+          type: [integer, "null"]
+        singles:
+          type: [string, "null"]
+        singlesReliability:
+          type: [integer, "null"]
+        selfRating:
+          type: [string, "null"]
+        email:
+          type: [string, "null"]
+          format: email
+        phone:
+          type: [string, "null"]
+      additionalProperties: false
+
+    Assignment:
+      type: object
+      required: [assignmentId, eventId, userId, role, assignedAt]
+      properties:
+        assignmentId:
+          type: string
+        eventId:
+          type: string
+        userId:
+          type: string
+        role:
+          type: string
+          enum: [event_captain, court_leader]
+        assignedAt:
+          type: string
+          format: date-time
+      additionalProperties: false
+
+    AssignmentInput:
+      type: object
+      required: [userId, role]
+      properties:
+        userId:
+          type: string
+        role:
+          type: string
+          enum: [event_captain, court_leader]
+      additionalProperties: false
+
+    EventDefaults:
+      type: object
+      required: [defaultsId, minParticipants, maxParticipants, source]
+      properties:
+        defaultsId:
+          type: string
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+        source:
+          type: string
+          enum: [database_event_defaults, json_initial_fallback]
+      additionalProperties: false
+
+    EventDefaultsInput:
+      type: object
+      required: [minParticipants, maxParticipants]
+      properties:
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+
+    VerificationCodeRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+      additionalProperties: false
+
+    VerificationCodeResponse:
+      type: object
+      required: [sent, cooldownSeconds]
+      properties:
+        sent:
+          type: boolean
+          description: False only when email delivery failed; membership is never disclosed.
+        cooldownSeconds:
+          type: integer
+          minimum: 0
+        selfRatingRequired:
+          type: boolean
+        partnerSelfRatingRequired:
+          type: boolean
+      additionalProperties: false
+
+    BroadcastRequest:
+      type: object
+      required: [subject, body]
+      properties:
+        subject:
+          type: string
+          minLength: 1
+        body:
+          type: string
+          minLength: 1
+        registrationIds:
+          type: array
+          items:
+            type: string
+          description: Optional subset of confirmed registration IDs; omit to message all confirmed participants.
+      additionalProperties: false
+
+    BroadcastResponse:
+      type: object
+      required: [sent, recipients]
+      properties:
+        sent:
+          type: boolean
+        recipients:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    RosterSummary:
+      type: object
+      required: [eventId, confirmedCount, waitlistedCount, pendingApprovalCount, totalCount, capacity]
+      properties:
+        eventId:
+          type: string
+        confirmedCount:
+          type: integer
+          minimum: 0
+        waitlistedCount:
+          type: integer
+          minimum: 0
+        pendingApprovalCount:
+          type: integer
+          minimum: 0
+        totalCount:
+          type: integer
+          minimum: 0
+        capacity:
+          type: integer
+          minimum: 1
+      additionalProperties: false
+
+    EventListResponse:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventDocument"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    RegistrationListResponse:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicRegistrationDocument"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    ParticipantListResponse:
+      type: object
+      required: [items, page, pageSize, total]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/ParticipantDocument"
+        page:
+          type: integer
+          minimum: 1
+        pageSize:
+          type: integer
+          minimum: 1
+        total:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    BulkAssignedRatingsResponse:
+      type: object
+      required: [updated]
+      properties:
+        updated:
+          type: integer
+          minimum: 0
+      additionalProperties: false
+
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          default: about:blank
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        requestId:
+          type: [string, "null"]
+        code:
+          type: [string, "null"]
+      additionalProperties: true
+
+    EventStatus:
+      type: string
+      enum: [upcoming, closed, ended, cancelled]
+
+    RegistrationStatus:
+      type: string
+      enum: [confirmed, waitlisted, pending_approval, rejected, cancelled, no_show]
+
+    RatingType:
+      type: string
+      enum: [none, dupr, self_numeric, self_skill]
+
+    ApprovalMode:
+      type: string
+      enum: [none, all, nr_only, enforce_rating]
