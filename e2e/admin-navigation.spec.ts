@@ -212,6 +212,54 @@ async function expectEventsNavigation(
   }
 }
 
+for (const staffRole of userRolesConfig.groups.assignableStaff) {
+  const roleLabel =
+    userRolesConfig.roles.find((role) => role.id === staffRole)?.label ??
+    staffRole;
+
+  test(`${roleLabel} keeps configured event-management access`, async ({
+    page,
+  }) => {
+    const canAccessAdminPanel =
+      userRolesConfig.groups.adminPanel.includes(staffRole);
+    const canWriteEvents =
+      userRolesConfig.groups.eventWriters.includes(staffRole);
+
+    expect(canAccessAdminPanel).toBe(true);
+    expect(canWriteEvents).toBe(true);
+
+    await mockAdminNavigationApi(page, staffRole);
+    await page.goto("/admin/events/rotating");
+
+    await expect(
+      page.getByRole("heading", { name: "Manage Events — Rotating Partners" }),
+    ).toBeVisible();
+    await expectAdminNavigation(page, staffRole, "nav-manage-events");
+    await expectEventsNavigation(page, "rotating", "events-nav-rotating");
+    await expect(page.getByTestId("button-event-setup")).toHaveCount(
+      canWriteEvents ? 1 : 0,
+    );
+
+    await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
+    await expect(
+      page.getByRole("heading", { name: ROTATING_EVENT.name }),
+    ).toBeVisible();
+    await expect(page.getByTestId("button-edit-event")).toHaveCount(
+      canWriteEvents ? 1 : 0,
+    );
+
+    if (canWriteEvents) {
+      await page.getByTestId("button-edit-event").click();
+      await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Delete Event", exact: true }),
+      ).toHaveCount(
+        userRolesConfig.groups.adminOnly.includes(staffRole) ? 1 : 0,
+      );
+    }
+  });
+}
+
 test("admin can navigate every admin area and event format", async ({
   page,
 }, testInfo) => {
