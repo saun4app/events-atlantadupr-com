@@ -1,6 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
+import rawSiteNav from "../api-docs/site-nav.json";
+import rawUserRolesConfig from "../app-config/user-roles.json";
 
-type AdminRole = "admin" | "event_organizer";
+const userRolesConfig = rawUserRolesConfig;
+const ADMIN_ROLE = userRolesConfig.defaults.auditActorRole;
+const EVENT_MANAGER_ROLE = userRolesConfig.defaults.newUserRole;
+const PARTICIPANT_ROLE = userRolesConfig.defaults.databaseRole;
 
 const ADMIN_USER = {
   id: 1,
@@ -80,7 +85,7 @@ const FIXED_PARTNER_EVENT = {
   maxTeams: 8,
 };
 
-async function mockAdminNavigationApi(page: Page, role: AdminRole) {
+async function mockAdminNavigationApi(page: Page, role: string) {
   await page.route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -113,8 +118,7 @@ async function mockAdminNavigationApi(page: Page, role: AdminRole) {
     }
 
     if (
-      pathname ===
-        `/api/events/rotating/${ROTATING_EVENT.id}/registrations` ||
+      pathname === `/api/events/rotating/${ROTATING_EVENT.id}/registrations` ||
       pathname ===
         `/api/events/fixed_partner/${FIXED_PARTNER_EVENT.id}/registrations`
     ) {
@@ -158,26 +162,32 @@ function parentLink(page: Page, testId: string) {
 
 async function expectAdminNavigation(
   page: Page,
+  role: string,
   activeTestId: string,
-  activeHref: string,
 ) {
-  const items = [
-    ["nav-manage-events", "Manage Events", "/admin/events/rotating"],
-    ["nav-manage-members", "Manage Members", "/admin/members"],
-    ["nav-manage-users", "Manage Users", "/admin/users"],
-    ["nav-settings", "Settings", "/admin/settings"],
-  ] as const;
+  const items = rawSiteNav.items;
+  const visibleItems = items.filter((item) =>
+    userRolesConfig.groups[item.roleGroup].includes(role),
+  );
 
-  for (const [testId, label, href] of items) {
+  for (const itemConfig of visibleItems) {
+    const testId = `nav-${itemConfig.testId}`;
     const item = page.getByTestId(testId);
-    await expect(item).toHaveText(label);
-    await expect(parentLink(page, testId)).toHaveAttribute("href", href);
+    await expect(item).toHaveText(itemConfig.label);
+    await expect(parentLink(page, testId)).toHaveAttribute(
+      "href",
+      itemConfig.href,
+    );
     await expect(item).toHaveClass(
       activeTestId === testId ? /bg-primary/ : /^((?!bg-primary).)*$/,
     );
   }
 
-  expect(activeHref).toBeTruthy();
+  for (const itemConfig of items.filter(
+    (item) => !visibleItems.includes(item),
+  )) {
+    await expect(page.getByTestId(`nav-${itemConfig.testId}`)).toHaveCount(0);
+  }
 }
 
 async function expectEventsNavigation(
@@ -185,23 +195,16 @@ async function expectEventsNavigation(
   eventType: "rotating" | "fixed_partner",
   activeTestId: string,
 ) {
-  const items = [
-    [
-      "events-nav-rotating",
-      "Rotating Partners",
-      "/admin/events/rotating",
-    ],
-    ["events-nav-fixed_partner", "Fixed-Partner", "/admin/events/fixed_partner"],
-    [
-      "events-nav-new-event",
-      "New Event",
-      `/admin/events/${eventType}/new`,
-    ],
-  ] as const;
+  const eventsItem = rawSiteNav.items.find((item) => item.children);
+  const items = eventsItem?.children ?? [];
 
-  for (const [testId, label, href] of items) {
+  for (const itemConfig of items) {
+    const href =
+      itemConfig.href ??
+      itemConfig.hrefTemplate?.replace("{eventType}", eventType);
+    const testId = `events-nav-${itemConfig.testId}`;
     const item = page.getByTestId(testId);
-    await expect(item).toHaveText(label);
+    await expect(item).toHaveText(itemConfig.label);
     await expect(parentLink(page, testId)).toHaveAttribute("href", href);
     await expect(item).toHaveClass(
       activeTestId === testId ? /bg-primary/ : /^((?!bg-primary).)*$/,
@@ -209,26 +212,21 @@ async function expectEventsNavigation(
   }
 }
 
-test("admin can navigate every admin area and event format", async (
-  { page },
-  testInfo,
-) => {
+test("admin can navigate every admin area and event format", async ({
+  page,
+}, testInfo) => {
   test.skip(
     testInfo.project.name !== "desktop-chromium",
     "The desktop navigation is covered by the desktop browser project",
   );
 
-  await mockAdminNavigationApi(page, "admin");
+  await mockAdminNavigationApi(page, ADMIN_ROLE);
   await page.goto("/admin/events/rotating");
 
   await expect(
     page.getByRole("heading", { name: "Manage Events — Rotating Partners" }),
   ).toBeVisible();
-  await expectAdminNavigation(
-    page,
-    "nav-manage-events",
-    "/admin/events/rotating",
-  );
+  await expectAdminNavigation(page, ADMIN_ROLE, "nav-manage-events");
   await expectEventsNavigation(page, "rotating", "events-nav-rotating");
 
   await page.getByTestId("events-nav-fixed_partner").click();
@@ -236,23 +234,19 @@ test("admin can navigate every admin area and event format", async (
   await expect(
     page.getByRole("heading", { name: "Manage Events — Fixed-Partner" }),
   ).toBeVisible();
-  await expectAdminNavigation(
+  await expectAdminNavigation(page, ADMIN_ROLE, "nav-manage-events");
+  await expectEventsNavigation(
     page,
-    "nav-manage-events",
-    "/admin/events/fixed_partner",
+    "fixed_partner",
+    "events-nav-fixed_partner",
   );
-  await expectEventsNavigation(page, "fixed_partner", "events-nav-fixed_partner");
 
   await page.getByTestId("events-nav-new-event").click();
   await expect(page).toHaveURL(/\/admin\/events\/fixed_partner\/new$/);
   await expect(
     page.getByRole("heading", { name: "Create New Event" }),
   ).toBeVisible();
-  await expectAdminNavigation(
-    page,
-    "nav-manage-events",
-    "/admin/events/rotating",
-  );
+  await expectAdminNavigation(page, ADMIN_ROLE, "nav-manage-events");
   await expectEventsNavigation(page, "fixed_partner", "events-nav-new-event");
 
   await page.getByTestId("nav-manage-members").click();
@@ -260,35 +254,43 @@ test("admin can navigate every admin area and event format", async (
   await expect(
     page.getByRole("heading", { name: "Manage Members" }),
   ).toBeVisible();
-  await expectAdminNavigation(
-    page,
-    "nav-manage-members",
-    "/admin/members",
-  );
+  await expectAdminNavigation(page, ADMIN_ROLE, "nav-manage-members");
 
   await page.getByTestId("nav-manage-users").click();
   await expect(page).toHaveURL(/\/admin\/users$/);
   await expect(
     page.getByRole("heading", { name: "Manage Users" }),
   ).toBeVisible();
-  await expectAdminNavigation(page, "nav-manage-users", "/admin/users");
+  await expectAdminNavigation(page, ADMIN_ROLE, "nav-manage-users");
 
   await page.getByTestId("nav-settings").click();
   await expect(page).toHaveURL(/\/admin\/settings$/);
-  await expect(page.getByRole("heading", { name: "App Settings" })).toBeVisible();
-  await expectAdminNavigation(page, "nav-settings", "/admin/settings");
+  await expect(
+    page.getByRole("heading", { name: "App Settings" }),
+  ).toBeVisible();
+  await expectAdminNavigation(page, ADMIN_ROLE, "nav-settings");
+
+  await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
+  await expect(
+    page.getByRole("heading", { name: ROTATING_EVENT.name }),
+  ).toBeVisible();
+  await expect(page.getByTestId("button-edit-event")).toBeVisible();
+  await page.getByTestId("button-edit-event").click();
+  await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Delete Event", exact: true }),
+  ).toBeVisible();
 });
 
-test("admin pages keep their route and active navigation after refresh", async (
-  { page },
-  testInfo,
-) => {
+test("admin pages keep their route and active navigation after refresh", async ({
+  page,
+}, testInfo) => {
   test.skip(
     testInfo.project.name !== "desktop-chromium",
     "The desktop refresh coverage is covered by the desktop browser project",
   );
 
-  await mockAdminNavigationApi(page, "admin");
+  await mockAdminNavigationApi(page, ADMIN_ROLE);
 
   const routes = [
     {
@@ -345,13 +347,17 @@ test("admin pages keep their route and active navigation after refresh", async (
   for (const route of routes) {
     await page.goto(route.path);
     await expect(page).toHaveURL(new RegExp(`${route.path}$`));
-    await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: route.heading }),
+    ).toBeVisible();
 
     await page.reload();
 
     await expect(page).toHaveURL(new RegExp(`${route.path}$`));
-    await expect(page.getByRole("heading", { name: route.heading })).toBeVisible();
-    await expectAdminNavigation(page, route.adminNav[0], route.adminNav[1]);
+    await expect(
+      page.getByRole("heading", { name: route.heading }),
+    ).toBeVisible();
+    await expectAdminNavigation(page, ADMIN_ROLE, route.adminNav[0]);
 
     if ("eventNav" in route) {
       await expectEventsNavigation(page, route.eventNav[0], route.eventNav[1]);
@@ -362,34 +368,54 @@ test("admin pages keep their route and active navigation after refresh", async (
 test("event organizers see event navigation but not admin-only areas", async ({
   page,
 }) => {
-  await mockAdminNavigationApi(page, "event_organizer");
+  await mockAdminNavigationApi(page, EVENT_MANAGER_ROLE);
   await page.goto("/admin/events/rotating");
 
   await expect(
     page.getByRole("heading", { name: "Manage Events — Rotating Partners" }),
   ).toBeVisible();
-  await expect(page.getByTestId("nav-manage-events")).toHaveText("Manage Events");
-  await expect(
-    parentLink(page, "nav-manage-events"),
-  ).toHaveAttribute("href", "/admin/events/rotating");
-  await expect(page.getByTestId("nav-manage-events")).toHaveClass(/bg-primary/);
+  await expectAdminNavigation(page, EVENT_MANAGER_ROLE, "nav-manage-events");
   await expectEventsNavigation(page, "rotating", "events-nav-rotating");
 
-  await expect(page.getByTestId("nav-manage-members")).toHaveCount(0);
-  await expect(page.getByTestId("nav-manage-users")).toHaveCount(0);
-  await expect(page.getByTestId("nav-settings")).toHaveCount(0);
+  await expect(page.getByTestId("button-event-setup")).toBeVisible();
+
+  await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
+  await expect(
+    page.getByRole("heading", { name: ROTATING_EVENT.name }),
+  ).toBeVisible();
+  await expect(page.getByTestId("button-edit-event")).toBeVisible();
+  await page.getByTestId("button-edit-event").click();
+  await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Delete Event", exact: true }),
+  ).toHaveCount(
+    userRolesConfig.groups.adminOnly.includes(EVENT_MANAGER_ROLE) ? 1 : 0,
+  );
 });
 
-test("mobile admin menu closes after selecting a navigation link", async (
-  { page },
-  testInfo,
-) => {
+test("participants cannot see or enter the configured admin areas", async ({
+  page,
+}) => {
+  await mockAdminNavigationApi(page, PARTICIPANT_ROLE);
+  await page.goto("/admin/events/rotating");
+
+  await expect(page).toHaveURL(/\/$/);
+  for (const itemConfig of rawSiteNav.items) {
+    await expect(page.getByTestId(`nav-${itemConfig.testId}`)).toHaveCount(0);
+  }
+  await expect(page.getByTestId("button-event-setup")).toHaveCount(0);
+  await expect(page.getByTestId("button-edit-event")).toHaveCount(0);
+});
+
+test("mobile admin menu closes after selecting a navigation link", async ({
+  page,
+}, testInfo) => {
   test.skip(
     testInfo.project.name !== "mobile-chromium",
     "This behavior is covered by the mobile browser project",
   );
 
-  await mockAdminNavigationApi(page, "admin");
+  await mockAdminNavigationApi(page, ADMIN_ROLE);
   await page.goto("/admin/events/rotating");
 
   const menuButton = page.getByRole("button", { name: "Toggle menu" });
