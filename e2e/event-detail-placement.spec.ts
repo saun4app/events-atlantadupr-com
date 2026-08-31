@@ -275,6 +275,32 @@ test("public event detail can recover after an event load failure", async ({
   expect(eventDetailRequests).toBe(2);
 });
 
+test("public event detail shows a clear message when the event is missing", async ({
+  page,
+}) => {
+  await mockEventDetailApi(page, "rotating", "open");
+  await page.route("**/api/events/rotating/1", async (route) => {
+    await route.fulfill({
+      status: 404,
+      json: { error: "Event not found" },
+    });
+  });
+
+  await page.goto("/events/rotating/1");
+
+  await expect(page.getByTestId("status-event-not-found")).toHaveText(
+    "Event not found",
+  );
+  await expect(
+    page.getByText(
+      "This event may have been removed, or the link may be incorrect.",
+      { exact: true },
+    ),
+  ).toBeVisible();
+  await expect(page.getByTestId("button-retry-event-load")).toHaveCount(0);
+  await expect(page.getByText("Back to events", { exact: true })).toBeVisible();
+});
+
 test("public event details keep their content after a direct-link refresh", async ({
   page,
 }, testInfo) => {

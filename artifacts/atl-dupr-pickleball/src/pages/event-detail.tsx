@@ -324,6 +324,7 @@ export default function EventDetail() {
     data: event,
     isLoading: evLoading,
     isError: evError,
+    error: eventError,
     isFetching: evFetching,
     refetch: refetchEvent,
   } = useGetEvent(
@@ -429,6 +430,34 @@ export default function EventDetail() {
   }
 
   if (evError) {
+    const eventWasNotFound =
+      (eventError as { status?: number } | null)?.status === 404;
+
+    if (eventWasNotFound) {
+      return (
+        <div className="min-h-screen bg-background">
+          <PublicNav />
+          <div className="max-w-3xl mx-auto px-4 py-16 text-center">
+            <AlertCircle className="w-10 h-10 mx-auto mb-3 text-muted-foreground/60" />
+            <p
+              className="font-medium text-foreground"
+              data-testid="status-event-not-found"
+            >
+              Event not found
+            </p>
+            <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+              This event may have been removed, or the link may be incorrect.
+            </p>
+            <Link href="/">
+              <span className="text-primary text-sm mt-5 block hover:underline">
+                Back to events
+              </span>
+            </Link>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="min-h-screen bg-background">
         <PublicNav />
