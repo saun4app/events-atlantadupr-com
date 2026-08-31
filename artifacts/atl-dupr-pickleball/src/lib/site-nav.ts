@@ -8,15 +8,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import rawSiteNav from "../../../../api-docs/site-nav.json";
-
-export const navigationRoles = [
-  "admin",
-  "event_organizer",
-  "event_captain",
-  "court_leader",
-] as const;
-
-export type NavigationRole = (typeof navigationRoles)[number];
+import {
+  USER_ROLE_GROUP_NAMES,
+  loadUserRolesConfig,
+  userRoleIsInGroup,
+  type UserRoleGroupName,
+} from "@workspace/user-roles-config";
+import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 export type EventType = "rotating" | "fixed_partner";
 export type MatchType = "prefix" | "exact";
 
@@ -32,7 +30,7 @@ export interface NavigationItemConfig {
     valueTemplate?: string;
   };
   icon: string;
-  roles: NavigationRole[];
+  roleGroup: UserRoleGroupName;
   children?: NavigationItemConfig[];
 }
 
@@ -47,7 +45,7 @@ export interface NavigationItem
   children?: NavigationItem[];
 }
 
-const navigationRoleSchema = z.enum(navigationRoles);
+const navigationRoleGroupSchema = z.enum(USER_ROLE_GROUP_NAMES);
 const iconRegistry: Record<string, LucideIcon> = {
   calendar: Calendar,
   plus: Plus,
@@ -82,7 +80,7 @@ const navigationItemSchema: z.ZodType<NavigationItemConfig> = z.lazy(() =>
       hrefTemplate: z.string().startsWith("/").optional(),
       match: matchSchema,
       icon: z.string().min(1),
-      roles: z.array(navigationRoleSchema).min(1),
+      roleGroup: navigationRoleGroupSchema,
       children: z.array(navigationItemSchema).optional(),
     })
     .strict()
@@ -149,6 +147,7 @@ if (!parsedSiteNav.success) {
 }
 
 const siteNav = parsedSiteNav.data;
+const userRolesConfig = loadUserRolesConfig(rawUserRolesConfig);
 
 function validateIcons(items: NavigationItemConfig[]): void {
   for (const item of items) {
@@ -194,7 +193,7 @@ function resolveItem(item: NavigationItemConfig, eventType?: EventType): Navigat
 }
 
 function hasRole(item: NavigationItemConfig, role?: string): boolean {
-  return role !== undefined && item.roles.includes(role as NavigationRole);
+  return userRoleIsInGroup(userRolesConfig, role, item.roleGroup);
 }
 
 export function getAdminNavigationItems(role?: string): NavigationItem[] {

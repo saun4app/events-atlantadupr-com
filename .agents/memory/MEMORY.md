@@ -12,3 +12,4 @@
 - [Rotating capacity lock discipline](rotating-capacity-locks.md) — rotating limit edits share the event lock and reread the limit after locking
 - [Orval integer Zod output](orval-integer-zod.md) — OpenAPI integer fields generate number() in Zod; minimum/maximum constraints still become validators
 - [Rotating verification boundaries](rotating-verification-boundaries.md) — rotating verification overrides are optional; fixed-partner callers retain independent defaults
+- [Vite build environment variables](vite-build-env.md) — workspace Vite builds require PORT and, for the mockup sandbox, BASE_PATH

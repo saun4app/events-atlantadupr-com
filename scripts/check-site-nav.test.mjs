@@ -31,13 +31,8 @@ test("site navigation preserves role visibility, route templates, and icons", ()
   const items = flatten(siteNav.items);
   const byLabel = new Map(items.map((item) => [item.label, item]));
 
-  assert.deepEqual(byLabel.get("Manage Events").roles, [
-    "admin",
-    "event_organizer",
-    "event_captain",
-    "court_leader",
-  ]);
-  assert.deepEqual(byLabel.get("Manage Members").roles, ["admin"]);
+  assert.equal(byLabel.get("Manage Events").roleGroup, "adminPanel");
+  assert.equal(byLabel.get("Manage Members").roleGroup, "adminOnly");
   assert.equal(byLabel.get("Manage Events").icon, "calendar");
   assert.equal(byLabel.get("Manage Members").icon, "users");
   assert.equal(byLabel.get("Manage Users").icon, "shield");

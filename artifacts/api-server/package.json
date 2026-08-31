@@ -7,7 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "typecheck": "tsc --build ../../lib/db ../../lib/api-zod ../../lib/fixed-partner-config ../../lib/rotating-partner-config && tsc -p tsconfig.json --noEmit",
+    "typecheck": "tsc --build ../../lib/db ../../lib/api-zod ../../lib/fixed-partner-config ../../lib/rotating-partner-config ../../lib/user-roles-config && tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx/esm --test --test-force-exit \"src/**/*.test.ts\""
   },
   "dependencies": {
@@ -17,6 +17,7 @@
     "@workspace/db": "workspace:*",
     "@workspace/fixed-partner-config": "workspace:*",
     "@workspace/rotating-partner-config": "workspace:*",
+    "@workspace/user-roles-config": "workspace:*",
     "bcryptjs": "^3.0.3",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",

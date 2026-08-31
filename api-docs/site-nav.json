@@ -11,12 +11,7 @@
         "value": "/admin/events"
       },
       "icon": "calendar",
-      "roles": [
-        "admin",
-        "event_organizer",
-        "event_captain",
-        "court_leader"
-      ],
+      "roleGroup": "adminPanel",
       "children": [
         {
           "id": "f6c1d904",
@@ -28,12 +23,7 @@
             "value": "/admin/events/rotating"
           },
           "icon": "calendar",
-          "roles": [
-            "admin",
-            "event_organizer",
-            "event_captain",
-            "court_leader"
-          ]
+          "roleGroup": "adminPanel"
         },
         {
           "id": "7b2e5a8f",
@@ -45,12 +35,7 @@
             "value": "/admin/events/fixed_partner"
           },
           "icon": "calendar",
-          "roles": [
-            "admin",
-            "event_organizer",
-            "event_captain",
-            "court_leader"
-          ]
+          "roleGroup": "adminPanel"
         },
         {
           "id": "0d94c3e6",
@@ -62,12 +47,7 @@
             "valueTemplate": "/admin/events/{eventType}/new"
           },
           "icon": "plus",
-          "roles": [
-            "admin",
-            "event_organizer",
-            "event_captain",
-            "court_leader"
-          ]
+          "roleGroup": "adminPanel"
         }
       ]
     },
@@ -81,9 +61,7 @@
         "value": "/admin/members"
       },
       "icon": "users",
-      "roles": [
-        "admin"
-      ]
+      "roleGroup": "adminOnly"
     },
     {
       "id": "c9d2f645",
@@ -95,9 +73,7 @@
         "value": "/admin/users"
       },
       "icon": "shield",
-      "roles": [
-        "admin"
-      ]
+      "roleGroup": "adminOnly"
     },
     {
       "id": "e3a8b17c",
@@ -109,9 +85,7 @@
         "value": "/admin/settings"
       },
       "icon": "settings",
-      "roles": [
-        "admin"
-      ]
+      "roleGroup": "adminOnly"
     }
   ]
 }

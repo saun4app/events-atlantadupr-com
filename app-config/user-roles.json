@@ -1,0 +1,61 @@
+{
+  "$schema": "./user-roles.schema.json",
+  "version": 1,
+  "roles": [
+    {
+      "id": "admin",
+      "label": "Admin",
+      "badgeTone": "primary"
+    },
+    {
+      "id": "event_organizer",
+      "label": "Event Organizer",
+      "badgeTone": "blue"
+    },
+    {
+      "id": "event_participant",
+      "label": "Participant",
+      "badgeTone": "muted"
+    },
+    {
+      "id": "event_captain",
+      "label": "Event Captain",
+      "badgeTone": "purple"
+    },
+    {
+      "id": "court_leader",
+      "label": "Court Leader",
+      "badgeTone": "yellow"
+    }
+  ],
+  "defaults": {
+    "databaseRole": "event_participant",
+    "newUserRole": "event_organizer",
+    "auditActorRole": "admin"
+  },
+  "groups": {
+    "adminOnly": [
+      "admin"
+    ],
+    "adminPanel": [
+      "admin",
+      "event_organizer",
+      "event_captain",
+      "court_leader"
+    ],
+    "eventManagers": [
+      "admin",
+      "event_organizer"
+    ],
+    "eventWriters": [
+      "admin",
+      "event_organizer",
+      "event_captain",
+      "court_leader"
+    ],
+    "assignableStaff": [
+      "event_captain",
+      "court_leader"
+    ]
+  }
+}

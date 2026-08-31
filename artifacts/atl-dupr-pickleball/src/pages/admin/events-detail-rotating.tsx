@@ -37,6 +37,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { loadRotatingPartnerConfig, getRotatingPartnerRequirement } from "@workspace/rotating-partner-config";
 import rawRotatingPartnerConfig from "../../../../../app-config/rotating-partner-config.json";
+import { hasUserRole, USER_ROLE_IDS } from "@/lib/user-roles";
 
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
@@ -142,7 +143,7 @@ export default function AdminEventDetailRotating() {
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const eventContactEmails: string[] = ((settings as any)?.eventContactEmails as string[] | undefined) ?? [];
-  const isAdminOrOrganizer = user?.role === "admin" || user?.role === "event_organizer";
+  const isAdminOrOrganizer = hasUserRole(user?.role, "eventManagers");
 
 
   const updateEvent = useUpdateEvent();
@@ -1490,7 +1491,7 @@ export default function AdminEventDetailRotating() {
               </div>
             </div>
             <DialogFooter className="flex-row items-center gap-2">
-              {user?.role === "admin" && (
+              {user?.role === USER_ROLE_IDS.admin && (
                 <Button
                   type="button"
                   variant="ghost"

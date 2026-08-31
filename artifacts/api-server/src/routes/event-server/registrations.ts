@@ -39,13 +39,14 @@ import type {
 import type {
   RotatingPartnerCapacityOperation,
 } from "../../lib/rotating-partner-config.js";
+import { USER_ROLE_GROUPS, auditActorRole, hasUserRole } from "../../lib/user-roles.js";
 
 const router = Router({ mergeParams: true });
 
 type EventParams = { eventType: string; id: string };
 type RegParams = { eventType: string; id: string; regId: string };
 
-const STAFF_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
+const STAFF_ROLES = USER_ROLE_GROUPS.eventWriters;
 const FIXED_PARTNER_FORMAT = fixedPartnerConfig.format;
 const ROTATING_PARTNER_FORMAT = rotatingPartnerConfig.format;
 const PARTNER_REGISTRATION_REQUIREMENT = getFixedPartnerRequirement("partner_registration");
@@ -612,8 +613,8 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
 async function canIncludeAdminFields(eventId: number, eventType: EventFormat, req: Request): Promise<boolean> {
   const role = (req as any).session?.role;
   if (!role) return false;
-  if (role === "admin" || role === "event_organizer") return true;
-  if (role === "event_captain" || role === "court_leader") {
+  if (hasUserRole(role, "eventManagers")) return true;
+  if (hasUserRole(role, "assignableStaff")) {
     return canAccessEvent(eventId, eventType, req);
   }
   return false;
@@ -1432,7 +1433,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 router.post(
   "/bulk-set-assigned-ratings",
   requireAuth,
-  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<EventParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -1478,7 +1479,7 @@ router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
 router.patch(
   "/:regId",
   requireAuth,
-  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -1720,7 +1721,7 @@ router.patch(
     ) {
       updates.cancelledAt = new Date();
       const sessionUser = (req as any).session;
-      updates.cancelledBy = sessionUser?.username || sessionUser?.role || "admin";
+      updates.cancelledBy = sessionUser?.username || sessionUser?.role || auditActorRole;
     } else if (
       eventType === ROTATING_PARTNER_FORMAT &&
       newStatus !== undefined &&
@@ -1923,7 +1924,7 @@ router.patch(
 router.delete(
   "/:regId",
   requireAuth,
-  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -1944,7 +1945,7 @@ router.delete(
 router.post(
   "/:regId/approve",
   requireAuth,
-  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -2041,7 +2042,7 @@ router.post(
 router.post(
   "/:regId/reject",
   requireAuth,
-  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -2074,7 +2075,7 @@ router.post(
 router.post(
   "/:regId/promote",
   requireAuth,
-  requireRole("admin", "event_organizer", "event_captain", "court_leader"),
+  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });

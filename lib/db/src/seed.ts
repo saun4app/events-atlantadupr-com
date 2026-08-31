@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { db } from "./index.js";
 import { usersTable, eventsRotatingTable, eventsFixedTable, membersTable, registrationsTable, appSettingsTable, eventDefaultsTable } from "./schema/index.js";
 import { sql } from "drizzle-orm";
+import { defaultUserRole, userRoleIdMap } from "./user-roles.js";
 
 async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
@@ -48,9 +49,9 @@ async function seed() {
   });
 
   await db.insert(usersTable).values([
-    { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: "admin" },
-    { name: "Organizer One", username: "organizer1", passwordHash: await hashPassword("org123"), role: "event_organizer" },
-    { name: "Participant User", username: "participant1", passwordHash: await hashPassword("part123"), role: "event_participant" },
+    { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: userRoleIdMap.admin },
+    { name: "Organizer One", username: "organizer1", passwordHash: await hashPassword("org123"), role: userRoleIdMap.event_organizer },
+    { name: "Participant User", username: "participant1", passwordHash: await hashPassword("part123"), role: defaultUserRole },
   ]);
 
   const [ev1, ev3] = await db.insert(eventsRotatingTable).values([

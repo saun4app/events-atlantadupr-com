@@ -1,5 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import { isConfiguredUserRole } from "./user-roles.js";
 
 const SALT_ROUNDS = 12;
 
@@ -20,6 +21,11 @@ export const requireAuth: (req: Request, res: Response, next: NextFunction) => v
 };
 
 export function requireRole(...roles: string[]) {
+  for (const role of roles) {
+    if (!isConfiguredUserRole(role)) {
+      throw new Error(`Unknown configured user role "${role}"`);
+    }
+  }
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!(req as any).session?.userId) {
       res.status(401).json({ error: "Not authenticated" });

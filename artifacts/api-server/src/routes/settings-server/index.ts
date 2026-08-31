@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { db, appSettingsTable, DEFAULT_RATING_REQUIREMENTS_CONFIG } from "@workspace/db";
 import { requireRole } from "../../lib/auth.js";
+import { USER_ROLE_IDS } from "../../lib/user-roles.js";
 
 const router = Router();
 
@@ -195,7 +196,7 @@ router.get("/", async (_req, res) => {
   return res.json(result);
 });
 
-router.put("/", requireRole("admin"), async (req, res) => {
+router.put("/", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   const validationError = validateSettingsInput(req.body);
   if (validationError) {
     console.error("[settings] Validation failed:", validationError);

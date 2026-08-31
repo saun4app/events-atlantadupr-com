@@ -17,6 +17,9 @@
     },
     {
       "path": "./lib/rotating-partner-config"
+    },
+    {
+      "path": "./lib/user-roles-config"
     }
   ]
 }

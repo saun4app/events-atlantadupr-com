@@ -191,6 +191,9 @@ importers:
       '@workspace/rotating-partner-config':
         specifier: workspace:*
         version: link:../../lib/rotating-partner-config
+      '@workspace/user-roles-config':
+        specifier: workspace:*
+        version: link:../../lib/user-roles-config
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -397,6 +400,9 @@ importers:
       '@workspace/rotating-partner-config':
         specifier: workspace:*
         version: link:../../lib/rotating-partner-config
+      '@workspace/user-roles-config':
+        specifier: workspace:*
+        version: link:../../lib/user-roles-config
       class-variance-authority:
         specifier: 'catalog:'
         version: 0.7.1
@@ -676,6 +682,9 @@ importers:
       '@types/bcryptjs':
         specifier: ^3.0.0
         version: 3.0.0
+      '@workspace/user-roles-config':
+        specifier: workspace:*
+        version: link:../user-roles-config
       bcryptjs:
         specifier: ^3.0.3
         version: 3.0.3
@@ -708,6 +717,12 @@ importers:
   lib/fixed-partner-config: {}
 
   lib/rotating-partner-config: {}
+
+  lib/user-roles-config:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
 
   scripts:
     devDependencies:

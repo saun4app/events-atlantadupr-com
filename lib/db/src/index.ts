@@ -15,3 +15,9 @@ export const db = drizzle(pool, { schema });
 
 export { sql } from "drizzle-orm";
 export * from "./schema";
+export {
+  defaultUserRole,
+  userRoleIdMap,
+  userRoleIds,
+  userRolesConfig,
+} from "./user-roles";

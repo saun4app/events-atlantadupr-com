@@ -15,6 +15,7 @@ import {
   getRotatingPartnerRequirement,
   rotatingPartnerConfig,
 } from "../../lib/rotating-partner-config.js";
+import { hasUserRole } from "../../lib/user-roles.js";
 
 const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement(
   "team_capacity_enforcement",
@@ -172,8 +173,8 @@ export async function canAccessEvent(eventId: number, eventType: EventFormat, re
   const session = (req as any).session;
   if (!session?.userId) return false;
   const role: string = session.role ?? "";
-  if (role === "admin" || role === "event_organizer") return true;
-  if (role === "event_captain" || role === "court_leader") {
+  if (hasUserRole(role, "eventManagers")) return true;
+  if (hasUserRole(role, "assignableStaff")) {
     const [assignment] = await db
       .select()
       .from(eventAssignmentsTable)

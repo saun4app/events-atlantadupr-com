@@ -11,6 +11,7 @@ import {
   emailVerificationCodesTable,
   sessionsTable,
   usersTable,
+  userRoleIdMap,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
@@ -342,17 +343,17 @@ before(async () => {
       name: "Test Staff",
       username: "test-staff-" + Math.random().toString(36).slice(2),
       passwordHash: "test-password-hash",
-      role: "admin",
+      role: userRoleIdMap.admin,
     })
     .returning();
   createdUserIds.push(staffUser.id);
 
   await db
     .insert(sessionsTable)
-    .values({ token: STAFF_TOKEN, data: { userId: staffUser.id, role: "admin" } })
+  .values({ token: STAFF_TOKEN, data: { userId: staffUser.id, role: userRoleIdMap.admin } })
     .onConflictDoUpdate({
       target: sessionsTable.token,
-      set: { data: { userId: staffUser.id, role: "admin" } },
+      set: { data: { userId: staffUser.id, role: userRoleIdMap.admin } },
     });
 
   server = app.listen(0);

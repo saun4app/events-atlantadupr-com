@@ -12,6 +12,7 @@ import {
   membersTable,
   registrationsTable,
   sessionsTable,
+  userRoleIdMap,
 } from "@workspace/db";
 import { and, eq } from "drizzle-orm";
 
@@ -193,10 +194,10 @@ async function createRotatingEvent(
 before(async () => {
   await db
     .insert(sessionsTable)
-    .values({ token: STAFF_TOKEN, data: { userId: -1, role: "admin" } })
+    .values({ token: STAFF_TOKEN, data: { userId: -1, role: userRoleIdMap.admin } })
     .onConflictDoUpdate({
       target: sessionsTable.token,
-      set: { data: { userId: -1, role: "admin" } },
+      set: { data: { userId: -1, role: userRoleIdMap.admin } },
     });
 
   server = app.listen(0);

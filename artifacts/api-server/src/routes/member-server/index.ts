@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { membersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
+import { USER_ROLE_IDS } from "../../lib/user-roles.js";
 
 const router = Router();
 
@@ -31,7 +32,7 @@ router.get("/", async (req, res) => {
   return res.json(rows);
 });
 
-router.post("/", requireRole("admin"), async (req, res) => {
+router.post("/", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   const { duprId, name, doubles, doublesReliability, singles, singlesReliability, selfRating, email, phone } = req.body;
   if (!duprId || !name) {
     return res.status(400).json({ error: "duprId and name are required" });
@@ -58,14 +59,14 @@ router.post("/", requireRole("admin"), async (req, res) => {
   return res.status(201).json(member);
 });
 
-router.delete("/", requireRole("admin"), async (_req, res) => {
+router.delete("/", requireRole(USER_ROLE_IDS.admin), async (_req, res) => {
   // Registrations carry their own self-contained snapshots, so clearing the
   // member list no longer affects existing registrations or events.
   await db.delete(membersTable);
   return res.status(204).send();
 });
 
-router.post("/csv", requireRole("admin"), async (req, res) => {
+router.post("/csv", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   const csvText = req.body as string;
   if (!csvText || typeof csvText !== "string") {
     return res.status(400).json({ error: "CSV content required" });
@@ -161,7 +162,7 @@ router.get("/:duprId", async (req, res) => {
   return res.json(member);
 });
 
-router.patch("/:duprId", requireRole("admin"), async (req, res) => {
+router.patch("/:duprId", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   const duprId = String(req.params.duprId);
   const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, duprId));
   if (!existing) return res.status(404).json({ error: "Member not found" });
@@ -181,7 +182,7 @@ router.patch("/:duprId", requireRole("admin"), async (req, res) => {
   return res.json(updated);
 });
 
-router.delete("/:duprId", requireRole("admin"), async (req, res) => {
+router.delete("/:duprId", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   const duprId = String(req.params.duprId);
   const [existing] = await db.select().from(membersTable).where(eq(membersTable.duprId, duprId));
   if (!existing) return res.status(404).json({ error: "Member not found" });

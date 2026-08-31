@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/lib/auth";
+import { USER_ROLE_IDS } from "@/lib/user-roles";
 
 export default function Login() {
   const [, setLocation] = useLocation();
@@ -31,7 +32,7 @@ export default function Login() {
             setAuthToken(token);
           }
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          if (user.role === "event_participant") {
+          if (user.role === USER_ROLE_IDS.event_participant) {
             setLocation("/");
           } else {
             setLocation("/admin/events");

@@ -40,6 +40,7 @@ import {
   loadFixedPartnerConfig,
 } from "@workspace/fixed-partner-config";
 import rawFixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
+import { hasUserRole, USER_ROLE_IDS } from "@/lib/user-roles";
 
 const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
 
@@ -148,7 +149,7 @@ export default function AdminEventDetailFixed() {
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const eventContactEmails: string[] = ((settings as any)?.eventContactEmails as string[] | undefined) ?? [];
-  const isAdminOrOrganizer = user?.role === "admin" || user?.role === "event_organizer";
+  const isAdminOrOrganizer = hasUserRole(user?.role, "eventManagers");
 
 
   const updateEvent = useUpdateEvent();
@@ -1597,7 +1598,7 @@ export default function AdminEventDetailFixed() {
               </div>
             </div>
             <DialogFooter className="flex-row items-center gap-2">
-              {user?.role === "admin" && (
+              {user?.role === USER_ROLE_IDS.admin && (
                 <Button
                   type="button"
                   variant="ghost"

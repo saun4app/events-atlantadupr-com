@@ -51,6 +51,7 @@
     "@workspace/api-client-react": "workspace:*",
     "@workspace/fixed-partner-config": "workspace:*",
     "@workspace/rotating-partner-config": "workspace:*",
+    "@workspace/user-roles-config": "workspace:*",
     "class-variance-authority": "catalog:",
     "clsx": "catalog:",
     "cmdk": "^1.1.1",

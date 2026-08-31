@@ -3,13 +3,14 @@ import { db } from "@workspace/db";
 import { emailSendFailuresTable } from "@workspace/db";
 import { gte, desc } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
+import { USER_ROLE_GROUPS } from "../../lib/user-roles.js";
 
 const router = Router();
 
 router.get(
   "/email-failures",
   requireAuth,
-  requireRole("admin", "event_organizer"),
+  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (_req: Request, res: Response) => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const failures = await db

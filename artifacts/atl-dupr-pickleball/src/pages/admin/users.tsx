@@ -14,6 +14,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/lib/auth";
 import { useToast } from "@/hooks/use-toast";
+import {
+  defaultNewUserRole,
+  getUserRoleBadgeTone,
+  getUserRoleLabel,
+  userRolesConfig,
+} from "@/lib/user-roles";
 import { Plus, Trash2, Shield } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -23,25 +29,18 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 
-const ROLE_LABELS: Record<string, string> = {
-  admin: "Admin",
-  event_organizer: "Event Organizer",
-  event_participant: "Participant",
-  event_captain: "Event Captain",
-  court_leader: "Court Leader",
-};
-
 function RoleBadge({ role }: { role: string }) {
   const classMap: Record<string, string> = {
-    admin: "bg-primary/10 text-primary border-primary/20",
-    event_organizer: "bg-blue-100 text-blue-700 border-blue-200",
-    event_captain: "bg-purple-100 text-purple-700 border-purple-200",
-    court_leader: "bg-yellow-100 text-yellow-700 border-yellow-200",
-    event_participant: "bg-muted text-muted-foreground border-border",
+    primary: "bg-primary/10 text-primary border-primary/20",
+    blue: "bg-blue-100 text-blue-700 border-blue-200",
+    purple: "bg-purple-100 text-purple-700 border-purple-200",
+    yellow: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    muted: "bg-muted text-muted-foreground border-border",
   };
+  const tone = getUserRoleBadgeTone(role);
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${classMap[role] ?? "bg-muted text-muted-foreground"}`}>
-      {ROLE_LABELS[role] ?? role}
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${classMap[tone] ?? classMap.muted}`}>
+      {getUserRoleLabel(role)}
     </span>
   );
 }
@@ -64,7 +63,7 @@ export default function AdminUsers() {
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [addForm, setAddForm] = useState({ name: "", username: "", password: "", role: "event_organizer" });
+  const [addForm, setAddForm] = useState({ name: "", username: "", password: "", role: defaultNewUserRole });
 
   function handleDelete() {
     if (deleteId === null) return;
@@ -88,7 +87,7 @@ export default function AdminUsers() {
         toast({ title: "User created" });
         queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
         setShowAddDialog(false);
-        setAddForm({ name: "", username: "", password: "", role: "event_organizer" });
+         setAddForm({ name: "", username: "", password: "", role: defaultNewUserRole });
       },
       onError: (err: any) => toast({ title: err?.data?.error || "Failed to create user", variant: "destructive" }),
     });
@@ -200,8 +199,8 @@ export default function AdminUsers() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {Object.entries(ROLE_LABELS).map(([value, label]) => (
-                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                  {userRolesConfig.roles.map((role) => (
+                    <SelectItem key={role.id} value={role.id}>{role.label}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

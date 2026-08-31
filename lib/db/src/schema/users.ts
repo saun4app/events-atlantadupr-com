@@ -1,6 +1,7 @@
 import { pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
+import { defaultUserRole, userRoleIds } from "../user-roles.js";
 
 export const usersTable = pgTable("app_uses", {
   id: serial("id").primaryKey(),
@@ -8,10 +9,10 @@ export const usersTable = pgTable("app_uses", {
   username: text("username").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   role: text("role", {
-    enum: ["admin", "event_organizer", "event_participant", "event_captain", "court_leader"],
+    enum: userRoleIds,
   })
     .notNull()
-    .default("event_participant"),
+    .default(defaultUserRole),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

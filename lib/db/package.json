@@ -13,6 +13,7 @@
     "seed": "node --import tsx/esm src/seed.ts"
   },
   "dependencies": {
+    "@workspace/user-roles-config": "workspace:*",
     "@types/bcryptjs": "^3.0.0",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "catalog:",

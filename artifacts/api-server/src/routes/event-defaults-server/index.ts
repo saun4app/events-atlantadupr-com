@@ -3,6 +3,7 @@ import { db, eventDefaultsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
 import { fixedPartnerConfig } from "../../lib/fixed-partner-config.js";
+import { USER_ROLE_IDS } from "../../lib/user-roles.js";
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get("/:eventType", async (req, res) => {
   return res.json(row);
 });
 
-router.put("/:eventType", requireRole("admin"), async (req, res) => {
+router.put("/:eventType", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   const eventType = String(req.params.eventType);
   if (!VALID_EVENT_TYPES.has(eventType)) {
     return res.status(400).json({ error: "Invalid eventType" });

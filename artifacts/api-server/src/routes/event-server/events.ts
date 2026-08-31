@@ -6,6 +6,7 @@ import { requireAuth, requireRole } from "../../lib/auth.js";
 import { eventControllers, parseEventType, canAccessEvent, getNormalizedEvent } from "./eventController.js";
 import { sendBroadcastEmail } from "../../lib/email.js";
 import { logger } from "../../lib/logger.js";
+import { USER_ROLE_GROUPS, hasUserRole } from "../../lib/user-roles.js";
 
 // Re-export shared helpers consumed by registrations.ts and other modules.
 export {
@@ -17,7 +18,7 @@ export {
 
 const router = Router();
 
-const writeRoles = ["admin", "event_organizer", "event_captain", "court_leader"] as const;
+const writeRoles = USER_ROLE_GROUPS.eventWriters;
 
 // Dispatch a request to the controller for its event format. Each format owns
 // an independent controller subclass; this router only routes to the right one.
@@ -52,7 +53,7 @@ router.get("/summary", async (_req, res) => {
 // Per-format event CRUD. Each format has its own independent listing; there is
 // no merged/aggregated events feed.
 router.get("/:eventType", dispatch("list"));
-router.post("/:eventType", requireAuth, requireRole("admin", "event_organizer"), dispatch("create"));
+router.post("/:eventType", requireAuth, requireRole(...USER_ROLE_GROUPS.eventManagers), dispatch("create"));
 router.get("/:eventType/:id", dispatch("getById"));
 router.patch("/:eventType/:id", requireAuth, requireRole(...writeRoles), dispatch("update"));
 router.delete("/:eventType/:id", requireAuth, requireRole(...writeRoles), dispatch("remove"));
@@ -133,7 +134,7 @@ router.post(
 router.get(
   "/:eventType/:id/assignments",
   requireAuth,
-  requireRole("admin", "event_organizer"),
+  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (req: Request<{ eventType: string; id: string }>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -158,7 +159,7 @@ router.get(
 router.post(
   "/:eventType/:id/assignments",
   requireAuth,
-  requireRole("admin", "event_organizer"),
+  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (req: Request<{ eventType: string; id: string }>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -168,8 +169,10 @@ router.post(
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, Number(userId)));
     if (!user) return res.status(404).json({ error: "User not found" });
-    if (user.role !== "event_captain" && user.role !== "court_leader") {
-      return res.status(400).json({ error: "Only event_captain or court_leader users can be assigned to events" });
+    if (!hasUserRole(user.role, "assignableStaff")) {
+      return res.status(400).json({
+        error: `Only ${USER_ROLE_GROUPS.assignableStaff.join(" or ")} users can be assigned to events`,
+      });
     }
 
     const [assignment] = await db
@@ -185,7 +188,7 @@ router.post(
 router.delete(
   "/:eventType/:id/assignments/:userId",
   requireAuth,
-  requireRole("admin", "event_organizer"),
+  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (req: Request<{ eventType: string; id: string; userId: string }>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
