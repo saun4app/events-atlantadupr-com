@@ -229,3 +229,47 @@ test("cancelled fixed-partner event keeps cancellation control ahead of event co
   );
   await expect(page.getByTestId("notice-event-cancelled")).toBeVisible();
 });
+
+test("public event details keep their content after a direct-link refresh", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chromium",
+    "The desktop refresh coverage is covered by the desktop browser project",
+  );
+
+  const routes = [
+    {
+      format: "rotating",
+      path: "/events/rotating/1",
+      heading: "Rotating Partner open placement event",
+    },
+    {
+      format: "fixed_partner",
+      path: "/events/fixed_partner/1",
+      heading: "Fixed Partner open placement event",
+    },
+  ] as const;
+
+  for (const route of routes) {
+    await mockEventDetailApi(page, route.format, "open");
+    await page.goto(route.path);
+    await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+    await expect(
+      page.getByRole("heading", { name: route.heading }),
+    ).toBeVisible();
+    await expect(page.getByTestId("card-event-info")).toContainText(
+      "Placement Test Courts",
+    );
+
+    await page.reload();
+
+    await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+    await expect(
+      page.getByRole("heading", { name: route.heading }),
+    ).toBeVisible();
+    await expect(page.getByTestId("card-event-info")).toContainText(
+      "Placement Test Courts",
+    );
+  }
+});
