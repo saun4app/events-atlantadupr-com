@@ -12,7 +12,13 @@ import type { EventFormat } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { canAccessEvent, getNormalizedEvent, parseEventType } from "./events.js";
-import { issueCode, peekCode, consumeCode, VERIFICATION_COOLDOWN_SECONDS } from "../../lib/verification.js";
+import {
+  issueCode,
+  peekCode,
+  consumeCode,
+  VERIFICATION_COOLDOWN_SECONDS,
+  type VerificationPolicy,
+} from "../../lib/verification.js";
 import { sendVerificationEmail, sendFailureAlertEmail } from "../../lib/email.js";
 import { logger } from "../../lib/logger.js";
 import {
@@ -38,18 +44,6 @@ const router = Router({ mergeParams: true });
 
 type EventParams = { eventType: string; id: string };
 type RegParams = { eventType: string; id: string; regId: string };
-
-const REQUEST_CODE_CONFIG = {
-  maxAttempts: 3,
-  windowMs: 60 * 60 * 1000, // 1 hour
-  blockMs: 60 * 60 * 1000,  // 1 hour
-};
-
-const REGISTRATION_SUBMIT_CONFIG = {
-  maxAttempts: 5,
-  windowMs: 10 * 60 * 1000, // 10 minutes
-  blockMs: 15 * 60 * 1000,  // 15 minutes
-};
 
 const STAFF_ROLES = ["admin", "event_organizer", "event_captain", "court_leader"];
 const FIXED_PARTNER_FORMAT = fixedPartnerConfig.format;
@@ -81,6 +75,20 @@ const ROTATING_SELF_RATING_INPUT_REQUIREMENT =
   getRotatingPartnerRequirement("self_rating_input");
 const ROTATING_RATING_ENFORCEMENT_REQUIREMENT =
   getRotatingPartnerRequirement("rating_enforcement");
+const ROTATING_REGISTRATION_ACCESS_REQUIREMENT =
+  getRotatingPartnerRequirement("registration_access");
+const ROTATING_PUBLIC_VERIFICATION_REQUIREMENT =
+  getRotatingPartnerRequirement("public_verification");
+const ROTATING_REACTIVATION_REQUIREMENT =
+  getRotatingPartnerRequirement("registration_reactivation");
+const ROTATING_CANCELLATION_REQUIREMENT =
+  getRotatingPartnerRequirement("cancellation");
+const ROTATING_STATUS_TRANSITIONS_REQUIREMENT =
+  getRotatingPartnerRequirement("status_transitions");
+const ROTATING_SNAPSHOT_REQUIREMENT =
+  getRotatingPartnerRequirement("registration_snapshot");
+const ROTATING_RATING_VALIDATION_REQUIREMENT =
+  getRotatingPartnerRequirement("rating_validation");
 const ACTIVE_REGISTRATION_STATUSES = new Set(
   ROTATING_ACTIVE_REGISTRATION_REQUIREMENT.activeStatuses,
 );
@@ -126,6 +134,60 @@ const ROTATING_PARTNER_CAPACITY_COUNTED_STATUS =
 const ROTATING_PARTNER_ACCEPTED_IDENTIFIERS = new Set(
   ROTATING_PARTICIPANT_REGISTRATION_REQUIREMENT.acceptedIdentifiers,
 );
+const REQUEST_CODE_IP_CONFIG =
+  ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.requestCodeRateLimit.ip;
+const REQUEST_CODE_EMAIL_CONFIG =
+  ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.requestCodeRateLimit.email;
+const REGISTRATION_SUBMIT_IP_CONFIG =
+  ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.submissionRateLimit.ip;
+const REGISTRATION_SUBMIT_EMAIL_CONFIG =
+  ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.submissionRateLimit.email;
+const ROTATING_VERIFICATION_POLICY: VerificationPolicy = {
+  codeTtlMs:
+    ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.codeTtlSeconds * 1000,
+  cooldownMs:
+    ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.codeCooldownSeconds * 1000,
+  maxAttempts: ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.maxCodeAttempts,
+  codeFormat: ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.codeFormat,
+};
+const ROTATING_ACTIVE_STATUS_VALUES = new Set(
+  ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.statuses,
+);
+
+function rotatingRegistrationAccessIsConfigured(
+  eventStatus: string,
+  staff: boolean,
+): boolean {
+  return (
+    ROTATING_REGISTRATION_ACCESS_REQUIREMENT.condition.audience ===
+      "public_and_staff" &&
+    (staff
+      ? ROTATING_REGISTRATION_ACCESS_REQUIREMENT.policy.staffBypass === true
+      : ROTATING_REGISTRATION_ACCESS_REQUIREMENT.policy.allowedEventStatuses.includes(
+          eventStatus,
+        ))
+  );
+}
+
+function rotatingReactivationCandidate(
+  registrations: Array<{ id: number; status: string }>,
+) {
+  const candidates = registrations.filter(
+    (registration) =>
+      registration.status ===
+      ROTATING_REACTIVATION_REQUIREMENT.policy.candidateStatus,
+  );
+  if (ROTATING_REACTIVATION_REQUIREMENT.policy.selection === "newest_by_id") {
+    candidates.sort((a, b) => b.id - a.id);
+  }
+  return candidates[0];
+}
+
+function verificationCooldownSeconds(eventType: EventFormat): number {
+  return eventType === ROTATING_PARTNER_FORMAT
+    ? ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.codeCooldownSeconds
+    : VERIFICATION_COOLDOWN_SECONDS;
+}
 
 function isActiveRegistration(
   registration: { status: string },
@@ -580,11 +642,23 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
 
   // Rate-limit by IP and by email (prevents email-bombing and abuse)
   const clientIp = getClientIp(req);
-  const ipResult = recordAttempt(clientIp, "reg:code:ip", REQUEST_CODE_CONFIG);
+  const ipResult = recordAttempt(
+    clientIp,
+    "reg:code:ip",
+    eventType === ROTATING_PARTNER_FORMAT
+      ? REQUEST_CODE_IP_CONFIG
+      : { maxAttempts: 3, windowMs: 3600000, blockMs: 3600000 },
+  );
   if (ipResult.blocked) {
     return rateLimitErrorResponse(res, ipResult.remainingBlockMs);
   }
-  const emailResult = recordAttempt(email.toLowerCase(), "reg:code:email", REQUEST_CODE_CONFIG);
+  const emailResult = recordAttempt(
+    email.toLowerCase(),
+    "reg:code:email",
+    eventType === ROTATING_PARTNER_FORMAT
+      ? REQUEST_CODE_EMAIL_CONFIG
+      : { maxAttempts: 3, windowMs: 3600000, blockMs: 3600000 },
+  );
   if (emailResult.blocked) {
     return rateLimitErrorResponse(res, emailResult.remainingBlockMs);
   }
@@ -629,18 +703,28 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
   // not control (e.g. a Zoho Desk subdomain), so prefer a dedicated verified
   // sender configured via VERIFICATION_EMAIL_FROM and fall back to the contact
   // email only if it is not set.
-  const fromEmail = process.env.VERIFICATION_EMAIL_FROM || contactEmail;
+  const fromEmail =
+    eventType === ROTATING_PARTNER_FORMAT &&
+    ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.senderSource ===
+      "verified_env_then_event_contact"
+      ? process.env.VERIFICATION_EMAIL_FROM || contactEmail
+      : process.env.VERIFICATION_EMAIL_FROM || contactEmail;
   if (!fromEmail) {
     logger.error("Cannot send verification code: no VERIFICATION_EMAIL_FROM or eventContactEmails configured");
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
+    return res.json({ sent: false, cooldownSeconds: verificationCooldownSeconds(eventType), selfRatingRequired, partnerSelfRatingRequired });
   }
   // Route replies back to the human contact address when the sender is a
   // dedicated no-reply style verified address.
   const replyTo = contactEmail && contactEmail !== fromEmail ? contactEmail : undefined;
 
-  const code = await issueCode(email);
+  const code = await issueCode(
+    email,
+    eventType === ROTATING_PARTNER_FORMAT
+      ? ROTATING_VERIFICATION_POLICY
+      : undefined,
+  );
   if (code === null) {
-    return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
+    return res.json({ sent: true, cooldownSeconds: verificationCooldownSeconds(eventType), selfRatingRequired, partnerSelfRatingRequired });
   }
 
   try {
@@ -668,10 +752,10 @@ router.post("/request-code", async (req: Request<EventParams>, res: Response) =>
       });
     }
 
-    return res.json({ sent: false, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
+    return res.json({ sent: false, cooldownSeconds: verificationCooldownSeconds(eventType), selfRatingRequired, partnerSelfRatingRequired });
   }
 
-  return res.json({ sent: true, cooldownSeconds: VERIFICATION_COOLDOWN_SECONDS, selfRatingRequired, partnerSelfRatingRequired });
+  return res.json({ sent: true, cooldownSeconds: verificationCooldownSeconds(eventType), selfRatingRequired, partnerSelfRatingRequired });
 });
 
 router.post("/", async (req: Request<EventParams>, res: Response) => {
@@ -683,17 +767,34 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const event = await getNormalizedEvent(eventType, eventId);
   if (!event) return res.status(404).json({ error: "Event not found" });
 
-  if (event.status === "cancelled") {
+  if (
+    event.status === "cancelled" &&
+    (eventType !== ROTATING_PARTNER_FORMAT ||
+      ROTATING_REGISTRATION_ACCESS_REQUIREMENT.policy.cancelledEventAction ===
+        "reject")
+  ) {
     return res.status(400).json({ error: "This event has been canceled" });
   }
   const staff = isStaffRequest(req);
   const bypassRatings = staff && bypassRatingRequirements === true;
-  if (!staff && event.status !== "upcoming") {
+  if (
+    eventType === ROTATING_PARTNER_FORMAT &&
+    !rotatingRegistrationAccessIsConfigured(event.status, staff)
+  ) {
+    return res.status(400).json({ error: "Event is not open for registration" });
+  }
+  if (eventType !== ROTATING_PARTNER_FORMAT && !staff && event.status !== "upcoming") {
     return res.status(400).json({ error: "Event is not open for registration" });
   }
 
   const now = new Date();
-  if (!staff && (now < event.signupStartDatetime || now > event.signupEndDatetime)) {
+  if (
+    (eventType !== ROTATING_PARTNER_FORMAT ||
+      ROTATING_REGISTRATION_ACCESS_REQUIREMENT.policy.publicSignupWindow ===
+        "enforced") &&
+    !staff &&
+    (now < event.signupStartDatetime || now > event.signupEndDatetime)
+  ) {
     return res.status(400).json({ error: "Registration is outside the signup window" });
   }
 
@@ -709,23 +810,47 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 
   // Public self-registration (email-based, unauthenticated) requires a verified
   // email. Staff adding participants from the admin console are exempt.
-  if (!staff) {
+  const requiresRotatingVerification =
+    eventType === ROTATING_PARTNER_FORMAT &&
+    ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.condition.publicRequest === true &&
+    ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.emailRequired === true &&
+    ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.verificationCodeRequired ===
+      true;
+  if (!staff && (eventType !== ROTATING_PARTNER_FORMAT || requiresRotatingVerification)) {
     if (!email) {
       return res.status(400).json({ error: "email is required" });
     }
 
     // Rate-limit registration submission by IP and by email
     const clientIp = getClientIp(req);
-    const ipResult = recordAttempt(clientIp, "reg:submit:ip", REGISTRATION_SUBMIT_CONFIG);
+    const ipResult = recordAttempt(
+      clientIp,
+      "reg:submit:ip",
+      eventType === ROTATING_PARTNER_FORMAT
+        ? REGISTRATION_SUBMIT_IP_CONFIG
+        : { maxAttempts: 5, windowMs: 600000, blockMs: 900000 },
+    );
     if (ipResult.blocked) {
       return rateLimitErrorResponse(res, ipResult.remainingBlockMs);
     }
-    const emailResult = recordAttempt(email.toLowerCase(), "reg:submit:email", REGISTRATION_SUBMIT_CONFIG);
+    const emailResult = recordAttempt(
+      email.toLowerCase(),
+      "reg:submit:email",
+      eventType === ROTATING_PARTNER_FORMAT
+        ? REGISTRATION_SUBMIT_EMAIL_CONFIG
+        : { maxAttempts: 5, windowMs: 600000, blockMs: 900000 },
+    );
     if (emailResult.blocked) {
       return rateLimitErrorResponse(res, emailResult.remainingBlockMs);
     }
 
-    const verified = await peekCode(email, typeof code === "string" ? code.trim() : "");
+    const verified = await peekCode(
+      email,
+      typeof code === "string" ? code.trim() : "",
+      eventType === ROTATING_PARTNER_FORMAT
+        ? ROTATING_VERIFICATION_POLICY
+        : undefined,
+    );
     if (!verified) {
       return res.status(400).json({ error: "Invalid or expired verification code. Please request a new code." });
     }
@@ -833,8 +958,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       ) {
         return res.status(400).json({ error: "This event's self-rating requirements are not configured correctly." });
       }
-      if (!/^\d+(\.\d{1,2})?$/.test(selfRating) || !Number.isFinite(value)) {
-        return res.status(400).json({ error: "Self-rating must be a number with at most 2 decimal places." });
+      const precision = ROTATING_RATING_VALIDATION_REQUIREMENT.policy.numericPrecision;
+      const decimalPattern = new RegExp(`^\\d+(\\.\\d{1,${precision}})?$`);
+      if (!decimalPattern.test(selfRating) || !Number.isFinite(value)) {
+        return res.status(400).json({ error: `Self-rating must be a number with at most ${precision} decimal places.` });
       }
       if (value < min || value > max) {
         return res.status(400).json({ error: `Self-rating must be between ${min.toFixed(1)} and ${max.toFixed(1)}.` });
@@ -851,6 +978,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
         return res.status(400).json({ error: "This event's self-rating requirements are not configured correctly." });
       }
       if (
+        ROTATING_RATING_VALIDATION_REQUIREMENT.policy.skillValue !== "integer_level" ||
         !/^\d+$/.test(selfRating) ||
         !Number.isInteger(level) ||
         level < minLevel ||
@@ -1034,7 +1162,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
         )))
       ? String(selfRating)
       : member?.selfRating ?? null;
-  const playerSnapshot = {
+  const playerSnapshotValues = {
     name: member?.name ?? finalMemberDuprId,
     doubles: member?.doubles ?? null,
     singles: member?.singles ?? null,
@@ -1042,12 +1170,29 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     email: member?.email ?? null,
     phone: member?.phone ?? null,
   };
-  const partnerSnapshot = resolvedPartnerDuprId
-    ? {
+  const playerSnapshot: any =
+    eventType === ROTATING_PARTNER_FORMAT
+      ? Object.fromEntries(
+          Object.entries(playerSnapshotValues).filter(([key]) =>
+            ROTATING_SNAPSHOT_REQUIREMENT.policy.playerFields.includes(key),
+          ),
+        )
+      : playerSnapshotValues;
+  const partnerSnapshot: any = resolvedPartnerDuprId
+    ? (() => {
+        const values = {
         partnerName: partnerMember?.name ?? resolvedPartnerDuprId,
         partnerDoubles: partnerMember?.doubles ?? null,
         partnerSelfRating: partnerMember?.selfRating ?? null,
-      }
+        };
+        return eventType === ROTATING_PARTNER_FORMAT
+          ? Object.fromEntries(
+              Object.entries(values).filter(([key]) =>
+                ROTATING_SNAPSHOT_REQUIREMENT.policy.partnerFields.includes(key),
+              ),
+            )
+          : values;
+      })()
     : null;
 
   let reg;
@@ -1100,7 +1245,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       }
 
       const currentExistingReg = currentMemberRegs
-        .filter((r) => r.status === "cancelled")
+        .filter(
+          (r) =>
+            r.status === "cancelled",
+        )
         .sort((a, b) => b.id - a.id)[0];
       const capacityOperation: FixedPartnerCapacityDecisionOperation =
         currentExistingReg
@@ -1137,10 +1285,12 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
             status: currentStatus,
             assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
             registeredAt: new Date(),
-            cancelledAt: null,
-            cancelledBy: null,
-            approvedAt: null,
-            approvedBy: null,
+            ...Object.fromEntries(
+              ROTATING_REACTIVATION_REQUIREMENT.policy.clearFields.map((field) => [
+                field,
+                null,
+              ]),
+            ),
           })
           .where(eq(registrationsTable.id, currentExistingReg.id))
           .returning();
@@ -1196,9 +1346,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
       if (capacityLimit === null) {
         return { kind: "conflict" as const, error: "Event not found", status: 404 };
       }
-      const currentExistingReg = currentMemberRegs
-        .filter((r) => r.status === "cancelled")
-        .sort((a, b) => b.id - a.id)[0];
+      const currentExistingReg = rotatingReactivationCandidate(currentMemberRegs);
       const capacityOperation = currentExistingReg
         ? "registration_reactivate"
         : "registration_create";
@@ -1231,10 +1379,12 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
             status: currentStatus,
             assignedRating: isNaN(assignedRating as any) ? null : assignedRating,
             registeredAt: new Date(),
-            cancelledAt: null,
-            cancelledBy: null,
-            approvedAt: null,
-            approvedBy: null,
+            ...Object.fromEntries(
+              ROTATING_REACTIVATION_REQUIREMENT.policy.clearFields.map((field) => [
+                field,
+                null,
+              ]),
+            ),
           })
           .where(eq(registrationsTable.id, currentExistingReg.id))
           .returning();
@@ -1349,7 +1499,17 @@ router.patch(
     }
 
     const updates: any = {};
-    if (req.body.status !== undefined) updates.status = req.body.status;
+    if (req.body.status !== undefined) {
+      if (
+        eventType === ROTATING_PARTNER_FORMAT &&
+        !ROTATING_ACTIVE_STATUS_VALUES.has(req.body.status) &&
+        req.body.status !==
+          ROTATING_CANCELLATION_REQUIREMENT.policy.cancelledStatus
+      ) {
+        return res.status(400).json({ error: "Invalid rotating registration status" });
+      }
+      updates.status = req.body.status;
+    }
 
     // Replace the primary player. Accept a new member by email or DUPR ID,
     // verify the member exists and is not already registered for this event,
@@ -1540,11 +1700,43 @@ router.patch(
     // record the timestamp and the acting staff member. When moving away from
     // cancelled, clear the metadata so the fields stay accurate.
     const newStatus = req.body.status;
-    if (newStatus === "cancelled" && existing.status !== "cancelled") {
+    if (
+      eventType === ROTATING_PARTNER_FORMAT &&
+      newStatus ===
+        ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.cancellation.target &&
+      existing.status !==
+        ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.cancellation.target
+    ) {
+      updates.cancelledAt = new Date();
+      const sessionUser = (req as any).session;
+      updates.cancelledBy =
+        sessionUser?.username ||
+        sessionUser?.role ||
+        ROTATING_CANCELLATION_REQUIREMENT.policy.cancelledBy;
+    } else if (
+      eventType === FIXED_PARTNER_FORMAT &&
+      newStatus === "cancelled" &&
+      existing.status !== "cancelled"
+    ) {
       updates.cancelledAt = new Date();
       const sessionUser = (req as any).session;
       updates.cancelledBy = sessionUser?.username || sessionUser?.role || "admin";
-    } else if (newStatus !== undefined && newStatus !== "cancelled" && existing.status === "cancelled") {
+    } else if (
+      eventType === ROTATING_PARTNER_FORMAT &&
+      newStatus !== undefined &&
+      newStatus !==
+        ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.cancellation.target &&
+      existing.status ===
+        ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.cancellation.target
+    ) {
+      updates.cancelledAt = null;
+      updates.cancelledBy = null;
+    } else if (
+      eventType === FIXED_PARTNER_FORMAT &&
+      newStatus !== undefined &&
+      newStatus !== "cancelled" &&
+      existing.status === "cancelled"
+    ) {
       updates.cancelledAt = null;
       updates.cancelledBy = null;
     }
@@ -1794,7 +1986,7 @@ router.post(
         (r) => r.status === capacityCountedStatus(eventType),
       ).length;
 
-      let newStatus: "confirmed" | "waitlisted";
+       let newStatus: "confirmed" | "waitlisted";
       if (confirmedCount >= capacityLimit) {
         const fullCapacityAction =
           eventType === FIXED_PARTNER_FORMAT
@@ -1809,14 +2001,26 @@ router.post(
         if (fullCapacityAction === "reject") {
           return { kind: "full" as const };
         }
-        newStatus = fullCapacityAction;
+         newStatus =
+           eventType === ROTATING_PARTNER_FORMAT
+             ? ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.approval.full
+             : fullCapacityAction;
       } else {
-        newStatus = "confirmed";
+         newStatus =
+           eventType === ROTATING_PARTNER_FORMAT
+             ? ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.approval.available
+             : "confirmed";
       }
 
+       const approvalUpdates =
+         eventType === ROTATING_PARTNER_FORMAT &&
+         ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.approval
+           .setsApprovalMetadata
+           ? { status: newStatus, approvedAt: new Date(), approvedBy: sessionUserId }
+           : { status: newStatus };
       const [updated] = await tx
         .update(registrationsTable)
-        .set({ status: newStatus, approvedAt: new Date(), approvedBy: sessionUserId })
+         .set(approvalUpdates)
         .where(and(eq(registrationsTable.id, Number(req.params.regId)), regScope(eventId, eventType)))
         .returning();
 
@@ -1854,7 +2058,12 @@ router.post(
 
     const [updated] = await db
       .update(registrationsTable)
-      .set({ status: "rejected" })
+    .set({
+      status:
+        eventType === ROTATING_PARTNER_FORMAT
+          ? ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.rejection.target
+          : "rejected",
+    })
       .where(eq(registrationsTable.id, Number(req.params.regId)))
       .returning();
 
@@ -1919,7 +2128,17 @@ router.post(
 
       const [updated] = await tx
         .update(registrationsTable)
-        .set({ status: "confirmed", approvedAt: new Date(), approvedBy: sessionUserId })
+        .set({
+          status:
+            eventType === ROTATING_PARTNER_FORMAT
+              ? ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.promotion.target
+              : "confirmed",
+          ...(eventType === ROTATING_PARTNER_FORMAT &&
+          ROTATING_STATUS_TRANSITIONS_REQUIREMENT.policy.promotion
+            .setsApprovalMetadata
+            ? { approvedAt: new Date(), approvedBy: sessionUserId }
+            : {}),
+        })
         .where(
           and(
             eq(registrationsTable.id, Number(req.params.regId)),
@@ -1955,7 +2174,13 @@ router.post("/cancel", async (req: Request<EventParams>, res: Response) => {
     return res.status(400).json({ error: "A valid email address is required" });
   }
 
-  const verified = await peekCode(email, typeof code === "string" ? code.trim() : "");
+  const verified = await peekCode(
+    email,
+    typeof code === "string" ? code.trim() : "",
+    eventType === ROTATING_PARTNER_FORMAT
+      ? ROTATING_VERIFICATION_POLICY
+      : undefined,
+  );
   if (!verified) {
     return res.status(400).json({ error: "Invalid or expired verification code. Please request a new code." });
   }
@@ -1972,20 +2197,46 @@ router.post("/cancel", async (req: Request<EventParams>, res: Response) => {
         sql`lower(${registrationsTable.playerSnapshot} ->> 'email') = lower(${email})`,
       ),
     );
-  const reg = regs.find((r) => r.status !== "cancelled") ?? regs[0];
+    const reg = regs.find(
+      (r) =>
+        r.status !==
+        (eventType === ROTATING_PARTNER_FORMAT
+          ? ROTATING_CANCELLATION_REQUIREMENT.policy.cancelledStatus
+          : "cancelled"),
+    ) ?? regs[0];
   if (!reg) return res.status(404).json({ error: "Registration not found" });
 
-  if (reg.status === "cancelled") {
+  if (
+    reg.status ===
+    (eventType === ROTATING_PARTNER_FORMAT
+      ? ROTATING_CANCELLATION_REQUIREMENT.policy.cancelledStatus
+      : "cancelled")
+  ) {
     return res.status(400).json({ error: "Registration is already canceled." });
   }
 
   const [updated] = await db
     .update(registrationsTable)
-    .set({ status: "cancelled", cancelledAt: new Date(), cancelledBy: "participant" })
+    .set({
+      status:
+        eventType === ROTATING_PARTNER_FORMAT
+          ? ROTATING_CANCELLATION_REQUIREMENT.policy.cancelledStatus
+          : "cancelled",
+      cancelledAt: new Date(),
+      cancelledBy:
+        eventType === ROTATING_PARTNER_FORMAT
+          ? ROTATING_CANCELLATION_REQUIREMENT.policy.cancelledBy
+          : "participant",
+    })
     .where(eq(registrationsTable.id, reg.id))
     .returning();
 
-  await consumeCode(email);
+  if (
+    eventType !== ROTATING_PARTNER_FORMAT ||
+    ROTATING_CANCELLATION_REQUIREMENT.policy.consumeVerificationCode
+  ) {
+    await consumeCode(email);
+  }
 
   return res.json(buildRosterEntry(updated, false, eventType));
 });

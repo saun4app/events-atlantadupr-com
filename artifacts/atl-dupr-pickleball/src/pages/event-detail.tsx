@@ -80,6 +80,22 @@ const SELF_RATING_INPUT_REQUIREMENT = getRotatingPartnerRequirement(
   rotatingPartnerConfig,
   "self_rating_input",
 );
+const ROTATING_REGISTRATION_ACCESS_REQUIREMENT = getRotatingPartnerRequirement(
+  rotatingPartnerConfig,
+  "registration_access",
+);
+const ROTATING_PUBLIC_VERIFICATION_REQUIREMENT = getRotatingPartnerRequirement(
+  rotatingPartnerConfig,
+  "public_verification",
+);
+const ROTATING_RATING_VALIDATION_REQUIREMENT = getRotatingPartnerRequirement(
+  rotatingPartnerConfig,
+  "rating_validation",
+);
+const VERIFICATION_CODE_LENGTH =
+  ROTATING_PUBLIC_VERIFICATION_REQUIREMENT.policy.codeFormat === "six_digit"
+    ? 6
+    : 0;
 
 interface SkillLevel {
   text: string;
@@ -422,8 +438,13 @@ export default function EventDetail() {
     );
   }
 
+  const rotatingStatusOpen =
+    event.teamFormat !== rotatingPartnerConfig.format ||
+    ROTATING_REGISTRATION_ACCESS_REQUIREMENT.policy.allowedEventStatuses.includes(
+      event.status,
+    );
   const signupOpen =
-    event.status === "upcoming" &&
+    rotatingStatusOpen &&
     isFuture(new Date(event.signupEndDatetime)) &&
     isPast(new Date(event.signupStartDatetime));
   const signupNotYet = isFuture(new Date(event.signupStartDatetime));
@@ -645,10 +666,12 @@ export default function EventDetail() {
       const num = Number(ratingVal);
       if (
         !Number.isFinite(num) ||
-        !/^\d+(\.\d{1,2})?$/.test(ratingVal)
+        !new RegExp(
+          `^\\d+(\\.\\d{1,${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.numericPrecision}})?$`,
+        ).test(ratingVal)
       ) {
         setSelfRatingError(
-          "Self-rating must be a number with at most 2 decimal places.",
+          `Self-rating must be a number with at most ${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.numericPrecision} decimal places.`,
         );
         return;
       }
@@ -658,7 +681,11 @@ export default function EventDetail() {
         );
         return;
       }
-    } else if (eventSelfRatingMode === "skill") {
+      } else if (
+        eventSelfRatingMode === "skill" &&
+        ROTATING_RATING_VALIDATION_REQUIREMENT.policy.skillValue ===
+          "integer_level"
+      ) {
       if (!ratingVal) {
         setSelfRatingError("Self-rating is required.");
         return;
@@ -690,11 +717,21 @@ export default function EventDetail() {
         return;
       }
       const num = Number(ratingVal);
-      if (isNaN(num) || num < 2.0 || num > 5.0) {
-        setSelfRatingError("Self-rating must be between 2.0 and 5.0.");
+      if (
+        isNaN(num) ||
+        num < ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.min ||
+        num > ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.max
+      ) {
+        setSelfRatingError(
+          `Self-rating must be between ${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.min.toFixed(1)} and ${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.max.toFixed(1)}.`,
+        );
         return;
       }
-      if (!/^\d+(\.\d{1,2})?$/.test(ratingVal)) {
+      if (
+        !new RegExp(
+          `^\\d+(\\.\\d{1,${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrPrecision}})?$`,
+        ).test(ratingVal)
+      ) {
         setSelfRatingError(
           "Self-rating must have at most 2 decimal places (e.g. 3.50).",
         );
@@ -1317,7 +1354,7 @@ export default function EventDetail() {
                   type="submit"
                   disabled={
                     createReg.isPending ||
-                    code.trim().length !== 6 ||
+                    code.trim().length !== VERIFICATION_CODE_LENGTH ||
                     nrBlocked ||
                     partnerNrBlocked
                   }

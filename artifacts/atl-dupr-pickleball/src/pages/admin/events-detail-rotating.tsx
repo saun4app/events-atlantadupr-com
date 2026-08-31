@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/dialog";
 import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
+import { loadRotatingPartnerConfig, getRotatingPartnerRequirement } from "@workspace/rotating-partner-config";
+import rawRotatingPartnerConfig from "../../../../../app-config/rotating-partner-config.json";
 
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
@@ -47,6 +49,12 @@ const DEFAULT_RRC: RatingRequirementsConfig = {
   selfNumeric: { enabled: true, minAllowed: 2.0, maxAllowed: 6.0, defaultMin: 2.0, defaultMax: 4.0 },
   selfSkill: { enabled: true, levels: [], defaultMinLevel: 1, defaultMaxLevel: 3 },
 };
+
+const rotatingPartnerConfig = loadRotatingPartnerConfig(rawRotatingPartnerConfig);
+const ROTATING_RATING_VALIDATION_REQUIREMENT = getRotatingPartnerRequirement(
+  rotatingPartnerConfig,
+  "rating_validation",
+);
 
 function hasInvertedLimits(min: unknown, max: unknown): boolean {
   if (min === "" || max === "" || min == null || max == null) return false;
@@ -876,8 +884,8 @@ export default function AdminEventDetailRotating() {
                                           const parsed = val.trim() === "" ? null : val;
                                           if (parsed !== storedSelfRating) {
                                             const num = parsed !== null ? parseFloat(parsed) : null;
-                                            if (parsed !== null && (isNaN(num!) || num! < 2.0 || num! > 5.0)) {
-                                              toast({ title: "Self-rating must be between 2.0 and 5.0", variant: "destructive" });
+                                            if (parsed !== null && (isNaN(num!) || num! < ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.min || num! > ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.max)) {
+                                              toast({ title: `Self-rating must be between ${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.min.toFixed(1)} and ${ROTATING_RATING_VALIDATION_REQUIREMENT.policy.nrRange.max.toFixed(1)}`, variant: "destructive" });
                                               setEditingSelfRatings(prev => { const next = { ...prev }; delete next[reg.id]; return next; });
                                               return;
                                             }

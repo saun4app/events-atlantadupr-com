@@ -5,6 +5,7 @@ export interface RotatingPartnerRequirementCondition {
   ratingTypes?: string[];
   publicRequest?: boolean;
   approvalMode?: string;
+  audience?: string;
 }
 
 interface RotatingPartnerRequirementBase<Key extends string> {
@@ -120,6 +121,135 @@ export interface RatingEnforcementRequirement
   rangeSource: "event.ratingConfig";
 }
 
+export interface RegistrationAccessRequirement
+  extends RotatingPartnerRequirementBase<"registration_access"> {
+  policy: {
+    allowedEventStatuses: string[];
+    publicSignupWindow: "enforced";
+    staffBypass: true;
+    cancelledEventAction: "reject";
+  };
+}
+
+export interface PublicVerificationRequirement
+  extends RotatingPartnerRequirementBase<"public_verification"> {
+  policy: {
+    emailRequired: true;
+    verificationCodeRequired: true;
+    verifier: "peek_code";
+    consumeOnSuccess: true;
+    codeFormat: "six_digit";
+    codeTtlSeconds: 600;
+    codeCooldownSeconds: 30;
+    maxCodeAttempts: 5;
+    senderSource: "verified_env_then_event_contact";
+    replyToSource: "event_contact_when_different";
+    failureAlertRecipients: "event_contacts";
+    requestCodeRateLimit: {
+      ip: { maxAttempts: 3; windowMs: 3600000; blockMs: 3600000 };
+      email: { maxAttempts: 3; windowMs: 3600000; blockMs: 3600000 };
+    };
+    submissionRateLimit: {
+      ip: { maxAttempts: 5; windowMs: 600000; blockMs: 900000 };
+      email: { maxAttempts: 5; windowMs: 600000; blockMs: 900000 };
+    };
+  };
+}
+
+export interface RegistrationReactivationRequirement
+  extends RotatingPartnerRequirementBase<"registration_reactivation"> {
+  policy: {
+    historicalRows: "all";
+    candidateStatus: "cancelled";
+    selection: "newest_by_id";
+    updateMode: "in_place";
+    blockedStatuses: string[];
+    clearFields: string[];
+  };
+}
+
+export interface CancellationRequirement
+  extends RotatingPartnerRequirementBase<"cancellation"> {
+  policy: {
+    lookup: "player_snapshot_email";
+    alreadyCancelledAction: "reject";
+    cancelledStatus: "cancelled";
+    cancelledBy: "participant";
+    consumeVerificationCode: true;
+  };
+}
+
+export interface StatusTransitionsRequirement
+  extends RotatingPartnerRequirementBase<"status_transitions"> {
+  policy: {
+    statuses: string[];
+    approval: {
+      available: "confirmed";
+      full: "waitlisted";
+      setsApprovalMetadata: true;
+    };
+    rejection: {
+      target: "rejected";
+    };
+    promotion: {
+      target: "confirmed";
+      setsApprovalMetadata: true;
+    };
+    cancellation: {
+      target: "cancelled";
+      setsCancellationMetadata: true;
+    };
+    reactivationClearsCancellationMetadata: true;
+  };
+}
+
+export interface RegistrationSnapshotRequirement
+  extends RotatingPartnerRequirementBase<"registration_snapshot"> {
+  policy: {
+    source: "member_at_write";
+    sourceOfTruth: "registration_snapshot";
+    playerFields: string[];
+    partnerFields: string[];
+    assignedRating: "numeric_member_doubles_or_null";
+  };
+}
+
+export interface RatingValidationRequirement
+  extends RotatingPartnerRequirementBase<"rating_validation"> {
+  policy: {
+    eventConfigSource: "event.ratingConfig";
+    numericPrecision: 2;
+    numericRange: "event_configured";
+    skillValue: "integer_level";
+    nrRange: { min: 2; max: 5 };
+    nrPrecision: 2;
+    missingRequiredConfig: "reject";
+    staffBypassRequiresExplicitFlag: true;
+  };
+}
+
+export interface EventSettingsPrecedenceRequirement
+  extends RotatingPartnerRequirementBase<"event_settings_precedence"> {
+  policy: {
+    eventSpecificSource: "database_event";
+    globalDefaultsSource: "database_event_defaults";
+    jsonDefaultsRole: "initial_fallback";
+    cloneSource: "source_event";
+    serverAuthority: "database_event";
+  };
+}
+
+export interface RosterSummaryRequirement
+  extends RotatingPartnerRequirementBase<"roster_summary"> {
+  policy: {
+    countedStatuses: string[];
+    excludedStatuses: string[];
+    total: "sum_counted_statuses";
+    capacitySource: "event.maxParticipants";
+    teamFields: "null_for_rotating";
+  };
+}
+
 export type RotatingPartnerRequirement =
   | ParticipantRegistrationRequirement
   | ParticipantCapacityRequirement
@@ -129,7 +259,16 @@ export type RotatingPartnerRequirement =
   | ActiveRegistrationRequirement
   | CapacityWriteSerializationRequirement
   | SelfRatingInputRequirement
-  | RatingEnforcementRequirement;
+  | RatingEnforcementRequirement
+  | RegistrationAccessRequirement
+  | PublicVerificationRequirement
+  | RegistrationReactivationRequirement
+  | CancellationRequirement
+  | StatusTransitionsRequirement
+  | RegistrationSnapshotRequirement
+  | RatingValidationRequirement
+  | EventSettingsPrecedenceRequirement
+  | RosterSummaryRequirement;
 
 export type RotatingPartnerRequirementKey = RotatingPartnerRequirement["key"];
 
@@ -143,6 +282,15 @@ export interface RotatingPartnerRequirementByKey {
   capacity_write_serialization: CapacityWriteSerializationRequirement;
   self_rating_input: SelfRatingInputRequirement;
   rating_enforcement: RatingEnforcementRequirement;
+  registration_access: RegistrationAccessRequirement;
+  public_verification: PublicVerificationRequirement;
+  registration_reactivation: RegistrationReactivationRequirement;
+  cancellation: CancellationRequirement;
+  status_transitions: StatusTransitionsRequirement;
+  registration_snapshot: RegistrationSnapshotRequirement;
+  rating_validation: RatingValidationRequirement;
+  event_settings_precedence: EventSettingsPrecedenceRequirement;
+  roster_summary: RosterSummaryRequirement;
 }
 
 export interface RotatingPartnerConfig {
@@ -167,6 +315,15 @@ const ROTATING_PARTNER_REQUIREMENT_KEYS = [
   "capacity_write_serialization",
   "self_rating_input",
   "rating_enforcement",
+  "registration_access",
+  "public_verification",
+  "registration_reactivation",
+  "cancellation",
+  "status_transitions",
+  "registration_snapshot",
+  "rating_validation",
+  "event_settings_precedence",
+  "roster_summary",
 ] as const satisfies readonly RotatingPartnerRequirementKey[];
 
 const REQUIREMENT_FIELDS_BY_KEY: Record<
@@ -206,6 +363,15 @@ const REQUIREMENT_FIELDS_BY_KEY: Record<
     "nrUsesEventConfiguration",
     "rangeSource",
   ],
+  registration_access: ["policy"],
+  public_verification: ["policy"],
+  registration_reactivation: ["policy"],
+  cancellation: ["policy"],
+  status_transitions: ["policy"],
+  registration_snapshot: ["policy"],
+  rating_validation: ["policy"],
+  event_settings_precedence: ["policy"],
+  roster_summary: ["policy"],
 };
 
 const CONDITION_FIELDS_BY_KEY: Record<
@@ -221,6 +387,104 @@ const CONDITION_FIELDS_BY_KEY: Record<
   capacity_write_serialization: ["operations"],
   self_rating_input: ["operation", "ratingTypes", "publicRequest"],
   rating_enforcement: ["operation", "ratingTypes", "approvalMode"],
+  registration_access: ["operations", "audience"],
+  public_verification: ["operations", "publicRequest"],
+  registration_reactivation: ["operation"],
+  cancellation: ["operation", "publicRequest"],
+  status_transitions: ["operations"],
+  registration_snapshot: ["operations"],
+  rating_validation: ["operation", "ratingTypes"],
+  event_settings_precedence: ["operations"],
+  roster_summary: ["operation"],
+};
+
+const POLICY_FIELDS_BY_KEY: Record<
+  | "registration_access"
+  | "public_verification"
+  | "registration_reactivation"
+  | "cancellation"
+  | "status_transitions"
+  | "registration_snapshot"
+  | "rating_validation"
+  | "event_settings_precedence"
+  | "roster_summary",
+  readonly string[]
+> = {
+  registration_access: [
+    "allowedEventStatuses",
+    "publicSignupWindow",
+    "staffBypass",
+    "cancelledEventAction",
+  ],
+  public_verification: [
+    "emailRequired",
+    "verificationCodeRequired",
+    "verifier",
+    "consumeOnSuccess",
+    "codeFormat",
+    "codeTtlSeconds",
+    "codeCooldownSeconds",
+    "maxCodeAttempts",
+    "senderSource",
+    "replyToSource",
+    "failureAlertRecipients",
+    "requestCodeRateLimit",
+    "submissionRateLimit",
+  ],
+  registration_reactivation: [
+    "historicalRows",
+    "candidateStatus",
+    "selection",
+    "updateMode",
+    "blockedStatuses",
+    "clearFields",
+  ],
+  cancellation: [
+    "lookup",
+    "alreadyCancelledAction",
+    "cancelledStatus",
+    "cancelledBy",
+    "consumeVerificationCode",
+  ],
+  status_transitions: [
+    "statuses",
+    "approval",
+    "rejection",
+    "promotion",
+    "cancellation",
+    "reactivationClearsCancellationMetadata",
+  ],
+  registration_snapshot: [
+    "source",
+    "sourceOfTruth",
+    "playerFields",
+    "partnerFields",
+    "assignedRating",
+  ],
+  rating_validation: [
+    "eventConfigSource",
+    "numericPrecision",
+    "numericRange",
+    "skillValue",
+    "nrRange",
+    "nrPrecision",
+    "missingRequiredConfig",
+    "staffBypassRequiresExplicitFlag",
+  ],
+  event_settings_precedence: [
+    "eventSpecificSource",
+    "globalDefaultsSource",
+    "jsonDefaultsRole",
+    "cloneSource",
+    "serverAuthority",
+  ],
+  roster_summary: [
+    "countedStatuses",
+    "excludedStatuses",
+    "total",
+    "capacitySource",
+    "teamFields",
+  ],
 };
 
 function isShortUuid(value: unknown): value is string {
@@ -334,6 +598,19 @@ export function loadRotatingPartnerConfig(
     ) {
       throw new Error(
         `Rotating-partner requirement ${key} contains unexpected or missing fields`,
+      );
+    }
+    if (
+      key in POLICY_FIELDS_BY_KEY &&
+      (!requirement.policy ||
+        typeof requirement.policy !== "object" ||
+        !hasOnlyKeys(
+          requirement.policy as object,
+          POLICY_FIELDS_BY_KEY[key as keyof typeof POLICY_FIELDS_BY_KEY],
+        ))
+    ) {
+      throw new Error(
+        `Rotating-partner requirement ${key} contains unexpected policy fields`,
       );
     }
   }
@@ -508,6 +785,234 @@ export function loadRotatingPartnerConfig(
     throw new Error(
       "Rotating-partner rating-enforcement requirement is invalid",
     );
+  }
+
+  const policyRequirements = [
+    "registration_access",
+    "public_verification",
+    "registration_reactivation",
+    "cancellation",
+    "status_transitions",
+    "registration_snapshot",
+    "rating_validation",
+    "event_settings_precedence",
+    "roster_summary",
+  ] as const;
+  for (const key of policyRequirements) {
+    const requirement = byKey.get(key) as { policy?: unknown } | undefined;
+    if (!requirement?.policy || typeof requirement.policy !== "object") {
+      throw new Error(
+        `Rotating-partner ${key} requirement must contain a policy object`,
+      );
+    }
+  }
+
+  const registrationAccess = byKey.get(
+    "registration_access",
+  ) as RegistrationAccessRequirement;
+  if (
+    !hasExactValues(registrationAccess.condition.operations, [
+      "registration_create",
+      "registration_reactivate",
+    ]) ||
+    registrationAccess.condition.audience !== "public_and_staff" ||
+    !hasExactValues(registrationAccess.policy.allowedEventStatuses, ["upcoming"]) ||
+    registrationAccess.policy.publicSignupWindow !== "enforced" ||
+    registrationAccess.policy.staffBypass !== true ||
+    registrationAccess.policy.cancelledEventAction !== "reject"
+  ) {
+    throw new Error("Rotating-partner registration-access requirement is invalid");
+  }
+
+  const publicVerification = byKey.get(
+    "public_verification",
+  ) as PublicVerificationRequirement;
+  if (
+    !hasExactOperations(publicVerification.condition.operations, [
+      "request_code",
+      "registration_create",
+      "registration_cancel",
+    ]) ||
+    publicVerification.condition.publicRequest !== true ||
+    publicVerification.policy.emailRequired !== true ||
+    publicVerification.policy.verificationCodeRequired !== true ||
+    publicVerification.policy.verifier !== "peek_code" ||
+    publicVerification.policy.consumeOnSuccess !== true ||
+    publicVerification.policy.codeFormat !== "six_digit" ||
+    publicVerification.policy.codeTtlSeconds !== 600 ||
+    publicVerification.policy.codeCooldownSeconds !== 30 ||
+    publicVerification.policy.maxCodeAttempts !== 5 ||
+    publicVerification.policy.senderSource !== "verified_env_then_event_contact" ||
+    publicVerification.policy.replyToSource !== "event_contact_when_different" ||
+    publicVerification.policy.failureAlertRecipients !== "event_contacts"
+  ) {
+    throw new Error("Rotating-partner public-verification requirement is invalid");
+  }
+
+  const reactivation = byKey.get(
+    "registration_reactivation",
+  ) as RegistrationReactivationRequirement;
+  if (
+    reactivation.condition.operation !== "registration_reactivate" ||
+    reactivation.policy.historicalRows !== "all" ||
+    reactivation.policy.candidateStatus !== "cancelled" ||
+    reactivation.policy.selection !== "newest_by_id" ||
+    reactivation.policy.updateMode !== "in_place" ||
+    !hasExactValues(reactivation.policy.blockedStatuses, [
+      "confirmed",
+      "waitlisted",
+      "pending_approval",
+    ]) ||
+    !hasExactValues(reactivation.policy.clearFields, [
+      "cancelledAt",
+      "cancelledBy",
+      "approvedAt",
+      "approvedBy",
+    ])
+  ) {
+    throw new Error(
+      "Rotating-partner registration-reactivation requirement is invalid",
+    );
+  }
+
+  const cancellation = byKey.get("cancellation") as CancellationRequirement;
+  if (
+    cancellation.condition.operation !== "registration_cancel" ||
+    cancellation.condition.publicRequest !== true ||
+    cancellation.policy.lookup !== "player_snapshot_email" ||
+    cancellation.policy.alreadyCancelledAction !== "reject" ||
+    cancellation.policy.cancelledStatus !== "cancelled" ||
+    cancellation.policy.cancelledBy !== "participant" ||
+    cancellation.policy.consumeVerificationCode !== true
+  ) {
+    throw new Error("Rotating-partner cancellation requirement is invalid");
+  }
+
+  const transitions = byKey.get(
+    "status_transitions",
+  ) as StatusTransitionsRequirement;
+  if (
+    !hasExactOperations(transitions.condition.operations, [
+      "registration_create",
+      "registration_reactivate",
+      "approval",
+      "waitlist_promotion",
+      "roster_edit",
+    ]) ||
+    !hasExactValues(transitions.policy.statuses, [
+      "confirmed",
+      "waitlisted",
+      "pending_approval",
+      "rejected",
+      "cancelled",
+      "no_show",
+    ]) ||
+    transitions.policy.approval.available !== "confirmed" ||
+    transitions.policy.approval.full !== "waitlisted" ||
+    transitions.policy.approval.setsApprovalMetadata !== true ||
+    transitions.policy.rejection.target !== "rejected" ||
+    transitions.policy.promotion.target !== "confirmed" ||
+    transitions.policy.promotion.setsApprovalMetadata !== true ||
+    transitions.policy.cancellation.target !== "cancelled" ||
+    transitions.policy.cancellation.setsCancellationMetadata !== true ||
+    transitions.policy.reactivationClearsCancellationMetadata !== true
+  ) {
+    throw new Error("Rotating-partner status-transitions requirement is invalid");
+  }
+
+  const snapshot = byKey.get(
+    "registration_snapshot",
+  ) as RegistrationSnapshotRequirement;
+  if (
+    !hasExactOperations(snapshot.condition.operations, [
+      "registration_create",
+      "registration_reactivate",
+      "roster_edit",
+    ]) ||
+    snapshot.policy.source !== "member_at_write" ||
+    snapshot.policy.sourceOfTruth !== "registration_snapshot" ||
+    !hasExactValues(snapshot.policy.playerFields, [
+      "name",
+      "doubles",
+      "singles",
+      "selfRating",
+      "email",
+      "phone",
+    ]) ||
+    !hasExactValues(snapshot.policy.partnerFields, [
+      "partnerName",
+      "partnerDoubles",
+      "partnerSelfRating",
+    ]) ||
+    snapshot.policy.assignedRating !== "numeric_member_doubles_or_null"
+  ) {
+    throw new Error("Rotating-partner registration-snapshot requirement is invalid");
+  }
+
+  const ratingValidation = byKey.get(
+    "rating_validation",
+  ) as RatingValidationRequirement;
+  if (
+    !hasExactValues(ratingValidation.condition.ratingTypes, [
+      "dupr",
+      "self_numeric",
+      "self_skill",
+    ]) ||
+    ratingValidation.condition.operation !== "registration_create" ||
+    ratingValidation.policy.eventConfigSource !== "event.ratingConfig" ||
+    ratingValidation.policy.numericPrecision !== 2 ||
+    ratingValidation.policy.numericRange !== "event_configured" ||
+    ratingValidation.policy.skillValue !== "integer_level" ||
+    ratingValidation.policy.nrRange.min !== 2 ||
+    ratingValidation.policy.nrRange.max !== 5 ||
+    ratingValidation.policy.nrPrecision !== 2 ||
+    ratingValidation.policy.missingRequiredConfig !== "reject" ||
+    ratingValidation.policy.staffBypassRequiresExplicitFlag !== true
+  ) {
+    throw new Error("Rotating-partner rating-validation requirement is invalid");
+  }
+
+  const precedence = byKey.get(
+    "event_settings_precedence",
+  ) as EventSettingsPrecedenceRequirement;
+  if (
+    !hasExactOperations(precedence.condition.operations, [
+      "event_create",
+      "event_clone",
+      "event_update",
+      "frontend_event_create",
+    ]) ||
+    precedence.policy.eventSpecificSource !== "database_event" ||
+    precedence.policy.globalDefaultsSource !== "database_event_defaults" ||
+    precedence.policy.jsonDefaultsRole !== "initial_fallback" ||
+    precedence.policy.cloneSource !== "source_event" ||
+    precedence.policy.serverAuthority !== "database_event"
+  ) {
+    throw new Error(
+      "Rotating-partner event-settings-precedence requirement is invalid",
+    );
+  }
+
+  const rosterSummary = byKey.get(
+    "roster_summary",
+  ) as RosterSummaryRequirement;
+  if (
+    rosterSummary.condition.operation !== "roster_summary" ||
+    !hasExactValues(rosterSummary.policy.countedStatuses, [
+      "confirmed",
+      "waitlisted",
+      "pending_approval",
+    ]) ||
+    !hasExactValues(rosterSummary.policy.excludedStatuses, [
+      "rejected",
+      "cancelled",
+      "no_show",
+    ]) ||
+    rosterSummary.policy.total !== "sum_counted_statuses" ||
+    rosterSummary.policy.capacitySource !== "event.maxParticipants" ||
+    rosterSummary.policy.teamFields !== "null_for_rotating"
+  ) {
+    throw new Error("Rotating-partner roster-summary requirement is invalid");
   }
 
   return config as RotatingPartnerConfig;

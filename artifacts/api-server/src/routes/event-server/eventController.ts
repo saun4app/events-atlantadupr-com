@@ -41,6 +41,10 @@ const ROTATING_CAPACITY_WRITE_OPERATIONS = new Set(
 );
 const ROTATING_CAPACITY_LOCK_NAMESPACE =
   ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT =
+  getRotatingPartnerRequirement("event_settings_precedence");
+const ROTATING_ROSTER_SUMMARY_REQUIREMENT =
+  getRotatingPartnerRequirement("roster_summary");
 
 function fixedPartnerEventLimitUpdateIsConfigured(): boolean {
   return (
@@ -71,6 +75,17 @@ function rotatingPartnerEventLimitUpdateIsConfigured(): boolean {
       "postgres_advisory_xact" &&
     ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
     ROTATING_CAPACITY_WRITE_OPERATIONS.has("event_limit_update")
+  );
+}
+
+function rotatingEventSettingsPrecedenceIsConfigured(): boolean {
+  return (
+    ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT.policy
+      .eventSpecificSource === "database_event" &&
+    ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT.policy.serverAuthority ===
+      "database_event" &&
+    ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT.policy.cloneSource ===
+      "source_event"
   );
 }
 
@@ -277,6 +292,14 @@ export abstract class BaseEventController {
     const body = req.body;
     const { startDatetime, endDatetime, signupStartDatetime, signupEndDatetime, recurrence } = body;
     const baseEvent: any = { ...buildCommonBase(body), ...this.capacityForCreate(body) };
+    if (
+      this.format === rotatingPartnerConfig.format &&
+      !rotatingEventSettingsPrecedenceIsConfigured()
+    ) {
+      return res.status(500).json({
+        error: "Rotating event settings precedence is not configured",
+      });
+    }
 
     const capacityFields =
       this.format === fixedPartnerConfig.format
@@ -628,15 +651,31 @@ export abstract class BaseEventController {
       .select()
       .from(registrationsTable)
       .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, this.format)));
-    const confirmed = regs.filter((r) => r.status === "confirmed").length;
-    const waitlisted = regs.filter((r) => r.status === "waitlisted").length;
-    const pendingApproval = regs.filter((r) => r.status === "pending_approval").length;
+    const countedStatuses =
+      this.format === rotatingPartnerConfig.format
+        ? ROTATING_ROSTER_SUMMARY_REQUIREMENT.policy.countedStatuses
+        : ["confirmed", "waitlisted", "pending_approval"];
+    const counts = new Map(
+      countedStatuses.map((status) => [
+        status,
+        regs.filter((registration) => registration.status === status).length,
+      ]),
+    );
+    const confirmed = counts.get("confirmed") ?? 0;
+    const waitlisted = counts.get("waitlisted") ?? 0;
+    const pendingApproval = counts.get("pending_approval") ?? 0;
+    const total =
+      this.format === rotatingPartnerConfig.format &&
+      ROTATING_ROSTER_SUMMARY_REQUIREMENT.policy.total ===
+        "sum_counted_statuses"
+        ? [...counts.values()].reduce((sum, value) => sum + value, 0)
+        : confirmed + waitlisted + pendingApproval;
 
     return res.json({
       confirmed,
       waitlisted,
       pendingApproval,
-      total: confirmed + waitlisted + pendingApproval,
+      total,
       maxParticipants: event.maxParticipants,
       maxTeams: event.maxTeams ?? this.computeTeams(event.maxParticipants),
       confirmedTeams: this.computeTeams(confirmed),

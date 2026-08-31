@@ -117,6 +117,116 @@ const ROTATING_REQUIREMENT_CONTRACT: Record<
       "rangeSource",
     ],
   },
+  registration_access: {
+    consumer: "registrations.ts rotating event access checks",
+    fields: [
+      "condition.operations",
+      "condition.audience",
+      "policy.allowedEventStatuses",
+      "policy.publicSignupWindow",
+      "policy.staffBypass",
+      "policy.cancelledEventAction",
+    ],
+  },
+  public_verification: {
+    consumer: "registrations.ts public verification flow",
+    fields: [
+      "condition.operations",
+      "condition.publicRequest",
+      "policy.emailRequired",
+      "policy.verificationCodeRequired",
+      "policy.verifier",
+      "policy.consumeOnSuccess",
+      "policy.codeTtlSeconds",
+      "policy.codeCooldownSeconds",
+      "policy.maxCodeAttempts",
+      "policy.requestCodeRateLimit",
+      "policy.submissionRateLimit",
+    ],
+  },
+  registration_reactivation: {
+    consumer: "registrations.ts rotating reactivation flow",
+    fields: [
+      "condition.operation",
+      "policy.historicalRows",
+      "policy.candidateStatus",
+      "policy.selection",
+      "policy.updateMode",
+      "policy.blockedStatuses",
+      "policy.clearFields",
+    ],
+  },
+  cancellation: {
+    consumer: "registrations.ts public cancellation flow",
+    fields: [
+      "condition.operation",
+      "condition.publicRequest",
+      "policy.lookup",
+      "policy.alreadyCancelledAction",
+      "policy.cancelledStatus",
+      "policy.consumeVerificationCode",
+    ],
+  },
+  status_transitions: {
+    consumer: "registrations.ts rotating status transitions",
+    fields: [
+      "condition.operations",
+      "policy.statuses",
+      "policy.approval",
+      "policy.rejection",
+      "policy.promotion",
+      "policy.cancellation",
+      "policy.reactivationClearsCancellationMetadata",
+    ],
+  },
+  registration_snapshot: {
+    consumer: "registrations.ts rotating snapshot writes",
+    fields: [
+      "condition.operations",
+      "policy.source",
+      "policy.sourceOfTruth",
+      "policy.playerFields",
+      "policy.partnerFields",
+      "policy.assignedRating",
+    ],
+  },
+  rating_validation: {
+    consumer: "registrations.ts rotating rating validation",
+    fields: [
+      "condition.operation",
+      "condition.ratingTypes",
+      "policy.eventConfigSource",
+      "policy.numericPrecision",
+      "policy.numericRange",
+      "policy.skillValue",
+      "policy.nrRange",
+      "policy.nrPrecision",
+      "policy.missingRequiredConfig",
+      "policy.staffBypassRequiresExplicitFlag",
+    ],
+  },
+  event_settings_precedence: {
+    consumer: "eventController.ts and rotating event forms",
+    fields: [
+      "condition.operations",
+      "policy.eventSpecificSource",
+      "policy.globalDefaultsSource",
+      "policy.jsonDefaultsRole",
+      "policy.cloneSource",
+      "policy.serverAuthority",
+    ],
+  },
+  roster_summary: {
+    consumer: "eventController.ts rotating roster summary",
+    fields: [
+      "condition.operation",
+      "policy.countedStatuses",
+      "policy.excludedStatuses",
+      "policy.total",
+      "policy.capacitySource",
+      "policy.teamFields",
+    ],
+  },
 };
 
 describe("rotating-partner configuration", () => {
@@ -232,6 +342,14 @@ describe("rotating-partner configuration", () => {
             (requirement: any) =>
               requirement.key === "capacity_write_serialization",
           ).lockNamespace = "different-lock";
+        },
+      },
+      {
+        name: "unexpected nested policy property",
+        mutate(document) {
+          document.requirements.find(
+            (requirement: any) => requirement.key === "cancellation",
+          ).policy.unexpected = true;
         },
       },
     ];
