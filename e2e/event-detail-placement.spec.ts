@@ -230,6 +230,51 @@ test("cancelled fixed-partner event keeps cancellation control ahead of event co
   await expect(page.getByTestId("notice-event-cancelled")).toBeVisible();
 });
 
+test("public event detail can recover after an event load failure", async ({
+  page,
+}) => {
+  await mockEventDetailApi(page, "rotating", "open");
+
+  let eventDetailRequests = 0;
+  await page.route("**/api/events/rotating/1", async (route) => {
+    eventDetailRequests += 1;
+    if (eventDetailRequests === 1) {
+      await route.fulfill({
+        status: 503,
+        json: { error: "Event details temporarily unavailable" },
+      });
+      return;
+    }
+
+    await route.fallback();
+  });
+
+  await page.goto("/events/rotating/1");
+
+  await expect(page.getByTestId("status-event-load-error")).toHaveText(
+    "Event details are temporarily unavailable",
+  );
+  await expect(page.locator(".animate-pulse")).toHaveCount(0);
+
+  const retryButton = page.getByTestId("button-retry-event-load");
+  const recoveredEventResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/events/rotating/1" &&
+      response.status() === 200,
+  );
+  await retryButton.click();
+  await recoveredEventResponse;
+
+  await expect(
+    page.getByRole("heading", {
+      name: "Rotating Partner open placement event",
+    }),
+  ).toBeVisible();
+  await expect(page.getByTestId("card-event-info")).toBeVisible();
+  await expect(page.getByTestId("status-event-load-error")).toHaveCount(0);
+  expect(eventDetailRequests).toBe(2);
+});
+
 test("public event details keep their content after a direct-link refresh", async ({
   page,
 }, testInfo) => {
