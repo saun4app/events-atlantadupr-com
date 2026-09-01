@@ -12,6 +12,12 @@
  * For release and maintenance checks, fail if any orphan rows are found:
  *   pnpm run audit:event-assignments -- --check
  *
+ * Scheduled maintenance:
+ *   Configure a Replit Scheduled Deployment to run
+ *   `pnpm run maintenance:event-integrity` daily at 03:00 UTC. The scheduled
+ *   deployment reports a failed run to its maintainers when orphan rows are
+ *   found, while this command only reads and reports the rows.
+ *
  * Review the reported rows, then explicitly apply the same format-specific
  * orphan predicates in a single transaction:
  *   pnpm run audit:event-assignments -- --apply
@@ -191,7 +197,7 @@ async function main() {
     printRows(rows);
     if (check && rows.length > 0) {
       console.error(
-        "Event assignment integrity check failed; review the reported rows before release.",
+        "Event assignment integrity check failed; review the reported rows before release. No rows were deleted.",
       );
       process.exitCode = 1;
     }

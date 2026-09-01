@@ -3,6 +3,13 @@ modules = ["nodejs-24", "python-3.11", "postgresql-16"]
 [deployment]
 router = "application"
 deploymentTarget = "autoscale"
+# Event-link maintenance is a separate Replit Scheduled Deployment so it
+# cannot replace the web application production process. Configure it in
+# Publishing with the recurring schedule "daily at 03:00 UTC" and run:
+#   pnpm run maintenance:event-integrity
+# The command is read-only and exits nonzero when drift is found; Scheduled
+# Deployment failure alerts surface the reported rows to maintainers. Cleanup
+# remains explicit: pnpm run audit:event-assignments -- --apply
 
 [deployment.postBuild]
 args = ["pnpm", "store", "prune"]
