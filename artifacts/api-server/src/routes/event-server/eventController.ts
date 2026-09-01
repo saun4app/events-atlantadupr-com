@@ -600,17 +600,32 @@ export abstract class BaseEventController {
       return res.status(403).json({ error: "Forbidden: not assigned to this event" });
     }
 
-    const [deleted] = (await db.delete(this.table).where(eq(this.table.id, eventId)).returning()) as any[];
-    if (!deleted) return res.status(404).json({ error: "Event not found" });
+    const deleted = await db.transaction(async (tx) => {
+      const [event] = (await tx
+        .delete(this.table)
+        .where(eq(this.table.id, eventId))
+        .returning()) as any[];
+      if (!event) return null;
 
-    // No cross-table FK exists, so cascade dependent rows at the application
-    // level scoped to this event's format.
-    await db
-      .delete(registrationsTable)
-      .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, this.format)));
-    await db
-      .delete(eventAssignmentsTable)
-      .where(and(eq(eventAssignmentsTable.eventId, eventId), eq(eventAssignmentsTable.eventType, this.format)));
+      // No cross-table FK exists, so cascade dependent rows at the application
+      // level scoped to this event's format. Keep all three deletes in the
+      // same transaction so a failure cannot leave a partial event deletion.
+      await tx.delete(registrationsTable).where(
+        and(
+          eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, this.format),
+        ),
+      );
+      await tx.delete(eventAssignmentsTable).where(
+        and(
+          eq(eventAssignmentsTable.eventId, eventId),
+          eq(eventAssignmentsTable.eventType, this.format),
+        ),
+      );
+
+      return event;
+    });
+    if (!deleted) return res.status(404).json({ error: "Event not found" });
     return res.status(204).send();
   };
 

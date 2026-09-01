@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo, Server } from "node:net";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
   eventAssignmentsTable,
@@ -577,6 +577,131 @@ describe("event assignment management access", () => {
       });
     }
   }
+});
+
+describe("event deletion cleanup", () => {
+  for (const eventType of ["rotating", "fixed_partner"] as const) {
+    it(`deletes only ${eventType} registrations and assignments for the event`, async () => {
+      const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
+      const event = await createEvent(eventType);
+      const otherEventType = eventType === "rotating" ? "fixed_partner" : "rotating";
+
+      await createAccessRegistration(eventType, event.id, "confirmed");
+      const otherRegistration = await createAccessRegistration(otherEventType, event.id, "confirmed");
+      const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+      await db.insert(eventAssignmentsTable).values([
+        { userId: assignee.id, eventId: event.id, eventType },
+        { userId: organizer.id, eventId: event.id, eventType: otherEventType },
+      ]);
+
+      const deleted = await request(`/events/${eventType}/${event.id}`, organizer.token, {
+        method: "DELETE",
+      });
+      assert.equal(deleted.response.status, 204);
+
+      const remainingRegistrations = await db
+        .select()
+        .from(registrationsTable)
+        .where(eq(registrationsTable.eventId, event.id));
+      assert.deepEqual(
+        remainingRegistrations.map(({ id, eventType: remainingType }) => ({ id, eventType: remainingType })),
+        [{ id: otherRegistration.id, eventType: otherEventType }],
+      );
+      const remainingAssignments = await db
+        .select()
+        .from(eventAssignmentsTable)
+        .where(eq(eventAssignmentsTable.eventId, event.id));
+      assert.deepEqual(
+        remainingAssignments.map(({ userId, eventId, eventType: remainingType }) => ({
+          userId,
+          eventId,
+          eventType: remainingType,
+        })),
+        [{ userId: organizer.id, eventId: event.id, eventType: otherEventType }],
+      );
+
+      const eventRows =
+        eventType === "rotating"
+          ? await db
+              .select()
+              .from(eventsRotatingTable)
+              .where(eq(eventsRotatingTable.id, event.id))
+          : await db
+              .select()
+              .from(eventsFixedTable)
+              .where(eq(eventsFixedTable.id, event.id));
+      assert.deepEqual(eventRows, []);
+    });
+  }
+
+  it("rolls back the event and all dependent cleanup when a dependent delete fails", async () => {
+    const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
+    const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+    const event = await createRotatingEvent();
+    const registration = await createAccessRegistration("rotating", event.id, "confirmed");
+    await db.insert(eventAssignmentsTable).values({
+      userId: assignee.id,
+      eventId: event.id,
+      eventType: "rotating",
+    });
+
+    const triggerName = `event_delete_rollback_${event.id}`;
+    const functionName = `event_delete_rollback_fn_${event.id}`;
+    await db.execute(sql.raw(`
+      CREATE FUNCTION "${functionName}"() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        IF OLD.event_id = ${event.id} AND OLD.event_type = 'rotating' THEN
+          RAISE EXCEPTION 'forced event deletion failure';
+        END IF;
+        RETURN OLD;
+      END;
+      $$;
+      CREATE TRIGGER "${triggerName}"
+      BEFORE DELETE ON atl_dupr_event_roles
+      FOR EACH ROW EXECUTE FUNCTION "${functionName}"();
+    `));
+
+    try {
+      const deleted = await request(`/events/rotating/${event.id}`, organizer.token, {
+        method: "DELETE",
+      });
+      assert.equal(deleted.response.status, 500);
+    } finally {
+      await db.execute(sql.raw(`
+        DROP TRIGGER IF EXISTS "${triggerName}" ON atl_dupr_event_roles;
+        DROP FUNCTION IF EXISTS "${functionName}"();
+      `));
+    }
+
+    const eventRows = await db
+      .select()
+      .from(eventsRotatingTable)
+      .where(eq(eventsRotatingTable.id, event.id));
+    assert.equal(eventRows.length, 1);
+
+    const remainingRegistrations = await db
+      .select()
+      .from(registrationsTable)
+      .where(
+        and(
+          eq(registrationsTable.eventId, event.id),
+          eq(registrationsTable.eventType, "rotating"),
+        ),
+      );
+    assert.deepEqual(remainingRegistrations.map(({ id }) => id), [registration.id]);
+
+    const remainingAssignments = await db
+      .select()
+      .from(eventAssignmentsTable)
+      .where(
+        and(
+          eq(eventAssignmentsTable.eventId, event.id),
+          eq(eventAssignmentsTable.eventType, "rotating"),
+        ),
+      );
+    assert.equal(remainingAssignments.length, 1);
+  });
 });
 
 describe("event assignment event existence", () => {
