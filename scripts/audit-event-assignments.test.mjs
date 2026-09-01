@@ -35,3 +35,16 @@ test("keeps cleanup explicit and transactional", () => {
   assert.match(auditScript, /DELETE FROM atl_dupr_signups s/);
   assert.match(auditScript, /DELETE FROM atl_dupr_event_roles r/);
 });
+
+test("provides a read-only release check that blocks on orphan rows", () => {
+  assert.match(auditScript, /const check = args\.includes\("--check"\)/);
+  assert.match(auditScript, /if \(apply && check\) usage\(\)/);
+  assert.match(
+    auditScript,
+    /if \(check && rows\.length > 0\)[\s\S]+?process\.exitCode = 1/,
+  );
+  assert.match(
+    auditScript,
+    /Event assignment integrity check failed; review the reported rows before release\./,
+  );
+});

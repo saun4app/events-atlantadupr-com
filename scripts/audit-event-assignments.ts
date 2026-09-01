@@ -9,6 +9,9 @@
  * By default this is read-only:
  *   pnpm run audit:event-assignments
  *
+ * For release and maintenance checks, fail if any orphan rows are found:
+ *   pnpm run audit:event-assignments -- --check
+ *
  * Review the reported rows, then explicitly apply the same format-specific
  * orphan predicates in a single transaction:
  *   pnpm run audit:event-assignments -- --apply
@@ -156,7 +159,7 @@ async function removeConfirmedOrphans(): Promise<OrphanRecord[]> {
 }
 
 function usage(): never {
-  console.error("Usage: audit-event-assignments [--apply]");
+  console.error("Usage: audit-event-assignments [--check|--apply]");
   process.exit(2);
 }
 
@@ -164,9 +167,11 @@ async function main() {
   // `pnpm run ... -- --apply` forwards the separator to the nested `tsx`
   // process, so accept and discard one standalone separator.
   const args = process.argv.slice(2).filter((arg) => arg !== "--");
-  if (args.some((arg) => arg !== "--apply")) usage();
+  if (args.some((arg) => arg !== "--apply" && arg !== "--check")) usage();
 
   const apply = args.includes("--apply");
+  const check = args.includes("--check");
+  if (apply && check) usage();
   const rows = apply ? await removeConfirmedOrphans() : await audit();
 
   if (apply) {
@@ -184,6 +189,12 @@ async function main() {
     );
   } else {
     printRows(rows);
+    if (check && rows.length > 0) {
+      console.error(
+        "Event assignment integrity check failed; review the reported rows before release.",
+      );
+      process.exitCode = 1;
+    }
   }
 }
 
