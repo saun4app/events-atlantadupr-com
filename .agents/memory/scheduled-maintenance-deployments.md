@@ -8,4 +8,4 @@ Recurring maintenance checks should run as a separate Replit Scheduled Deploymen
 
 **Why:** Scheduled Deployments alert maintainers when a run fails, while a read-only check can surface findings without destructive cleanup. In pnpm workspaces, artifact manifests own production service commands.
 
-**How to apply:** Keep the schedule and exact run command documented in `.replit` and the audit script. Use a separate explicit cleanup command only after review.
+**How to apply:** Keep the schedule and exact run command documented in `.replit` and the audit script. Use a separate explicit cleanup command only after review. The Scheduled Deployment itself must be enabled in Replit Publishing; no agent-side deployment callback is available for this setting.
