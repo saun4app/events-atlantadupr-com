@@ -2,7 +2,7 @@ import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo, Server } from "node:net";
 
-import { inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import {
   db,
   eventAssignmentsTable,
@@ -467,6 +467,113 @@ describe("event assignment permission matrix", () => {
             `${eventType} ${action} returned ${result.response.status}: ${JSON.stringify(result.body)}`,
           );
         }
+      });
+    }
+  }
+});
+
+describe("event assignment management access", () => {
+  for (const role of ORGANIZER_ROLES) {
+    for (const eventType of ["rotating", "fixed_partner"] as const) {
+      it(`${role} can list, add, and remove ${eventType} assignments without crossing formats`, async () => {
+        const organizer = users.find((user) => user.role === role)!;
+        const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+        const event = await createEvent(eventType);
+        const otherEventType = eventType === "rotating" ? "fixed_partner" : "rotating";
+
+        await db.insert(eventAssignmentsTable).values({
+          userId: assignee.id,
+          eventId: event.id,
+          eventType: otherEventType,
+        });
+
+        const beforeAdd = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token);
+        assert.equal(beforeAdd.response.status, 200);
+        assert.deepEqual(beforeAdd.body, []);
+
+        const added = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token, {
+          method: "POST",
+          body: JSON.stringify({ userId: assignee.id }),
+        });
+        assert.equal(added.response.status, 201);
+        assert.equal(added.body.userId, assignee.id);
+        assert.equal(added.body.eventId, event.id);
+        assert.equal(added.body.eventType, eventType);
+
+        const listed = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token);
+        assert.equal(listed.response.status, 200);
+        assert.equal(listed.body.length, 1);
+        assert.equal(listed.body[0].userId, assignee.id);
+        assert.equal(listed.body[0].eventType, eventType);
+
+        const removed = await request(
+          `/events/${eventType}/${event.id}/assignments/${assignee.id}`,
+          organizer.token,
+          { method: "DELETE" },
+        );
+        assert.equal(removed.response.status, 204);
+
+        const afterRemove = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token);
+        assert.equal(afterRemove.response.status, 200);
+        assert.deepEqual(afterRemove.body, []);
+
+        const otherFormatAssignment = await db
+          .select()
+          .from(eventAssignmentsTable)
+          .where(
+            and(
+              eq(eventAssignmentsTable.eventId, event.id),
+              eq(eventAssignmentsTable.eventType, otherEventType),
+              eq(eventAssignmentsTable.userId, assignee.id),
+            ),
+          );
+        assert.equal(otherFormatAssignment.length, 1);
+      });
+    }
+  }
+
+  for (const role of ASSIGNABLE_ROLES) {
+    for (const eventType of ["rotating", "fixed_partner"] as const) {
+      it(`${role} receives a clear 403 from every ${eventType} assignment-management endpoint`, async () => {
+        const staff = users.find((user) => user.role === role)!;
+        const event = await createEvent(eventType);
+
+        await db.insert(eventAssignmentsTable).values({
+          userId: staff.id,
+          eventId: event.id,
+          eventType,
+        });
+
+        const listed = await request(`/events/${eventType}/${event.id}/assignments`, staff.token);
+        assert.equal(listed.response.status, 403);
+        assert.equal(listed.body.error, "Insufficient permissions");
+
+        const added = await request(`/events/${eventType}/${event.id}/assignments`, staff.token, {
+          method: "POST",
+          body: JSON.stringify({ userId: staff.id }),
+        });
+        assert.equal(added.response.status, 403);
+        assert.equal(added.body.error, "Insufficient permissions");
+
+        const removed = await request(
+          `/events/${eventType}/${event.id}/assignments/${staff.id}`,
+          staff.token,
+          { method: "DELETE" },
+        );
+        assert.equal(removed.response.status, 403);
+        assert.equal(removed.body.error, "Insufficient permissions");
+
+        const assignment = await db
+          .select()
+          .from(eventAssignmentsTable)
+          .where(
+            and(
+              eq(eventAssignmentsTable.eventId, event.id),
+              eq(eventAssignmentsTable.eventType, eventType),
+              eq(eventAssignmentsTable.userId, staff.id),
+            ),
+          );
+        assert.equal(assignment.length, 1);
       });
     }
   }
