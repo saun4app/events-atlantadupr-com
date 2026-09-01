@@ -9,6 +9,7 @@ import {
 import { useQueryClient, useMutation } from "@tanstack/react-query";
 import NotFound from "@/pages/not-found";
 import { AdminNav } from "@/components/admin-nav";
+import { EventAssignmentManager } from "@/components/event-assignment-manager";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -655,6 +656,12 @@ export default function AdminEventDetailRotating() {
                 </div>
               )}
             </div>
+
+             <EventAssignmentManager
+               eventType={eventType}
+               eventId={eventId}
+               canManage={isAdminOrOrganizer}
+             />
 
             {canWriteEvent && <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>

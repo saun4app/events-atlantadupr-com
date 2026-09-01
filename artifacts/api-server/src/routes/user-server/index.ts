@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole, hashPassword } from "../../lib/auth.js";
-import { USER_ROLE_IDS, isConfiguredUserRole } from "../../lib/user-roles.js";
+import { USER_ROLE_GROUPS, USER_ROLE_IDS, hasUserRole, isConfiguredUserRole } from "../../lib/user-roles.js";
 
 const router = Router();
 
@@ -14,6 +14,11 @@ function toPublicUser(u: typeof usersTable.$inferSelect) {
 router.get("/", requireRole(USER_ROLE_IDS.admin), async (_req, res) => {
   const users = await db.select().from(usersTable);
   return res.json(users.map(toPublicUser));
+});
+
+router.get("/assignable-staff", requireRole(...USER_ROLE_GROUPS.eventManagers), async (_req, res) => {
+  const users = await db.select().from(usersTable);
+  return res.json(users.filter((user) => hasUserRole(user.role, "assignableStaff")).map(toPublicUser));
 });
 
 router.post("/", requireRole(USER_ROLE_IDS.admin), async (req, res) => {

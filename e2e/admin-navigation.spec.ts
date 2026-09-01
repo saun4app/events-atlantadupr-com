@@ -85,12 +85,30 @@ const FIXED_PARTNER_EVENT = {
   maxTeams: 8,
 };
 
+const ASSIGNABLE_STAFF = [
+  {
+    id: 11,
+    name: "Captain Casey",
+    username: "captain",
+    role: "event_captain",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: 12,
+    name: "Leader Lee",
+    username: "leader",
+    role: "court_leader",
+    createdAt: "2026-01-01T00:00:00.000Z",
+  },
+];
+
 async function mockAdminNavigationApi(
   page: Page,
   role: string,
   options: { canWriteEvent?: boolean } = {},
 ) {
   const canWriteEvent = options.canWriteEvent ?? true;
+  const assignments = new Map<string, number[]>();
   await page.route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -147,6 +165,70 @@ async function mockAdminNavigationApi(
     if (pathname === "/api/settings") {
       await route.fulfill({ json: SETTINGS });
       return;
+    }
+
+    if (pathname === "/api/users/assignable-staff") {
+      await route.fulfill({ json: ASSIGNABLE_STAFF });
+      return;
+    }
+
+    const assignmentMatch = pathname.match(
+      /^\/api\/events\/(rotating|fixed_partner)\/(\d+)\/assignments(?:\/(\d+))?$/,
+    );
+    if (assignmentMatch) {
+      const [, eventType, eventId, userId] = assignmentMatch;
+      const assignmentKey = `${eventType}/${eventId}`;
+      const assignedIds = assignments.get(assignmentKey) ?? [];
+
+      if (route.request().method() === "GET") {
+        await route.fulfill({
+          json: assignedIds.flatMap((assignedId) => {
+            const staff = ASSIGNABLE_STAFF.find((user) => user.id === assignedId);
+            return staff
+              ? [{
+                  userId: staff.id,
+                  eventId: Number(eventId),
+                  eventType,
+                  assignedAt: "2026-01-01T00:00:00.000Z",
+                  userName: staff.name,
+                  userUsername: staff.username,
+                  userRole: staff.role,
+                }]
+              : [];
+          }),
+        });
+        return;
+      }
+
+      if (route.request().method() === "POST") {
+        const body = route.request().postDataJSON() as { userId?: number };
+        if (body.userId && !assignedIds.includes(Number(body.userId))) {
+          assignedIds.push(Number(body.userId));
+          assignments.set(assignmentKey, assignedIds);
+        }
+        const staff = ASSIGNABLE_STAFF.find((user) => user.id === Number(body.userId));
+        await route.fulfill({
+          status: 201,
+          json: {
+            userId: Number(body.userId),
+            eventId: Number(eventId),
+            eventType,
+            userName: staff?.name,
+            userUsername: staff?.username,
+            userRole: staff?.role,
+          },
+        });
+        return;
+      }
+
+      if (route.request().method() === "DELETE" && userId) {
+        assignments.set(
+          assignmentKey,
+          assignedIds.filter((assignedId) => assignedId !== Number(userId)),
+        );
+        await route.fulfill({ status: 204, body: "" });
+        return;
+      }
     }
 
     if (pathname === "/api/members" || pathname === "/api/users") {
@@ -252,6 +334,7 @@ for (const staffRole of userRolesConfig.groups.assignableStaff) {
     await expect(page.getByTestId("button-edit-event")).toHaveCount(
       canWriteEvents ? 1 : 0,
     );
+     await expect(page.getByTestId("panel-event-assignments")).toHaveCount(0);
 
     if (canWriteEvents) {
       await page.getByTestId("button-edit-event").click();
@@ -461,6 +544,37 @@ test("event organizers see event navigation but not admin-only areas", async ({
     page.getByRole("button", { name: "Delete Event", exact: true }),
   ).toHaveCount(
     userRolesConfig.groups.adminOnly.includes(EVENT_MANAGER_ROLE) ? 1 : 0,
+  );
+});
+
+test("event organizers can manage separate rotating and fixed-partner assignments", async ({
+  page,
+}) => {
+  await mockAdminNavigationApi(page, EVENT_MANAGER_ROLE);
+
+  await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
+  await expect(page.getByTestId("panel-event-assignments")).toBeVisible();
+  await page.getByTestId("select-assignment-staff").selectOption("11");
+  await page.getByTestId("button-assign-staff").click();
+  await expect(page.getByTestId("assignment-row-11")).toContainText(
+    "Captain Casey",
+  );
+
+  await page.goto(`/admin/events/fixed_partner/${FIXED_PARTNER_EVENT.id}`);
+  await expect(page.getByTestId("panel-event-assignments")).toBeVisible();
+  await expect(page.getByTestId("assignment-row-11")).toHaveCount(0);
+  await page.getByTestId("select-assignment-staff").selectOption("12");
+  await page.getByTestId("button-assign-staff").click();
+  await expect(page.getByTestId("assignment-row-12")).toContainText(
+    "Leader Lee",
+  );
+
+  await page.getByTestId("button-remove-assignment-12").click();
+  await expect(page.getByTestId("assignment-row-12")).toHaveCount(0);
+
+  await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
+  await expect(page.getByTestId("assignment-row-11")).toContainText(
+    "Captain Casey",
   );
 });
 
