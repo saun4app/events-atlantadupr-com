@@ -578,3 +578,33 @@ describe("event assignment management access", () => {
     }
   }
 });
+
+describe("event assignment event existence", () => {
+  for (const eventType of ["rotating", "fixed_partner"] as const) {
+    it(`does not create a ${eventType} assignment for a missing event`, async () => {
+      const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
+      const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+      const eventId = 2_000_000_000 + (eventType === "rotating" ? 1 : 2);
+
+      const result = await request(`/events/${eventType}/${eventId}/assignments`, organizer.token, {
+        method: "POST",
+        body: JSON.stringify({ userId: assignee.id }),
+      });
+
+      assert.equal(result.response.status, 404);
+      assert.equal(result.body.error, "Event not found");
+
+      const assignments = await db
+        .select()
+        .from(eventAssignmentsTable)
+        .where(
+          and(
+            eq(eventAssignmentsTable.eventId, eventId),
+            eq(eventAssignmentsTable.eventType, eventType),
+            eq(eventAssignmentsTable.userId, assignee.id),
+          ),
+        );
+      assert.deepEqual(assignments, []);
+    });
+  }
+});

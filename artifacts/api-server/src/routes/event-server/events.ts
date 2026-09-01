@@ -171,6 +171,9 @@ router.post(
     }
     const { userId } = parsedBody.data;
 
+    const event = await getNormalizedEvent(eventType, eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return res.status(404).json({ error: "User not found" });
     if (!hasUserRole(user.role, "assignableStaff")) {
