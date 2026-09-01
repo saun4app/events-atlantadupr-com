@@ -70,6 +70,53 @@ export interface UserUpdate {
   role?: UserUpdateRole;
 }
 
+export type AssignableStaffRole = typeof AssignableStaffRole[keyof typeof AssignableStaffRole];
+
+
+export const AssignableStaffRole = {
+  event_captain: 'event_captain',
+  court_leader: 'court_leader',
+} as const;
+
+export interface AssignableStaff {
+  id: number;
+  name: string;
+  username: string;
+  role: AssignableStaffRole;
+  createdAt: string;
+}
+
+export interface EventAssignmentInput {
+  /** @minimum 1 */
+  userId: number;
+}
+
+export type EventAssignmentEventType = typeof EventAssignmentEventType[keyof typeof EventAssignmentEventType];
+
+
+export const EventAssignmentEventType = {
+  rotating: 'rotating',
+  fixed_partner: 'fixed_partner',
+} as const;
+
+export type EventAssignmentUserRole = typeof EventAssignmentUserRole[keyof typeof EventAssignmentUserRole];
+
+
+export const EventAssignmentUserRole = {
+  event_captain: 'event_captain',
+  court_leader: 'court_leader',
+} as const;
+
+export interface EventAssignment {
+  userId: number;
+  eventId: number;
+  eventType: EventAssignmentEventType;
+  assignedAt: string;
+  userName: string;
+  userUsername: string;
+  userRole: EventAssignmentUserRole;
+}
+
 export interface Member {
   duprId: string;
   name: string;

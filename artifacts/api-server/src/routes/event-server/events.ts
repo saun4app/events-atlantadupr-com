@@ -1,6 +1,7 @@
 import { Router, Request, Response } from "express";
 import { db } from "@workspace/db";
 import { eventAssignmentsTable, usersTable, registrationsTable, appSettingsTable } from "@workspace/db";
+import { AssignEventStaffBody } from "@workspace/api-zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
 import { eventControllers, parseEventType, canAccessEvent, getNormalizedEvent } from "./eventController.js";
@@ -164,10 +165,13 @@ router.post(
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
     const eventId = Number(req.params.id);
-    const { userId } = req.body;
-    if (!userId) return res.status(400).json({ error: "userId is required" });
+    const parsedBody = AssignEventStaffBody.safeParse(req.body);
+    if (!parsedBody.success) {
+      return res.status(400).json({ error: "userId is required and must be a positive integer" });
+    }
+    const { userId } = parsedBody.data;
 
-    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, Number(userId)));
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return res.status(404).json({ error: "User not found" });
     if (!hasUserRole(user.role, "assignableStaff")) {
       return res.status(400).json({
@@ -175,13 +179,37 @@ router.post(
       });
     }
 
-    const [assignment] = await db
+    await db
       .insert(eventAssignmentsTable)
-      .values({ userId: Number(userId), eventId, eventType })
+      .values({ userId, eventId, eventType })
       .onConflictDoNothing()
       .returning();
 
-    return res.status(201).json(assignment ?? { userId: Number(userId), eventId, eventType, note: "already assigned" });
+    const [assignmentWithUser] = await db
+      .select({
+        userId: eventAssignmentsTable.userId,
+        eventId: eventAssignmentsTable.eventId,
+        eventType: eventAssignmentsTable.eventType,
+        assignedAt: eventAssignmentsTable.assignedAt,
+        userName: usersTable.name,
+        userUsername: usersTable.username,
+        userRole: usersTable.role,
+      })
+      .from(eventAssignmentsTable)
+      .innerJoin(usersTable, eq(usersTable.id, eventAssignmentsTable.userId))
+      .where(
+        and(
+          eq(eventAssignmentsTable.eventId, eventId),
+          eq(eventAssignmentsTable.eventType, eventType),
+          eq(eventAssignmentsTable.userId, userId),
+        ),
+      );
+
+    if (!assignmentWithUser) {
+      return res.status(500).json({ error: "Unable to load the event assignment after saving" });
+    }
+
+    return res.status(201).json(assignmentWithUser);
   },
 );
 

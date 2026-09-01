@@ -22,11 +22,14 @@ import type {
 import type {
   AppSettings,
   AppSettingsInput,
+  AssignableStaff,
   BroadcastEmailInput,
   BroadcastEmailResult,
   CancelRegistrationInput,
   CsvUploadResult,
   Event,
+  EventAssignment,
+  EventAssignmentInput,
   EventCloneInput,
   EventDefaults,
   EventDefaultsInput,
@@ -1554,6 +1557,239 @@ export function useGetEventRosterSummary<TData = Awaited<ReturnType<typeof getEv
 
 
 
+export const getListEventAssignmentsUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
+
+
+
+
+  return `/api/events/${eventType}/${id}/assignments`
+}
+
+/**
+ * Requires an authenticated admin or event organizer.
+ * @summary List staff assigned to an event (Admin or organizer)
+ */
+export const listEventAssignments = async (eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: RequestInit): Promise<EventAssignment[]> => {
+
+  return customFetch<EventAssignment[]>(getListEventAssignmentsUrl(eventType,id),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListEventAssignmentsQueryKey = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
+    return [
+    `/api/events/${eventType}/${id}/assignments`
+    ] as const;
+    }
+
+
+export const getListEventAssignmentsQueryOptions = <TData = Awaited<ReturnType<typeof listEventAssignments>>, TError = ErrorType<void>>(eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEventAssignments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListEventAssignmentsQueryKey(eventType,id);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listEventAssignments>>> = ({ signal }) => listEventAssignments(eventType,id, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: !!(eventType && id), ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listEventAssignments>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListEventAssignmentsQueryResult = NonNullable<Awaited<ReturnType<typeof listEventAssignments>>>
+export type ListEventAssignmentsQueryError = ErrorType<void>
+
+
+/**
+ * @summary List staff assigned to an event (Admin or organizer)
+ */
+
+export function useListEventAssignments<TData = Awaited<ReturnType<typeof listEventAssignments>>, TError = ErrorType<void>>(
+ eventType: 'rotating' | 'fixed_partner',
+    id: number, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listEventAssignments>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListEventAssignmentsQueryOptions(eventType,id,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
+
+export const getAssignEventStaffUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,) => {
+
+
+
+
+  return `/api/events/${eventType}/${id}/assignments`
+}
+
+/**
+ * Assigns staff within the selected event format. Repeating an existing assignment returns the existing assignment.
+ * @summary Assign a captain or court leader to an event (Admin or organizer)
+ */
+export const assignEventStaff = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
+    eventAssignmentInput: EventAssignmentInput, options?: RequestInit): Promise<EventAssignment> => {
+
+  return customFetch<EventAssignment>(getAssignEventStaffUrl(eventType,id),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(
+      eventAssignmentInput,)
+  }
+);}
+
+
+
+
+export const getAssignEventStaffMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignEventStaff>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof assignEventStaff>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventAssignmentInput>}, TContext> => {
+
+const mutationKey = ['assignEventStaff'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof assignEventStaff>>, {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventAssignmentInput>}> = (props) => {
+          const {eventType,id,data} = props ?? {};
+
+          return  assignEventStaff(eventType,id,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type AssignEventStaffMutationResult = NonNullable<Awaited<ReturnType<typeof assignEventStaff>>>
+    export type AssignEventStaffMutationBody = BodyType<EventAssignmentInput>
+    export type AssignEventStaffMutationError = ErrorType<void>
+
+    /**
+ * @summary Assign a captain or court leader to an event (Admin or organizer)
+ */
+export const useAssignEventStaff = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignEventStaff>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof assignEventStaff>>,
+        TError,
+        {eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventAssignmentInput>},
+        TContext
+      > => {
+      return useMutation(getAssignEventStaffMutationOptions(options));
+    }
+
+export const getRemoveEventStaffAssignmentUrl = (eventType: 'rotating' | 'fixed_partner',
+    id: number,
+    userId: number,) => {
+
+
+
+
+  return `/api/events/${eventType}/${id}/assignments/${userId}`
+}
+
+/**
+ * Removes an assignment only from the selected event format.
+ * @summary Remove staff assignment from an event (Admin or organizer)
+ */
+export const removeEventStaffAssignment = async (eventType: 'rotating' | 'fixed_partner',
+    id: number,
+    userId: number, options?: RequestInit): Promise<void> => {
+
+  return customFetch<void>(getRemoveEventStaffAssignmentUrl(eventType,id,userId),
+  {
+    ...options,
+    method: 'DELETE'
+
+
+  }
+);}
+
+
+
+
+export const getRemoveEventStaffAssignmentMutationOptions = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeEventStaffAssignment>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof removeEventStaffAssignment>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;userId: number}, TContext> => {
+
+const mutationKey = ['removeEventStaffAssignment'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof removeEventStaffAssignment>>, {eventType: 'rotating' | 'fixed_partner';id: number;userId: number}> = (props) => {
+          const {eventType,id,userId} = props ?? {};
+
+          return  removeEventStaffAssignment(eventType,id,userId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RemoveEventStaffAssignmentMutationResult = NonNullable<Awaited<ReturnType<typeof removeEventStaffAssignment>>>
+
+    export type RemoveEventStaffAssignmentMutationError = ErrorType<void>
+
+    /**
+ * @summary Remove staff assignment from an event (Admin or organizer)
+ */
+export const useRemoveEventStaffAssignment = <TError = ErrorType<void>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeEventStaffAssignment>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof removeEventStaffAssignment>>,
+        TError,
+        {eventType: 'rotating' | 'fixed_partner';id: number;userId: number},
+        TContext
+      > => {
+      return useMutation(getRemoveEventStaffAssignmentMutationOptions(options));
+    }
+
 export const getListRegistrationsUrl = (eventType: 'rotating' | 'fixed_partner',
     id: number,) => {
 
@@ -2835,6 +3071,84 @@ export const useCreateUser = <TError = ErrorType<unknown>,
       > => {
       return useMutation(getCreateUserMutationOptions(options));
     }
+
+export const getListAssignableStaffUrl = () => {
+
+
+
+
+  return `/api/users/assignable-staff`
+}
+
+/**
+ * Returns only users in the configured assignable-staff roles.
+ * @summary List staff who can be assigned to events (Admin or organizer)
+ */
+export const listAssignableStaff = async ( options?: RequestInit): Promise<AssignableStaff[]> => {
+
+  return customFetch<AssignableStaff[]>(getListAssignableStaffUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListAssignableStaffQueryKey = () => {
+    return [
+    `/api/users/assignable-staff`
+    ] as const;
+    }
+
+
+export const getListAssignableStaffQueryOptions = <TData = Awaited<ReturnType<typeof listAssignableStaff>>, TError = ErrorType<void>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssignableStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListAssignableStaffQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listAssignableStaff>>> = ({ signal }) => listAssignableStaff({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listAssignableStaff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type ListAssignableStaffQueryResult = NonNullable<Awaited<ReturnType<typeof listAssignableStaff>>>
+export type ListAssignableStaffQueryError = ErrorType<void>
+
+
+/**
+ * @summary List staff who can be assigned to events (Admin or organizer)
+ */
+
+export function useListAssignableStaff<TData = Awaited<ReturnType<typeof listAssignableStaff>>, TError = ErrorType<void>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof listAssignableStaff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getListAssignableStaffQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+
+
+
+
+
 
 export const getUpdateUserUrl = (id: number,) => {
 

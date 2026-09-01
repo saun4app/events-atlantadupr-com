@@ -8,6 +8,8 @@
 
 export * from './appSettings';
 export * from './appSettingsInput';
+export * from './assignableStaff';
+export * from './assignableStaffRole';
 export * from './broadcastEmailInput';
 export * from './broadcastEmailResult';
 export * from './cancelRegistrationInput';
@@ -15,6 +17,10 @@ export * from './contactPerson';
 export * from './csvUploadResult';
 export * from './defaultLocation';
 export * from './event';
+export * from './eventAssignment';
+export * from './eventAssignmentEventType';
+export * from './eventAssignmentInput';
+export * from './eventAssignmentUserRole';
 export * from './eventCloneInput';
 export * from './eventDefaults';
 export * from './eventDefaultsEventType';

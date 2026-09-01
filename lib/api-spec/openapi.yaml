@@ -17,6 +17,8 @@ tags:
     description: Event operations
   - name: registrations
     description: Registration and roster operations
+  - name: event-assignments
+    description: Staff event-assignment operations
   - name: users
     description: User management operations
   - name: settings
@@ -426,6 +428,105 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/RosterSummary"
+
+  /events/{eventType}/{id}/assignments:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: listEventAssignments
+      tags: [event-assignments]
+      summary: List staff assigned to an event (Admin or organizer)
+      description: Requires an authenticated admin or event organizer.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Event assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventAssignment"
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+        "404":
+          description: Unknown event format
+    post:
+      operationId: assignEventStaff
+      tags: [event-assignments]
+      summary: Assign a captain or court leader to an event (Admin or organizer)
+      description: Assigns staff within the selected event format. Repeating an existing assignment returns the existing assignment.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventAssignmentInput"
+      responses:
+        "201":
+          description: Assignment created or already existed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAssignment"
+        "400":
+          description: Missing or non-assignable user ID
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+        "404":
+          description: Unknown event format or user not found
+
+  /events/{eventType}/{id}/assignments/{userId}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+    delete:
+      operationId: removeEventStaffAssignment
+      tags: [event-assignments]
+      summary: Remove staff assignment from an event (Admin or organizer)
+      description: Removes an assignment only from the selected event format.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Assignment removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+        "404":
+          description: Unknown event format or assignment not found
 
   /events/{eventType}/{id}/registrations:
     parameters:
@@ -863,6 +964,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/User"
 
+  /users/assignable-staff:
+    get:
+      operationId: listAssignableStaff
+      tags: [users]
+      summary: List staff who can be assigned to events (Admin or organizer)
+      description: Returns only users in the configured assignable-staff roles.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Assignable event staff
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssignableStaff"
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+
   /users/{id}:
     patch:
       operationId: updateUser
@@ -966,6 +1089,53 @@ components:
         role:
           type: string
           enum: [admin, event_organizer, event_participant, event_captain, court_leader]
+
+    AssignableStaff:
+      type: object
+      required: [id, name, username, role, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [event_captain, court_leader]
+        createdAt:
+          type: string
+          format: date-time
+
+    EventAssignmentInput:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: integer
+          minimum: 1
+
+    EventAssignment:
+      type: object
+      required: [userId, eventId, eventType, assignedAt, userName, userUsername, userRole]
+      properties:
+        userId:
+          type: integer
+        eventId:
+          type: integer
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        assignedAt:
+          type: string
+          format: date-time
+        userName:
+          type: string
+        userUsername:
+          type: string
+        userRole:
+          type: string
+          enum: [event_captain, court_leader]
 
     Member:
       type: object

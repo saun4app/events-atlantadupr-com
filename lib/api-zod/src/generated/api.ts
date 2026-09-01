@@ -446,6 +446,55 @@ export const GetEventRosterSummaryResponse = zod.object({
 
 
 /**
+ * Requires an authenticated admin or event organizer.
+ * @summary List staff assigned to an event (Admin or organizer)
+ */
+export const ListEventAssignmentsParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "id": zod.coerce.number()
+})
+
+export const ListEventAssignmentsResponseItem = zod.object({
+  "userId": zod.number(),
+  "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "assignedAt": zod.coerce.date(),
+  "userName": zod.string(),
+  "userUsername": zod.string(),
+  "userRole": zod.enum(['event_captain', 'court_leader'])
+})
+export const ListEventAssignmentsResponse = zod.array(ListEventAssignmentsResponseItem)
+
+
+/**
+ * Assigns staff within the selected event format. Repeating an existing assignment returns the existing assignment.
+ * @summary Assign a captain or court leader to an event (Admin or organizer)
+ */
+export const AssignEventStaffParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "id": zod.coerce.number()
+})
+
+
+
+
+export const AssignEventStaffBody = zod.object({
+  "userId": zod.number().min(1)
+})
+
+
+/**
+ * Removes an assignment only from the selected event format.
+ * @summary Remove staff assignment from an event (Admin or organizer)
+ */
+export const RemoveEventStaffAssignmentParams = zod.object({
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "id": zod.coerce.number(),
+  "userId": zod.coerce.number()
+})
+
+
+/**
  * @summary List all registrations for an event
  */
 export const ListRegistrationsParams = zod.object({
@@ -902,6 +951,20 @@ export const CreateUserBody = zod.object({
   "password": zod.string(),
   "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader'])
 })
+
+
+/**
+ * Returns only users in the configured assignable-staff roles.
+ * @summary List staff who can be assigned to events (Admin or organizer)
+ */
+export const ListAssignableStaffResponseItem = zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "username": zod.string(),
+  "role": zod.enum(['event_captain', 'court_leader']),
+  "createdAt": zod.coerce.date()
+})
+export const ListAssignableStaffResponse = zod.array(ListAssignableStaffResponseItem)
 
 
 /**

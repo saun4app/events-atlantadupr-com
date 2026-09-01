@@ -1,23 +1,21 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { UserPlus, X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  getListAssignableStaffQueryKey,
+  getListEventAssignmentsQueryKey,
+  type AssignableStaff,
+  type EventAssignment,
+  type EventAssignmentEventType,
+  useAssignEventStaff,
+  useListAssignableStaff,
+  useListEventAssignments,
+  useRemoveEventStaffAssignment,
+} from "@workspace/api-client-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
-type EventType = "rotating" | "fixed_partner";
-
-interface StaffUser {
-  id: number;
-  name: string;
-  username: string;
-  role: string;
-}
-
-interface EventAssignment {
-  userId: number;
-  userName: string;
-  userUsername: string;
-  userRole: string;
-}
+type EventType = EventAssignmentEventType;
 
 interface EventAssignmentManagerProps {
   eventType: EventType;
@@ -25,108 +23,77 @@ interface EventAssignmentManagerProps {
   canManage: boolean;
 }
 
-function authHeaders(): HeadersInit {
-  const token = localStorage.getItem("authToken");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-async function readJson<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, {
-    ...options,
-    headers: { ...authHeaders(), ...(options?.headers ?? {}) },
-  });
-  if (!response.ok) throw new Error("Request failed");
-  return response.status === 204 ? (undefined as T) : response.json();
-}
-
 export function EventAssignmentManager({
   eventType,
   eventId,
   canManage,
 }: EventAssignmentManagerProps) {
-  const [assignments, setAssignments] = useState<EventAssignment[]>([]);
-  const [staff, setStaff] = useState<StaffUser[]>([]);
   const [selectedUserId, setSelectedUserId] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    if (!canManage || !eventId) return;
-
-    let cancelled = false;
-    setIsLoading(true);
-    setError(false);
-    Promise.all([
-      readJson<EventAssignment[]>(`/api/events/${eventType}/${eventId}/assignments`),
-      readJson<StaffUser[]>("/api/users/assignable-staff"),
-    ])
-      .then(([nextAssignments, nextStaff]) => {
-        if (cancelled) return;
-        setAssignments(nextAssignments);
-        setStaff(nextStaff);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [canManage, eventId, eventType]);
+  const [mutationError, setMutationError] = useState(false);
+  const queryClient = useQueryClient();
+  const assignmentsQuery = useListEventAssignments(eventType, eventId, {
+    query: {
+      enabled: canManage && !!eventId,
+      queryKey: getListEventAssignmentsQueryKey(eventType, eventId),
+    },
+  });
+  const staffQuery = useListAssignableStaff({
+    query: {
+      enabled: canManage && !!eventId,
+      queryKey: getListAssignableStaffQueryKey(),
+    },
+  });
+  const assignStaffMutation = useAssignEventStaff();
+  const removeStaffMutation = useRemoveEventStaffAssignment();
 
   if (!canManage) return null;
 
-  const assignedUserIds = new Set(assignments.map((assignment) => assignment.userId));
+  const assignments: EventAssignment[] = assignmentsQuery.data ?? [];
+  const staff: AssignableStaff[] = staffQuery.data ?? [];
+  const assignedUserIds = new Set(
+    assignments.map((assignment) => assignment.userId),
+  );
   const availableStaff = staff.filter((user) => !assignedUserIds.has(user.id));
   const formatLabel =
     eventType === "fixed_partner" ? "Fixed Partners" : "Rotating Partners";
+  const isLoading = assignmentsQuery.isLoading || staffQuery.isLoading;
+  const isMutating =
+    assignStaffMutation.isPending || removeStaffMutation.isPending;
+  const error = mutationError || assignmentsQuery.isError || staffQuery.isError;
 
-  async function assignStaff() {
+  function assignStaff() {
     const userId = Number(selectedUserId);
     if (!userId || isMutating) return;
 
-    setIsMutating(true);
-    setError(false);
-    try {
-      await readJson(`/api/events/${eventType}/${eventId}/assignments`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId }),
-      });
-      const refreshed = await readJson<EventAssignment[]>(
-        `/api/events/${eventType}/${eventId}/assignments`,
-      );
-      setAssignments(refreshed);
-      setSelectedUserId("");
-    } catch {
-      setError(true);
-    } finally {
-      setIsMutating(false);
-    }
+    setMutationError(false);
+    assignStaffMutation.mutate(
+      { eventType, id: eventId, data: { userId } },
+      {
+        onSuccess: () => {
+          setSelectedUserId("");
+          void queryClient.invalidateQueries({
+            queryKey: getListEventAssignmentsQueryKey(eventType, eventId),
+          });
+        },
+        onError: () => setMutationError(true),
+      },
+    );
   }
 
-  async function removeStaff(userId: number) {
+  function removeStaff(userId: number) {
     if (isMutating) return;
 
-    setIsMutating(true);
-    setError(false);
-    try {
-      await readJson(
-        `/api/events/${eventType}/${eventId}/assignments/${userId}`,
-        { method: "DELETE" },
-      );
-      setAssignments((current) =>
-        current.filter((assignment) => assignment.userId !== userId),
-      );
-    } catch {
-      setError(true);
-    } finally {
-      setIsMutating(false);
-    }
+    setMutationError(false);
+    removeStaffMutation.mutate(
+      { eventType, id: eventId, userId },
+      {
+        onSuccess: () =>
+          void queryClient.invalidateQueries({
+            queryKey: getListEventAssignmentsQueryKey(eventType, eventId),
+          }),
+        onError: () => setMutationError(true),
+      },
+    );
   }
 
   return (
@@ -139,8 +106,8 @@ export function EventAssignmentManager({
           Event Assignments
         </h2>
         <p className="text-xs text-muted-foreground">
-          Assign staff to this {formatLabel.toLowerCase()} event. Assigned staff can
-          manage the event roster but cannot change event assignments.
+          Assign staff to this {formatLabel.toLowerCase()} event. Assigned staff
+          can manage the event roster but cannot change event assignments.
         </p>
       </div>
 
@@ -216,7 +183,11 @@ export function EventAssignmentManager({
       )}
 
       {error && (
-        <p className="mt-3 text-sm text-destructive" role="alert">
+        <p
+          className="mt-3 text-sm text-destructive"
+          role="alert"
+          data-testid="status-event-assignments-error"
+        >
           Unable to load or update event assignments.
         </p>
       )}
