@@ -20,6 +20,9 @@ import { USER_ROLE_GROUPS } from "../../lib/user-roles.js";
 
 const ASSIGNABLE_ROLES = USER_ROLE_GROUPS.assignableStaff;
 const ORGANIZER_ROLE = userRoleIdMap.admin;
+const ORGANIZER_ROLES = USER_ROLE_GROUPS.eventManagers;
+const ACCESS_ROLES = [...new Set([...ASSIGNABLE_ROLES, ...ORGANIZER_ROLES])];
+const FORBIDDEN_ERROR = "Forbidden: not assigned to this event";
 
 let server: Server;
 let baseUrl: string;
@@ -95,8 +98,202 @@ async function request(
   return { response, body: body as any };
 }
 
+type EventType = "rotating" | "fixed_partner";
+type WriteAction =
+  | "update-event"
+  | "delete-event"
+  | "clone-event"
+  | "close-event"
+  | "broadcast"
+  | "create-registration"
+  | "bulk-set-assigned-ratings"
+  | "edit-registration"
+  | "delete-registration"
+  | "approve-registration"
+  | "reject-registration"
+  | "promote-registration";
+
+const WRITE_ACTIONS: WriteAction[] = [
+  "update-event",
+  "delete-event",
+  "clone-event",
+  "close-event",
+  "broadcast",
+  "create-registration",
+  "bulk-set-assigned-ratings",
+  "edit-registration",
+  "delete-registration",
+  "approve-registration",
+  "reject-registration",
+  "promote-registration",
+];
+
+async function createEvent(eventType: EventType) {
+  return eventType === "rotating"
+    ? createRotatingEvent()
+    : createFixedEvent();
+}
+
+async function createAccessRegistration(
+  eventType: EventType,
+  eventId: number,
+  status: "confirmed" | "waitlisted" | "pending_approval",
+) {
+  const member = await createMember();
+  const partner = eventType === "fixed_partner" ? await createMember() : null;
+  const [registration] = await db
+    .insert(registrationsTable)
+    .values({
+      eventId,
+      eventType,
+      memberDuprId: member.duprId,
+      partnerDuprId: partner?.duprId ?? null,
+      playerSnapshot: {
+        name: member.name,
+        doubles: member.doubles,
+        singles: member.singles,
+        selfRating: member.selfRating,
+        email: member.email,
+        phone: member.phone,
+      },
+      partnerSnapshot: partner
+        ? {
+            partnerName: partner.name,
+            partnerDoubles: partner.doubles,
+            partnerSelfRating: partner.selfRating,
+          }
+        : null,
+      status,
+    })
+    .returning();
+  return registration;
+}
+
+async function runWriteAction(
+  eventType: EventType,
+  action: WriteAction,
+  actor: { id: number; token: string },
+  assignActor: boolean,
+) {
+  const event = await createEvent(eventType);
+  if (assignActor) {
+    await db.insert(eventAssignmentsTable).values({
+      userId: actor.id,
+      eventId: event.id,
+      eventType,
+    });
+  }
+
+  let registrationId: number | undefined;
+  let response: { response: Response; body: any };
+  switch (action) {
+    case "update-event":
+      response = await request(`/events/${eventType}/${event.id}`, actor.token, {
+        method: "PATCH",
+        body: JSON.stringify({ name: `${event.name} updated` }),
+      });
+      break;
+    case "delete-event":
+      response = await request(`/events/${eventType}/${event.id}`, actor.token, {
+        method: "DELETE",
+      });
+      break;
+    case "clone-event":
+      response = await request(`/events/${eventType}/${event.id}/clone`, actor.token, {
+        method: "POST",
+        body: JSON.stringify({ name: `${event.name} clone` }),
+      });
+      break;
+    case "close-event":
+      response = await request(`/events/${eventType}/${event.id}/close`, actor.token, {
+        method: "POST",
+      });
+      break;
+    case "broadcast":
+      // A valid message reaches the assignment check, then stops before any
+      // external email delivery because this event has no participants.
+      response = await request(`/events/${eventType}/${event.id}/broadcast`, actor.token, {
+        method: "POST",
+        body: JSON.stringify({ subject: "Access test", body: "Access test message" }),
+      });
+      break;
+    case "create-registration": {
+      const member = await createMember();
+      const partner = eventType === "fixed_partner" ? await createMember() : null;
+      response = await request(`/events/${eventType}/${event.id}/registrations`, actor.token, {
+        method: "POST",
+        body: JSON.stringify({
+          memberDuprId: member.duprId,
+          ...(partner ? { partnerDuprId: partner.duprId } : {}),
+        }),
+      });
+      break;
+    }
+    case "bulk-set-assigned-ratings":
+      await createAccessRegistration(eventType, event.id, "confirmed");
+      response = await request(
+        `/events/${eventType}/${event.id}/registrations/bulk-set-assigned-ratings`,
+        actor.token,
+        { method: "POST" },
+      );
+      break;
+    case "edit-registration":
+      registrationId = (await createAccessRegistration(eventType, event.id, "confirmed")).id;
+      response = await request(
+        `/events/${eventType}/${event.id}/registrations/${registrationId}`,
+        actor.token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ status: "no_show" }),
+        },
+      );
+      break;
+    case "delete-registration":
+      registrationId = (await createAccessRegistration(eventType, event.id, "confirmed")).id;
+      response = await request(
+        `/events/${eventType}/${event.id}/registrations/${registrationId}`,
+        actor.token,
+        { method: "DELETE" },
+      );
+      break;
+    case "approve-registration":
+      registrationId = (await createAccessRegistration(eventType, event.id, "pending_approval")).id;
+      response = await request(
+        `/events/${eventType}/${event.id}/registrations/${registrationId}/approve`,
+        actor.token,
+        { method: "POST" },
+      );
+      break;
+    case "reject-registration":
+      registrationId = (await createAccessRegistration(eventType, event.id, "pending_approval")).id;
+      response = await request(
+        `/events/${eventType}/${event.id}/registrations/${registrationId}/reject`,
+        actor.token,
+        { method: "POST" },
+      );
+      break;
+    case "promote-registration":
+      registrationId = (await createAccessRegistration(eventType, event.id, "waitlisted")).id;
+      response = await request(
+        `/events/${eventType}/${event.id}/registrations/${registrationId}/promote`,
+        actor.token,
+        { method: "POST" },
+      );
+      break;
+  }
+
+  return response;
+}
+
+function expectedWriteStatus(action: WriteAction) {
+  if (action === "broadcast") return 400;
+  if (action === "delete-event" || action === "delete-registration") return 204;
+  if (action === "clone-event" || action === "create-registration") return 201;
+  return 200;
+}
+
 before(async () => {
-  for (const role of [...ASSIGNABLE_ROLES, ORGANIZER_ROLE]) {
+  for (const role of ACCESS_ROLES) {
     const [user] = await db
       .insert(usersTable)
       .values({
@@ -227,4 +424,50 @@ describe("event assignment write access", () => {
     });
     assert.equal(updated.response.status, 200);
   });
+});
+
+describe("event assignment permission matrix", () => {
+  for (const role of ASSIGNABLE_ROLES) {
+    for (const eventType of ["rotating", "fixed_partner"] as const) {
+      it(`${role} can perform every ${eventType} write when assigned`, async () => {
+        const staff = users.find((user) => user.role === role)!;
+
+        for (const action of WRITE_ACTIONS) {
+          const result = await runWriteAction(eventType, action, staff, true);
+          assert.equal(
+            result.response.status,
+            expectedWriteStatus(action),
+            `${eventType} ${action} returned ${result.response.status}: ${JSON.stringify(result.body)}`,
+          );
+        }
+      });
+
+      it(`${role} receives the same 403 for every unassigned ${eventType} write`, async () => {
+        const staff = users.find((user) => user.role === role)!;
+
+        for (const action of WRITE_ACTIONS) {
+          const result = await runWriteAction(eventType, action, staff, false);
+          assert.equal(result.response.status, 403, `${eventType} ${action}`);
+          assert.equal(result.body?.error, FORBIDDEN_ERROR, `${eventType} ${action}`);
+        }
+      });
+    }
+  }
+
+  for (const role of ORGANIZER_ROLES) {
+    for (const eventType of ["rotating", "fixed_partner"] as const) {
+      it(`${role} retains every ${eventType} write without an assignment`, async () => {
+        const organizer = users.find((user) => user.role === role)!;
+
+        for (const action of WRITE_ACTIONS) {
+          const result = await runWriteAction(eventType, action, organizer, false);
+          assert.equal(
+            result.response.status,
+            expectedWriteStatus(action),
+            `${eventType} ${action} returned ${result.response.status}: ${JSON.stringify(result.body)}`,
+          );
+        }
+      });
+    }
+  }
 });
