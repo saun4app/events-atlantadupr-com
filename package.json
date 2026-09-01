@@ -15,7 +15,8 @@
     "test:site-nav": "node --test scripts/check-site-nav.test.mjs",
     "test:user-roles": "node --test scripts/check-user-roles.test.mjs",
     "test:e2e": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",
-    "test:e2e:install": "playwright install chromium"
+    "test:e2e:install": "playwright install chromium",
+    "audit:event-assignments": "pnpm --filter @workspace/db exec tsx ../../scripts/audit-event-assignments.ts"
   },
   "private": true,
   "devDependencies": {
