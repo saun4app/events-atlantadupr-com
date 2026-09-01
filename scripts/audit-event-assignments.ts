@@ -1,21 +1,39 @@
 /**
- * Audit and optionally remove staff assignments whose event no longer exists.
+ * Audit and optionally remove registrations and staff assignments whose event
+ * no longer exists.
  *
- * The assignment table cannot use a normal foreign key because event_id points
- * at one of two format-specific event tables. This script is the repeatable
- * integrity check for that polymorphic relationship.
+ * These tables cannot use a normal foreign key because event_id points at one
+ * of two format-specific event tables. This script is the repeatable integrity
+ * check for those polymorphic relationships.
  *
  * By default this is read-only:
  *   pnpm run audit:event-assignments
  *
- * Review the reported rows, then explicitly apply the same orphan predicate in
- * a single transaction:
+ * Review the reported rows, then explicitly apply the same format-specific
+ * orphan predicates in a single transaction:
  *   pnpm run audit:event-assignments -- --apply
  */
 
 import { db, pool, sql } from "../lib/db/src/index.js";
 
-const orphanPredicate = sql`
+const orphanRegistrationPredicate = sql`
+  (
+    (s.event_type = 'rotating' AND NOT EXISTS (
+      SELECT 1
+      FROM atl_dupr_events_rotating rotating
+      WHERE rotating.id = s.event_id
+    ))
+    OR
+    (s.event_type = 'fixed_partner' AND NOT EXISTS (
+      SELECT 1
+      FROM atl_dupr_events_fixed fixed
+      WHERE fixed.id = s.event_id
+    ))
+    OR s.event_type NOT IN ('rotating', 'fixed_partner')
+  )
+`;
+
+const orphanAssignmentPredicate = sql`
   (
     (r.event_type = 'rotating' AND NOT EXISTS (
       SELECT 1
@@ -32,63 +50,109 @@ const orphanPredicate = sql`
   )
 `;
 
-type OrphanAssignment = {
-  user_id: number;
+type OrphanRecord = {
+  record_type: "registration" | "assignment";
+  registration_id: number | null;
+  user_id: number | null;
   event_id: number;
   event_type: string;
-  assigned_at: string;
+  recorded_at: string;
   reason: string;
 };
 
-function printRows(rows: OrphanAssignment[]) {
+function printRows(rows: OrphanRecord[]) {
   if (rows.length === 0) {
-    console.log("No orphan event assignment rows found.");
+    console.log("No orphan event registration or assignment rows found.");
     return;
   }
 
-  console.log(`Found ${rows.length} orphan event assignment row(s):`);
+  console.log(
+    `Found ${rows.length} orphan event registration or assignment row(s):`,
+  );
   console.log(JSON.stringify(rows, null, 2));
 }
 
-async function audit(): Promise<OrphanAssignment[]> {
+async function audit(): Promise<OrphanRecord[]> {
   const result = await db.execute(sql`
     SELECT
+      'registration' AS record_type,
+      s.id AS registration_id,
+      NULL::integer AS user_id,
+      s.event_id,
+      s.event_type,
+      s.registered_at AS recorded_at,
+      CASE
+        WHEN s.event_type NOT IN ('rotating', 'fixed_partner')
+          THEN 'unsupported event_type'
+        ELSE 'missing event row'
+      END AS reason
+    FROM atl_dupr_signups s
+    WHERE ${orphanRegistrationPredicate}
+
+    UNION ALL
+
+    SELECT
+      'assignment' AS record_type,
+      NULL::integer AS registration_id,
       r.user_id,
       r.event_id,
       r.event_type,
-      r.assigned_at,
+      r.assigned_at AS recorded_at,
       CASE
         WHEN r.event_type NOT IN ('rotating', 'fixed_partner')
           THEN 'unsupported event_type'
         ELSE 'missing event row'
       END AS reason
     FROM atl_dupr_event_roles r
-    WHERE ${orphanPredicate}
-    ORDER BY r.event_type, r.event_id, r.user_id
+    WHERE ${orphanAssignmentPredicate}
+
+    ORDER BY record_type, event_type, event_id, registration_id, user_id
   `);
 
-  return result.rows as OrphanAssignment[];
+  return result.rows as OrphanRecord[];
 }
 
-async function removeConfirmedOrphans(): Promise<OrphanAssignment[]> {
-  const result = await db.transaction(async (tx) =>
-    tx.execute(sql`
-      DELETE FROM atl_dupr_event_roles r
-      WHERE ${orphanPredicate}
+async function removeConfirmedOrphans(): Promise<OrphanRecord[]> {
+  return db.transaction(async (tx) => {
+    const registrations = await tx.execute(sql`
+      DELETE FROM atl_dupr_signups s
+      WHERE ${orphanRegistrationPredicate}
       RETURNING
+        'registration' AS record_type,
+        s.id AS registration_id,
+        NULL::integer AS user_id,
+        s.event_id,
+        s.event_type,
+        s.registered_at AS recorded_at,
+        CASE
+          WHEN s.event_type NOT IN ('rotating', 'fixed_partner')
+            THEN 'unsupported event_type'
+          ELSE 'missing event row'
+        END AS reason
+    `);
+
+    const assignments = await tx.execute(sql`
+      DELETE FROM atl_dupr_event_roles r
+      WHERE ${orphanAssignmentPredicate}
+      RETURNING
+        'assignment' AS record_type,
+        NULL::integer AS registration_id,
         r.user_id,
         r.event_id,
         r.event_type,
-        r.assigned_at,
+        r.assigned_at AS recorded_at,
         CASE
           WHEN r.event_type NOT IN ('rotating', 'fixed_partner')
             THEN 'unsupported event_type'
           ELSE 'missing event row'
         END AS reason
-    `),
-  );
+    `);
 
-  return result.rows as OrphanAssignment[];
+    return [
+      ...(registrations.rows as OrphanRecord[]),
+      ...(assignments.rows as OrphanRecord[]),
+    ];
+  });
 }
 
 function usage(): never {
@@ -106,8 +170,17 @@ async function main() {
   const rows = apply ? await removeConfirmedOrphans() : await audit();
 
   if (apply) {
+    const registrationCount = rows.filter(
+      ({ record_type }) => record_type === "registration",
+    ).length;
+    const assignmentCount = rows.filter(
+      ({ record_type }) => record_type === "assignment",
+    ).length;
     console.log(
-      `Removed ${rows.length} confirmed orphan event assignment row(s).`,
+      `Removed ${registrationCount} confirmed orphan registration row(s).`,
+    );
+    console.log(
+      `Removed ${assignmentCount} confirmed orphan assignment row(s).`,
     );
   } else {
     printRows(rows);
