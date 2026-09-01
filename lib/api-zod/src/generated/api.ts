@@ -191,7 +191,8 @@ export const ListEventsResponseItem = zod.object({
   "nonMemberFee": zod.number(),
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
 })
 export const ListEventsResponse = zod.array(ListEventsResponseItem)
 
@@ -280,7 +281,8 @@ export const GetEventResponse = zod.object({
   "nonMemberFee": zod.number(),
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
 })
 
 
@@ -353,7 +355,8 @@ export const UpdateEventResponse = zod.object({
   "nonMemberFee": zod.number(),
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
 })
 
 
@@ -416,7 +419,8 @@ export const CloseEventResponse = zod.object({
   "nonMemberFee": zod.number(),
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
-  "createdAt": zod.coerce.date()
+  "createdAt": zod.coerce.date(),
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
 })
 
 

@@ -144,6 +144,7 @@ export default function AdminEventDetailRotating() {
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const eventContactEmails: string[] = ((settings as any)?.eventContactEmails as string[] | undefined) ?? [];
   const isAdminOrOrganizer = hasUserRole(user?.role, "eventManagers");
+  const canWriteEvent = isAdminOrOrganizer || (event as any)?.canWrite === true;
 
 
   const updateEvent = useUpdateEvent();
@@ -270,7 +271,7 @@ export default function AdminEventDetailRotating() {
   }
 
   function openEditDialog() {
-    if (!event) return;
+    if (!event || !canWriteEvent) return;
     setEditForm({
       name: event.name ?? "",
       description: event.description ?? "",
@@ -311,6 +312,7 @@ export default function AdminEventDetailRotating() {
   }
 
   function handleDeleteEvent() {
+    if (!canWriteEvent) return;
     deleteEvent.mutate({ eventType, id: eventId }, {
       onSuccess: () => {
         queryClient.invalidateQueries({ queryKey: getListEventsQueryKey(eventType) });
@@ -323,6 +325,7 @@ export default function AdminEventDetailRotating() {
 
   function handleEditSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canWriteEvent) return;
     if (hasInvertedLimits(editForm.minParticipants, editForm.maxParticipants)) {
       toast({
         title: "Invalid participant limits",
@@ -363,12 +366,13 @@ export default function AdminEventDetailRotating() {
     });
   }
 
-  function handleMoveToWaitlist(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleCancelReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleNoShowReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "no_show" } as any }, { onSuccess: () => { toast({ title: "Moved to no-show" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
-  function handleConfirmReg(regId: number) { updateReg.mutate({ eventType, id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleMoveToWaitlist(regId: number) { if (!canWriteEvent) return; updateReg.mutate({ eventType, id: eventId, regId, data: { status: "waitlisted" } as any }, { onSuccess: () => { toast({ title: "Moved to waitlist" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleCancelReg(regId: number) { if (!canWriteEvent) return; updateReg.mutate({ eventType, id: eventId, regId, data: { status: "cancelled" } as any }, { onSuccess: () => { toast({ title: "Registration cancelled" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleNoShowReg(regId: number) { if (!canWriteEvent) return; updateReg.mutate({ eventType, id: eventId, regId, data: { status: "no_show" } as any }, { onSuccess: () => { toast({ title: "Moved to no-show" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
+  function handleConfirmReg(regId: number) { if (!canWriteEvent) return; updateReg.mutate({ eventType, id: eventId, regId, data: { status: "confirmed" } as any }, { onSuccess: () => { toast({ title: "Moved to confirmed" }); invalidate(); }, onError: () => toast({ title: "Failed", variant: "destructive" }) }); }
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
+    if (!canWriteEvent) return;
     const emails = addEmails.split(/[\s,]+/).map(s => s.trim().toLowerCase()).filter(Boolean);
     if (emails.length === 0) return;
     if (event?.teamFormat === "fixed_partner" && emails.length > 1) {
@@ -623,9 +627,11 @@ export default function AdminEventDetailRotating() {
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button data-testid="button-edit-event" variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
-                    <Pencil className="w-3.5 h-3.5" /> Edit
-                  </Button>
+                  {canWriteEvent && (
+                    <Button data-testid="button-edit-event" variant="outline" size="sm" className="gap-1.5" onClick={openEditDialog}>
+                      <Pencil className="w-3.5 h-3.5" /> Edit
+                    </Button>
+                  )}
                   <Badge variant={event.status === "cancelled" ? "destructive" : event.status === "ended" ? "secondary" : "default"} className="capitalize">
                     {event.status}
                   </Badge>
@@ -650,7 +656,7 @@ export default function AdminEventDetailRotating() {
               )}
             </div>
 
-            <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
+            {canWriteEvent && <div className="bg-card border border-card-border rounded-lg p-5 mb-6">
               <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-wide mb-3">Add Participant Manually</h2>
               <form onSubmit={handleAdd} className="flex items-start gap-3 flex-wrap">
                 <div className="space-y-1.5">
@@ -699,7 +705,7 @@ export default function AdminEventDetailRotating() {
                   </ul>
                 </div>
               )}
-            </div>
+            </div>}
 
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-4 px-1 py-2 bg-muted/30 rounded-md border border-border">
               <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Columns:</span>
@@ -759,7 +765,7 @@ export default function AdminEventDetailRotating() {
                           <span className="ml-2 text-xs text-muted-foreground">({section.regs.length})</span>
                         </div>
                         <div className="flex items-center gap-3 flex-wrap">
-                          {key === "Confirmed" && (
+                          {canWriteEvent && key === "Confirmed" && (
                             <div className="flex items-center gap-2 pr-3 border-r border-border">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -909,6 +915,7 @@ export default function AdminEventDetailRotating() {
                                         return (
                                           <input
                                             data-testid={`input-self-rating-${reg.id}`}
+                                            disabled={!canWriteEvent}
                                             type="number"
                                             step="0.01"
                                             min="2"
@@ -931,6 +938,7 @@ export default function AdminEventDetailRotating() {
                                     <td className="px-2 py-2">
                                       <input
                                         data-testid={`input-assigned-rating-${reg.id}`}
+                                        disabled={!canWriteEvent}
                                         type="number"
                                         step="0.01"
                                         min="0"
@@ -995,7 +1003,7 @@ export default function AdminEventDetailRotating() {
                                     <div className="flex items-center justify-end">
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
+                                          <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2" disabled={!canWriteEvent}>
                                             Actions <ChevronDown className="w-3 h-3" />
                                           </Button>
                                         </DropdownMenuTrigger>
@@ -1137,7 +1145,7 @@ export default function AdminEventDetailRotating() {
                                     <div className="flex items-center justify-end">
                                       <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                          <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2">
+                                          <Button data-testid={`button-actions-${reg.id}`} size="sm" variant="outline" className="gap-1 h-7 px-2" disabled={!canWriteEvent}>
                                             Actions <ChevronDown className="w-3 h-3" />
                                           </Button>
                                         </DropdownMenuTrigger>

@@ -768,6 +768,10 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const event = await getNormalizedEvent(eventType, eventId);
   if (!event) return res.status(404).json({ error: "Event not found" });
 
+  const staff = isStaffRequest(req);
+  if (staff && !(await canAccessEvent(eventId, eventType, req))) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
   if (
     event.status === "cancelled" &&
     (eventType !== ROTATING_PARTNER_FORMAT ||
@@ -776,7 +780,6 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   ) {
     return res.status(400).json({ error: "This event has been canceled" });
   }
-  const staff = isStaffRequest(req);
   const bypassRatings = staff && bypassRatingRequirements === true;
   if (
     eventType === ROTATING_PARTNER_FORMAT &&
@@ -1438,6 +1441,9 @@ router.post(
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
     const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, eventType, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
 
     const regs = await db
       .select()

@@ -33,6 +33,7 @@ const FIXED_PARTNER_EVENT = {
   nonMemberFee: 0,
   contactEmail: null,
   createdAt: "2026-01-01T00:00:00.000Z",
+  canWrite: true,
 };
 
 export async function mockFixedPartnerAdminApi(page: Page) {

@@ -49,4 +49,6 @@ export interface Event {
   /** @nullable */
   ratingConfig?: EventRatingConfig;
   createdAt: Date;
+  /** Whether the authenticated caller can use event management write controls */
+  canWrite?: boolean;
 }

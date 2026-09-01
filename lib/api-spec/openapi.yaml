@@ -1111,6 +1111,9 @@ components:
         createdAt:
           type: string
           format: date-time
+        canWrite:
+          type: boolean
+          description: Whether the authenticated caller can use event management write controls
 
     EventCloneInput:
       type: object

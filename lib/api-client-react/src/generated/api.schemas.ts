@@ -194,6 +194,8 @@ export interface Event {
   /** @nullable */
   ratingConfig?: EventRatingConfig;
   createdAt: string;
+  /** Whether the authenticated caller can use event management write controls */
+  canWrite?: boolean;
 }
 
 export interface EventCloneInput {

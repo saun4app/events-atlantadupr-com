@@ -85,7 +85,12 @@ const FIXED_PARTNER_EVENT = {
   maxTeams: 8,
 };
 
-async function mockAdminNavigationApi(page: Page, role: string) {
+async function mockAdminNavigationApi(
+  page: Page,
+  role: string,
+  options: { canWriteEvent?: boolean } = {},
+) {
+  const canWriteEvent = options.canWriteEvent ?? true;
   await page.route("**/api/**", async (route) => {
     const pathname = new URL(route.request().url()).pathname;
 
@@ -108,12 +113,12 @@ async function mockAdminNavigationApi(page: Page, role: string) {
     }
 
     if (pathname === `/api/events/rotating/${ROTATING_EVENT.id}`) {
-      await route.fulfill({ json: ROTATING_EVENT });
+      await route.fulfill({ json: { ...ROTATING_EVENT, canWrite: canWriteEvent } });
       return;
     }
 
     if (pathname === `/api/events/fixed_partner/${FIXED_PARTNER_EVENT.id}`) {
-      await route.fulfill({ json: FIXED_PARTNER_EVENT });
+      await route.fulfill({ json: { ...FIXED_PARTNER_EVENT, canWrite: canWriteEvent } });
       return;
     }
 
@@ -257,6 +262,24 @@ for (const staffRole of userRolesConfig.groups.assignableStaff) {
         userRolesConfig.groups.adminOnly.includes(staffRole) ? 1 : 0,
       );
     }
+  });
+}
+
+for (const staffRole of userRolesConfig.groups.assignableStaff) {
+  const roleLabel =
+    userRolesConfig.roles.find((role) => role.id === staffRole)?.label ??
+    staffRole;
+
+  test(`${roleLabel} cannot use controls for an unassigned event`, async ({ page }) => {
+    await mockAdminNavigationApi(page, staffRole, { canWriteEvent: false });
+    await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
+
+    await expect(
+      page.getByRole("heading", { name: ROTATING_EVENT.name }),
+    ).toBeVisible();
+    await expect(page.getByTestId("button-edit-event")).toHaveCount(0);
+    await expect(page.getByTestId("input-add-emails")).toHaveCount(0);
+    await expect(page.getByTestId("button-add-participant")).toHaveCount(0);
   });
 }
 

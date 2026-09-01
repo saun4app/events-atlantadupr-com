@@ -284,9 +284,11 @@ export abstract class BaseEventController {
   };
 
   getById = async (req: Request, res: Response) => {
-    const event = await this.getNormalized(Number(req.params.id));
+    const eventId = Number(req.params.id);
+    const event = await this.getNormalized(eventId);
     if (!event) return res.status(404).json({ error: "Event not found" });
-    return res.json(event);
+    const canWrite = await canAccessEvent(eventId, this.format, req);
+    return res.json({ ...event, canWrite });
   };
 
   create = async (req: Request, res: Response) => {
