@@ -1,12 +1,13 @@
 openapi: 3.1.0
 info:
-  title: Rotating-Partner Event API
+  title: Rotating-Partner Event API Module
   version: 1.0.0
   summary: Headless API for rotating-partner events
   description: >-
-    A standalone, versioned API for rotating-partner event management,
-    registration, verification, capacity, ratings, and roster operations.
-    This contract is intentionally limited to the rotating-partner module.
+    A versioned API module for rotating-partner event management, registration,
+    verification, capacity, ratings, and roster operations. Shared server
+    authentication, errors, pagination, concurrency, and document-envelope
+    components come from the modular DUPR Event API platform contract.
     Fixed-partner events must use a separate module and contract.
   contact:
     name: API support
@@ -17,9 +18,10 @@ servers:
     description: Rotating-partner API base path
 externalDocs:
   description: Rotating-partner JSON document model
-  url: ./rotating-partner-event-data-modle.json
-x-rotating-partner-config: ./rotating-partner-event-config.json
-x-rotating-partner-data-model: ./rotating-partner-event-data-modle.json
+  url: ./rotating-partner-event-api-module-data-modle.json
+x-rotating-partner-config: ./rotating-partner-event-api-module-config.json
+x-rotating-partner-data-model: ./rotating-partner-event-api-module-data-modle.json
+x-dupr-event-api-platform: ./dupr-event-api-openapi.yaml
 tags:
   - name: events
     description: Rotating-partner event lifecycle and discovery
@@ -826,15 +828,9 @@ paths:
 components:
   securitySchemes:
     bearerAuth:
-      type: http
-      scheme: bearer
-      bearerFormat: opaque-session-token
-      description: API session or access token issued by the host authentication service.
+      $ref: "./dupr-event-api-openapi.yaml#/components/securitySchemes/bearerAuth"
     sessionCookieAuth:
-      type: apiKey
-      in: cookie
-      name: connect.sid
-      description: Host session cookie. CSRF protection is required for cookie-authenticated mutations.
+      $ref: "./dupr-event-api-openapi.yaml#/components/securitySchemes/sessionCookieAuth"
 
   parameters:
     EventId:
@@ -898,111 +894,33 @@ components:
         format: date-time
       description: Include events starting before or at this timestamp.
     Page:
-      name: page
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-        default: 1
+      $ref: "./dupr-event-api-openapi.yaml#/components/parameters/Page"
     PageSize:
-      name: pageSize
-      in: query
-      required: false
-      schema:
-        type: integer
-        minimum: 1
-        maximum: 100
-        default: 25
+      $ref: "./dupr-event-api-openapi.yaml#/components/parameters/PageSize"
     IfMatch:
-      name: If-Match
-      in: header
-      required: false
-      description: Optional expected document version or updatedAt value for optimistic concurrency.
-      schema:
-        type: string
+      $ref: "./dupr-event-api-openapi.yaml#/components/parameters/IfMatch"
 
   responses:
     BadRequest:
-      description: Request syntax or business rule is invalid.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/BadRequest"
     Unauthorized:
-      description: Authentication is required or invalid.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/Unauthorized"
     Forbidden:
-      description: The authenticated principal lacks the required role or event access.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/Forbidden"
     NotFound:
-      description: Resource was not found.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/NotFound"
     Conflict:
-      description: The mutation conflicts with current state, capacity, or document version.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/Conflict"
     RateLimited:
-      description: Request rate exceeded the configured IP or email limit.
-      headers:
-        Retry-After:
-          schema:
-            type: integer
-            minimum: 1
-          description: Seconds until retry is permitted.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/RateLimited"
     UnprocessableEntity:
-      description: Request is syntactically valid but fails event-specific validation.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/UnprocessableEntity"
     ServiceUnavailable:
-      description: The module configuration or a required dependency is unavailable.
-      content:
-        application/json:
-          schema:
-            $ref: "#/components/schemas/Problem"
+      $ref: "./dupr-event-api-openapi.yaml#/components/responses/ServiceUnavailable"
 
   schemas:
     DocumentEnvelope:
-      type: object
-      required: [documentId, documentType, schemaVersion, module, createdAt, updatedAt, data]
-      properties:
-        documentId:
-          type: string
-          minLength: 1
-        documentType:
-          type: string
-        schemaVersion:
-          type: integer
-          minimum: 1
-        module:
-          type: string
-          const: rotating-partner-events
-        createdAt:
-          type: string
-          format: date-time
-        updatedAt:
-          type: string
-          format: date-time
-        data:
-          type: object
-      additionalProperties: false
+      $ref: "./dupr-event-api-openapi.yaml#/components/schemas/DocumentEnvelope"
 
     EventDocument:
       allOf:
@@ -1764,29 +1682,7 @@ components:
       additionalProperties: false
 
     Problem:
-      type: object
-      required: [type, title, status]
-      properties:
-        type:
-          type: string
-          format: uri-reference
-          default: about:blank
-        title:
-          type: string
-        status:
-          type: integer
-          minimum: 400
-          maximum: 599
-        detail:
-          type: string
-        instance:
-          type: string
-          format: uri-reference
-        requestId:
-          type: [string, "null"]
-        code:
-          type: [string, "null"]
-      additionalProperties: true
+      $ref: "./dupr-event-api-openapi.yaml#/components/schemas/Problem"
 
     EventStatus:
       type: string

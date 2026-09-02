@@ -1,6 +1,6 @@
 {
   "specification": {
-    "name": "rotating-partner-event-data-model",
+    "name": "rotating-partner-event-api-module-data-model",
     "version": 1,
     "status": "initial",
     "purpose": "Persistence contract for the rotating-partner event API"
@@ -129,7 +129,7 @@
         "endDatetime is after startDatetime.",
         "signupStartDatetime is not after signupEndDatetime.",
         "minParticipants is not greater than maxParticipants.",
-        "The event status and ratingConfig are validated by rotating-partner-event-config.json.",
+        "The event status and ratingConfig are validated by rotating-partner-event-api-module-config.json.",
         "A rotating event cannot reference a fixed-partner document."
       ],
       "indexes": [
@@ -250,7 +250,7 @@
       "integrity": [
         "Clear-text verification codes are never persisted or logged.",
         "Expired and consumed records are not accepted for verification.",
-        "TTL, cooldown, attempt limits, and code format come from rotating-partner-event-config.json."
+        "TTL, cooldown, attempt limits, and code format come from rotating-partner-event-api-module-config.json."
       ],
       "indexes": [
         { "paths": ["normalizedEmail"], "purpose": "Current-code lookup." },

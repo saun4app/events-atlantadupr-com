@@ -1,6 +1,6 @@
 {
   "specification": {
-    "name": "rotating-partner-event-api-config",
+    "name": "rotating-partner-event-api-module-config",
     "version": 1,
     "status": "initial",
     "purpose": "Backend-only business requirements for the rotating-partner event API"
@@ -9,7 +9,7 @@
     "id": "rotating-partner-events",
     "apiVersion": "v1",
     "apiBasePath": "/api/v1/rotating-partner-events",
-    "configSource": "api-docs/rotating-partner-event-config.json",
+    "configSource": "api-docs/rotating-partner-event-api-module-config.json",
     "loadingRule": "Load and validate this document through one centralized module boundary before serving rotating-partner requests.",
     "invalidConfigBehavior": "Fail closed at startup or reject all affected requests with a configuration error.",
     "hardcodedRequirementsAllowed": false

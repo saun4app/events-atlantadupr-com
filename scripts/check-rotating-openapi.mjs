@@ -2,9 +2,12 @@ import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 
-const OPENAPI_PATH = "api-docs/rotating-partner-event-openapi.yaml";
-const DATA_MODEL_PATH = "api-docs/rotating-partner-event-data-modle.json";
-const CONFIG_PATH = "api-docs/rotating-partner-event-config.json";
+const OPENAPI_PATH = "api-docs/rotating-partner-event-api-module-openapi.yaml";
+const DATA_MODEL_PATH = "api-docs/rotating-partner-event-api-module-data-modle.json";
+const CONFIG_PATH = "api-docs/rotating-partner-event-api-module-config.json";
+const PLATFORM_OPENAPI_PATH = "api-docs/dupr-event-api-openapi.yaml";
+const PLATFORM_DATA_MODEL_PATH = "api-docs/dupr-event-api-data-modle.json";
+const PLATFORM_CONFIG_PATH = "api-docs/dupr-event-api-config.json";
 
 function operationBlock(text, operationId) {
   const marker = `      operationId: ${operationId}`;
@@ -33,24 +36,147 @@ function assertIncludes(text, fragment, message) {
   }
 }
 
-export async function validateRotatingOpenApi({
+export async function validateSharedApiContracts({
   openApiText,
   dataModel,
   config,
 }) {
   await format(openApiText, { parser: "yaml" });
 
+  assertIncludes(openApiText, "openapi: 3.1.0", "Shared OpenAPI version must be 3.1.0");
+  assertIncludes(
+    openApiText,
+    "title: DUPR Event API Server",
+    "Shared OpenAPI title is missing",
+  );
+  for (const component of [
+    "bearerAuth",
+    "sessionCookieAuth",
+    "Page",
+    "PageSize",
+    "IfMatch",
+    "BadRequest",
+    "Unauthorized",
+    "Forbidden",
+    "NotFound",
+    "Conflict",
+    "RateLimited",
+    "UnprocessableEntity",
+    "ServiceUnavailable",
+    "DocumentEnvelope",
+    "Problem",
+  ]) {
+    assertIncludes(
+      openApiText,
+      `    ${component}:`,
+      `Shared OpenAPI component is missing: ${component}`,
+    );
+  }
+
+  const declarations = new Set(
+    [...openApiText.matchAll(/^    ([A-Za-z][A-Za-z0-9_-]*):$/gm)].map(
+      (match) => match[1],
+    ),
+  );
+  const localRefs = [
+    ...openApiText.matchAll(
+      /\$ref:\s*["']?#\/components\/(?:schemas|responses|parameters|securitySchemes)\/([A-Za-z0-9_-]+)/g,
+    ),
+  ].map((match) => match[1]);
+  const unresolvedRefs = localRefs.filter((name) => !declarations.has(name));
+  if (unresolvedRefs.length > 0) {
+    throw new Error(
+      `Shared OpenAPI has unresolved local references: ${[...new Set(unresolvedRefs)].join(", ")}`,
+    );
+  }
+
+  if (config.server.basePath !== "/api/v1") {
+    throw new Error("Shared API configuration must use /api/v1 as its base path");
+  }
+  if (
+    config.authentication.bearer.issuerEnv !== "OIDC_ISSUER_URL" ||
+    config.authentication.bearer.audienceEnv !== "OIDC_AUDIENCE"
+  ) {
+    throw new Error("Shared API configuration is missing the OIDC environment contract");
+  }
+  if (config.authentication.organization.tenantIdEnv !== "TENANT_ID") {
+    throw new Error("Shared API configuration is missing the tenant environment contract");
+  }
+  if (
+    config.http.allowedOriginsEnv !== "ALLOWED_ORIGINS" ||
+    config.http.csrfHeader !== "X-CSRF-Token"
+  ) {
+    throw new Error("Shared API configuration is missing the origin or CSRF contract");
+  }
+  if (!dataModel.documentEnvelope?.requiredFields?.includes("module")) {
+    throw new Error("Shared data model must define module-owned document envelopes");
+  }
+  const platformDocumentTypes = new Set(
+    dataModel.platformDocuments?.map((document) => document.documentType),
+  );
+  for (const documentType of ["platform_outbox_message", "platform_audit_record"]) {
+    if (!platformDocumentTypes.has(documentType)) {
+      throw new Error(`Shared data model is missing platform document type ${documentType}`);
+    }
+  }
+
+  return {
+    localReferences: localRefs.length,
+    platformDocuments: platformDocumentTypes.size,
+  };
+}
+
+export async function validateRotatingOpenApi({
+  openApiText,
+  dataModel,
+  config,
+  platformOpenApiText,
+}) {
+  await format(openApiText, { parser: "yaml" });
+
   assertIncludes(openApiText, "openapi: 3.1.0", "OpenAPI version must be 3.1.0");
   assertIncludes(
     openApiText,
-    "x-rotating-partner-config: ./rotating-partner-event-config.json",
+    "x-rotating-partner-config: ./rotating-partner-event-api-module-config.json",
     "The contract must point to the rotating backend configuration",
   );
   assertIncludes(
     openApiText,
-    "x-rotating-partner-data-model: ./rotating-partner-event-data-modle.json",
+    "x-rotating-partner-data-model: ./rotating-partner-event-api-module-data-modle.json",
     "The contract must point to the rotating JSON data model",
   );
+  assertIncludes(
+    openApiText,
+    "x-dupr-event-api-platform: ./dupr-event-api-openapi.yaml",
+    "The rotating module must point to the shared API platform contract",
+  );
+  if (!platformOpenApiText) {
+    throw new Error("The rotating module validator requires the shared API OpenAPI contract");
+  }
+
+  for (const reference of [
+    "./dupr-event-api-openapi.yaml#/components/securitySchemes/bearerAuth",
+    "./dupr-event-api-openapi.yaml#/components/securitySchemes/sessionCookieAuth",
+    "./dupr-event-api-openapi.yaml#/components/parameters/Page",
+    "./dupr-event-api-openapi.yaml#/components/parameters/PageSize",
+    "./dupr-event-api-openapi.yaml#/components/parameters/IfMatch",
+    "./dupr-event-api-openapi.yaml#/components/responses/BadRequest",
+    "./dupr-event-api-openapi.yaml#/components/responses/Unauthorized",
+    "./dupr-event-api-openapi.yaml#/components/responses/Forbidden",
+    "./dupr-event-api-openapi.yaml#/components/responses/NotFound",
+    "./dupr-event-api-openapi.yaml#/components/responses/Conflict",
+    "./dupr-event-api-openapi.yaml#/components/responses/RateLimited",
+    "./dupr-event-api-openapi.yaml#/components/responses/UnprocessableEntity",
+    "./dupr-event-api-openapi.yaml#/components/responses/ServiceUnavailable",
+    "./dupr-event-api-openapi.yaml#/components/schemas/DocumentEnvelope",
+    "./dupr-event-api-openapi.yaml#/components/schemas/Problem",
+  ]) {
+    assertIncludes(
+      openApiText,
+      reference,
+      `The rotating module must resolve shared component ${reference}`,
+    );
+  }
 
   if (openApiText.includes("fixed_partner") || openApiText.includes("frontend_event_create")) {
     throw new Error("The standalone rotating contract contains a non-rotating rule");
@@ -238,24 +364,40 @@ export async function validateRotatingOpenApi({
 }
 
 async function main() {
-  const [openApiText, dataModelText, configText] = await Promise.all([
+  const [
+    openApiText,
+    dataModelText,
+    configText,
+    platformOpenApiText,
+    platformDataModelText,
+    platformConfigText,
+  ] = await Promise.all([
     readFile(OPENAPI_PATH, "utf8"),
     readFile(DATA_MODEL_PATH, "utf8"),
     readFile(CONFIG_PATH, "utf8"),
+    readFile(PLATFORM_OPENAPI_PATH, "utf8"),
+    readFile(PLATFORM_DATA_MODEL_PATH, "utf8").then(JSON.parse),
+    readFile(PLATFORM_CONFIG_PATH, "utf8").then(JSON.parse),
   ]);
+  const sharedResult = await validateSharedApiContracts({
+    openApiText: platformOpenApiText,
+    dataModel: platformDataModelText,
+    config: platformConfigText,
+  });
   const result = await validateRotatingOpenApi({
     openApiText,
     dataModel: JSON.parse(dataModelText),
     config: JSON.parse(configText),
+    platformOpenApiText,
   });
   console.log(
-    `Validated rotating OpenAPI: ${result.operations} operations, ${result.localReferences} local references, ${result.registrationStatuses} registration statuses.`,
+    `Validated shared API and rotating module OpenAPI: ${result.operations} rotating operations, ${result.localReferences} module local references, ${sharedResult.platformDocuments} platform document types, ${result.registrationStatuses} registration statuses.`,
   );
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   main().catch((error) => {
-    console.error(`::error::Rotating OpenAPI validation failed: ${error.message}`);
+    console.error(`::error::API contract validation failed: ${error.message}`);
     process.exit(1);
   });
 }
