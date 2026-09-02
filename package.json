@@ -1,0 +1,39 @@
+{
+  "name": "workspace",
+  "version": "0.0.0",
+  "license": "MIT",
+  "scripts": {
+    "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
+    "build": "pnpm run check:api-generated && pnpm run check:production-schema && pnpm run check:event-integrity && pnpm run typecheck && pnpm -r --if-present run build",
+    "typecheck:libs": "tsc --build",
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "check:api-generated": "node scripts/check-rotating-openapi.mjs && node scripts/check-api-generated.mjs && node scripts/check-user-roles.mjs",
+    "check:production-schema": "pnpm run audit:production-schema -- --check",
+    "check:event-integrity": "pnpm run audit:event-assignments -- --check",
+    "maintenance:event-integrity": "pnpm run check:event-integrity",
+    "check:rotating-openapi": "node scripts/check-rotating-openapi.mjs",
+    "check:user-roles": "node scripts/check-user-roles.mjs",
+    "test:api-generated": "node --test scripts/check-api-generated.test.mjs",
+    "test:api:setup": "pnpm --filter @workspace/db run push-test",
+    "test:api": "pnpm --filter @workspace/api-server run test",
+    "test:api:ci": "pnpm --filter @workspace/api-server run test:ci",
+    "test:rotating-openapi": "node --test scripts/check-rotating-openapi.test.mjs",
+    "test:site-nav": "node --test scripts/check-site-nav.test.mjs",
+    "test:user-roles": "node --test scripts/check-user-roles.test.mjs",
+    "test:event-assignment-audit": "node --test scripts/audit-event-assignments.test.mjs",
+    "test:production-schema-audit": "node --test scripts/audit-production-schema.test.mjs",
+    "test:e2e": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",
+    "test:e2e:install": "playwright install chromium",
+    "audit:event-assignments": "pnpm --filter @workspace/db exec tsx ../../scripts/audit-event-assignments.ts",
+    "audit:production-schema": "pnpm --filter @workspace/db exec tsx ../../scripts/audit-production-schema.ts"
+  },
+  "private": true,
+  "devDependencies": {
+    "@playwright/test": "1.55.0",
+    "prettier": "^3.8.3",
+    "typescript": "~5.9.3"
+  },
+  "dependencies": {
+    "@octokit/rest": "21.1.1"
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "version": 1,
+  "items": [
+    {
+      "id": "a1f3c8d2",
+      "testId": "manage-events",
+      "label": "Manage Events",
+      "href": "/admin/events/rotating",
+      "match": {
+        "type": "prefix",
+        "value": "/admin/events"
+      },
+      "icon": "calendar",
+      "roleGroup": "adminPanel",
+      "children": [
+        {
+          "id": "f6c1d904",
+          "testId": "rotating",
+          "label": "Rotating Partners",
+          "href": "/admin/events/rotating",
+          "match": {
+            "type": "prefix",
+            "value": "/admin/events/rotating"
+          },
+          "icon": "calendar",
+          "roleGroup": "adminPanel"
+        },
+        {
+          "id": "7b2e5a8f",
+          "testId": "fixed_partner",
+          "label": "Fixed-Partner",
+          "href": "/admin/events/fixed_partner",
+          "match": {
+            "type": "prefix",
+            "value": "/admin/events/fixed_partner"
+          },
+          "icon": "calendar",
+          "roleGroup": "adminPanel"
+        },
+        {
+          "id": "0d94c3e6",
+          "testId": "new-event",
+          "label": "New Event",
+          "hrefTemplate": "/admin/events/{eventType}/new",
+          "match": {
+            "type": "exact",
+            "valueTemplate": "/admin/events/{eventType}/new"
+          },
+          "icon": "plus",
+          "roleGroup": "adminPanel"
+        }
+      ]
+    },
+    {
+      "id": "b4e7a901",
+      "testId": "manage-members",
+      "label": "Manage Members",
+      "href": "/admin/members",
+      "match": {
+        "type": "prefix",
+        "value": "/admin/members"
+      },
+      "icon": "users",
+      "roleGroup": "adminOnly"
+    },
+    {
+      "id": "c9d2f645",
+      "testId": "manage-users",
+      "label": "Manage Users",
+      "href": "/admin/users",
+      "match": {
+        "type": "prefix",
+        "value": "/admin/users"
+      },
+      "icon": "shield",
+      "roleGroup": "adminOnly"
+    },
+    {
+      "id": "e3a8b17c",
+      "testId": "settings",
+      "label": "Settings",
+      "href": "/admin/settings",
+      "match": {
+        "type": "prefix",
+        "value": "/admin/settings"
+      },
+      "icon": "settings",
+      "roleGroup": "adminOnly"
+    }
+  ]
+}

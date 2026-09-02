@@ -1,0 +1,101 @@
+import { pgTable, integer, text, jsonb, boolean } from "drizzle-orm/pg-core";
+
+export interface ContactPerson {
+  name: string;
+  email: string;
+}
+
+export interface DefaultLocation {
+  id: string;
+  name: string;
+  address: string;
+  memberFee?: number;
+  nonMemberFee?: number;
+  courtFeeEnabled?: boolean;
+}
+
+export interface RatingRequirement {
+  key: string;
+  label: string;
+}
+
+export interface SkillLevel {
+  text: string;
+  level: number;
+}
+
+export interface DuprRatingConfig {
+  enabled: boolean;
+  minAllowed: number;
+  maxAllowed: number;
+  defaultMin: number;
+  defaultMax: number;
+  defaultNrAllowed: boolean;
+}
+
+export interface SelfNumericConfig {
+  enabled: boolean;
+  minAllowed: number;
+  maxAllowed: number;
+  defaultMin: number;
+  defaultMax: number;
+}
+
+export interface SelfSkillConfig {
+  enabled: boolean;
+  levels: SkillLevel[];
+  defaultMinLevel: number;
+  defaultMaxLevel: number;
+}
+
+export interface RatingRequirementsConfig {
+  dupr: DuprRatingConfig;
+  selfNumeric: SelfNumericConfig;
+  selfSkill: SelfSkillConfig;
+}
+
+export const DEFAULT_RATING_REQUIREMENTS_CONFIG: RatingRequirementsConfig = {
+  dupr: {
+    enabled: true,
+    minAllowed: 2.0,
+    maxAllowed: 8.0,
+    defaultMin: 2.0,
+    defaultMax: 4.0,
+    defaultNrAllowed: false,
+  },
+  selfNumeric: {
+    enabled: true,
+    minAllowed: 2.0,
+    maxAllowed: 6.0,
+    defaultMin: 2.0,
+    defaultMax: 4.0,
+  },
+  selfSkill: {
+    enabled: true,
+    levels: [],
+    defaultMinLevel: 1,
+    defaultMaxLevel: 3,
+  },
+};
+
+export const appSettingsTable = pgTable("app_settings", {
+  id: integer("id").primaryKey().default(1),
+  defaultTimezone: text("default_timezone").notNull().default("America/New_York"),
+  rotatingPartnersDescription: text("rotating_partners_description").notNull().default(""),
+  fixedPartnerDescription: text("fixed_partner_description").notNull().default(""),
+  contactPersons: jsonb("contact_persons").$type<ContactPerson[]>().notNull().default([]),
+  defaultLocations: jsonb("default_locations").$type<DefaultLocation[]>().notNull().default([]),
+  maintenanceMode: boolean("maintenance_mode").notNull().default(false),
+  defaultEventNames: jsonb("default_event_names").$type<string[]>().notNull().default([]),
+  eventRoles: jsonb("event_roles").$type<string[]>().notNull().default([]),
+  defaultEventDurationHours: integer("default_event_duration_hours").notNull().default(2),
+  defaultRatingRequirements: jsonb("default_rating_requirements").$type<RatingRequirement[]>().notNull().default([]),
+  ratingRequirementsConfig: jsonb("rating_requirements_config").$type<RatingRequirementsConfig>(),
+  joinInstructions: text("join_instructions").notNull().default(""),
+  eventContactEmails: jsonb("event_contact_emails").$type<string[]>().notNull().default([]),
+  guidelinesAndRules: text("guidelines_and_rules").notNull().default(""),
+  homeTitle: text("home_title").notNull().default("Upcoming Events"),
+  homeSubtitle: text("home_subtitle").notNull().default("Atlanta DUPR Pickleball — competitive round robins for serious players"),
+});
+
+export type AppSettings = typeof appSettingsTable.$inferSelect;

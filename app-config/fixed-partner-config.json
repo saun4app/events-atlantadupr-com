@@ -1,0 +1,226 @@
+{
+  "$schema": "./fixed-partner-config.schema.json",
+  "version": 1,
+  "format": "fixed_partner",
+  "defaults": {
+    "capacity": {
+      "minTeams": 2,
+      "maxTeams": 8,
+      "minParticipants": 4,
+      "maxParticipants": 12
+    },
+    "rating": {
+      "maxPartnerGap": 0.5,
+      "maxPartnerGapInput": 8
+    }
+  },
+  "requirements": [
+    {
+      "id": "7f3a91c2",
+      "key": "partner_registration",
+      "condition": {
+        "eventFormat": "fixed_partner"
+      },
+      "required": true,
+      "acceptedIdentifiers": [
+        "partnerEmail",
+        "partnerDuprId"
+      ]
+    },
+    {
+      "id": "b82d4e17",
+      "key": "team_capacity",
+      "condition": {
+        "eventFormat": "fixed_partner"
+      },
+      "playersPerTeam": 2,
+      "registrationRepresents": "team"
+    },
+    {
+      "id": "6a3f1c85",
+      "key": "team_capacity_enforcement",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit"
+        ]
+      },
+      "capacityUnit": "team",
+      "capacityField": "maxTeams",
+      "countedStatus": "confirmed",
+      "fullCapacityActions": {
+        "registration_create": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "registration_reactivate": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "approval": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "waitlist_promotion": {
+          "waitlistEnabled": "reject",
+          "waitlistDisabled": "reject"
+        },
+        "roster_edit": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        }
+      }
+    },
+    {
+      "id": "83d7b4e2",
+      "key": "event_limit_safety",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operation": "event_limit_update"
+      },
+      "limitField": "maxTeams",
+      "minimumSource": "confirmed_team_count",
+      "onConflict": "reject"
+    },
+    {
+      "id": "c61a8f03",
+      "key": "capacity_defaults",
+      "condition": {
+        "eventFormat": "fixed_partner"
+      },
+      "defaultsPath": "defaults.capacity"
+    },
+    {
+      "id": "e94b2a76",
+      "key": "partner_rating_gap",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "ratingType": "dupr",
+        "approvalMode": "enforce_rating",
+        "resolvedPartner": true,
+        "bothEffectiveRatings": true
+      },
+      "comparison": "less_than_or_equal",
+      "fallbackPath": "defaults.rating.maxPartnerGap"
+    },
+    {
+      "id": "4d7c19ab",
+      "key": "nr_partner_check",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "ratingType": "dupr",
+        "nrAllowed": false,
+        "publicRequest": true
+      },
+      "check": "primary_and_partner"
+    },
+    {
+      "id": "a53e68d1",
+      "key": "partner_rating_range",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "ratingType": "dupr",
+        "approvalMode": "enforce_rating",
+        "resolvedPartner": true
+      },
+      "includePartner": true
+    },
+    {
+      "id": "f28b60e4",
+      "key": "admin_add_input",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "adminAdd": true
+      },
+      "maxPrimaryEmailsPerSubmission": 1
+    },
+    {
+      "id": "d16e74f9",
+      "key": "public_partner_preflight",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "publicSignup": true
+      },
+      "requirePartnerBeforeCode": true
+    },
+    {
+      "id": "9c4e2a71",
+      "key": "roster_edit_validation",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operation": "roster_edit",
+        "ratingTypes": [
+          "dupr",
+          "self_numeric"
+        ],
+        "approvalMode": "enforce_rating",
+        "resolvedPartner": true
+      },
+      "checks": [
+        "nr",
+        "rating_range",
+        "partner_rating_gap"
+      ],
+      "staffBypass": true
+    },
+    {
+      "id": "1b6d8f34",
+      "key": "active_team_membership",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration",
+          "roster_edit"
+        ]
+      },
+      "scope": "event",
+      "membershipRoles": [
+        "primary",
+        "partner"
+      ],
+      "activeStatuses": [
+        "confirmed",
+        "waitlisted",
+        "pending_approval"
+      ],
+      "excludeCurrentRegistrationOnEdit": true
+    },
+    {
+      "id": "5e2a7c90",
+      "key": "membership_write_serialization",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "roster_edit"
+        ]
+      },
+      "lockStrategy": "postgres_advisory_xact",
+      "lockScope": "event",
+      "lockNamespace": "atl-dupr:fixed-partner"
+    },
+    {
+      "id": "2f9c6a40",
+      "key": "capacity_write_serialization",
+      "condition": {
+        "eventFormat": "fixed_partner",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit",
+          "event_limit_update"
+        ]
+      },
+      "lockStrategy": "postgres_advisory_xact",
+      "lockScope": "event",
+      "lockNamespace": "atl-dupr:fixed-partner"
+    }
+  ]
+}

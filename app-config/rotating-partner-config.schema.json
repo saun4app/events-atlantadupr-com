@@ -1,0 +1,1076 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Rotating-partner round-robin configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "format",
+    "defaults",
+    "requirements"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "format": {
+      "const": "rotating"
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 18,
+      "maxItems": 18,
+      "items": {
+        "$ref": "#/$defs/requirement"
+      },
+      "allOf": [
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "participant_registration"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "participant_capacity"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_defaults"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_enforcement"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "event_limit_safety"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "active_registration"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_write_serialization"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "self_rating_input"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "rating_enforcement"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "registration_access"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "public_verification"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "registration_reactivation"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "cancellation"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "status_transitions"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "registration_snapshot"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "rating_validation"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "event_settings_precedence"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "roster_summary"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "uniqueItems": true
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "capacity"
+      ],
+      "properties": {
+        "capacity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "minParticipants",
+            "maxParticipants"
+          ],
+          "properties": {
+            "minParticipants": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxParticipants": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        }
+      }
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventFormat"
+      ],
+      "properties": {
+        "eventFormat": {
+          "const": "rotating"
+        },
+        "operation": {
+          "enum": [
+            "registration_create",
+            "registration_reactivate",
+            "approval",
+            "waitlist_promotion",
+            "roster_edit",
+            "event_limit_update",
+            "registration_cancel",
+            "request_code",
+            "roster_summary",
+            "event_create",
+            "event_clone",
+            "event_update",
+            "frontend_event_create"
+          ]
+        },
+        "operations": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "registration_create",
+              "registration_reactivate",
+              "approval",
+              "waitlist_promotion",
+              "roster_edit",
+              "event_limit_update",
+              "registration_cancel",
+              "request_code",
+              "roster_summary",
+              "event_create",
+              "event_clone",
+              "event_update",
+              "frontend_event_create"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "ratingTypes": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "dupr",
+              "self_numeric",
+              "self_skill"
+            ]
+          },
+          "uniqueItems": true
+        },
+        "publicRequest": {
+          "type": "boolean"
+        },
+        "audience": {
+          "type": "string"
+        },
+        "approvalMode": {
+          "const": "enforce_rating"
+        }
+      }
+    },
+    "capacityActions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "waitlistEnabled",
+        "waitlistDisabled"
+      ],
+      "properties": {
+        "waitlistEnabled": {
+          "enum": [
+            "waitlisted",
+            "reject"
+          ]
+        },
+        "waitlistDisabled": {
+          "const": "reject"
+        }
+      }
+    },
+    "requirement": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "required",
+            "acceptedIdentifiers"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "participant_registration"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "required": {
+              "const": true
+            },
+            "acceptedIdentifiers": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "email",
+                  "memberDuprId"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "capacityUnit",
+            "capacityField",
+            "countedStatus",
+            "registrationRepresents"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "participant_capacity"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "capacityUnit": {
+              "const": "participant"
+            },
+            "capacityField": {
+              "const": "maxParticipants"
+            },
+            "countedStatus": {
+              "const": "confirmed"
+            },
+            "registrationRepresents": {
+              "const": "participant"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "defaultsPath"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "capacity_defaults"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "defaultsPath": {
+              "const": "defaults.capacity"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "capacityUnit",
+            "capacityField",
+            "countedStatus",
+            "approvalPrecedesCapacity",
+            "fullCapacityActions"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "capacity_enforcement"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "capacityUnit": {
+              "const": "participant"
+            },
+            "capacityField": {
+              "const": "maxParticipants"
+            },
+            "countedStatus": {
+              "const": "confirmed"
+            },
+            "approvalPrecedesCapacity": {
+              "const": true
+            },
+            "fullCapacityActions": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "registration_create",
+                "registration_reactivate",
+                "approval",
+                "waitlist_promotion",
+                "roster_edit"
+              ],
+              "properties": {
+                "registration_create": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "registration_reactivate": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "approval": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "waitlist_promotion": {
+                  "$ref": "#/$defs/capacityActions"
+                },
+                "roster_edit": {
+                  "$ref": "#/$defs/capacityActions"
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "limitField",
+            "minimumSource",
+            "onConflict"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "event_limit_safety"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "limitField": {
+              "const": "maxParticipants"
+            },
+            "minimumSource": {
+              "const": "confirmed_participant_count"
+            },
+            "onConflict": {
+              "const": "reject"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "scope",
+            "activeStatuses"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "active_registration"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "scope": {
+              "const": "event"
+            },
+            "activeStatuses": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "confirmed",
+                  "waitlisted",
+                  "pending_approval"
+                ]
+              },
+              "uniqueItems": true,
+              "minItems": 3,
+              "maxItems": 3
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "lockStrategy",
+            "lockScope",
+            "lockNamespace"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "capacity_write_serialization"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "lockStrategy": {
+              "const": "postgres_advisory_xact"
+            },
+            "lockScope": {
+              "const": "event"
+            },
+            "lockNamespace": {
+              "const": "atl-dupr:rotating"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "required",
+            "valueSource",
+            "validationSource",
+            "snapshotPath"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "self_rating_input"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "required": {
+              "const": true
+            },
+            "valueSource": {
+              "const": "request.selfRating"
+            },
+            "validationSource": {
+              "const": "event.ratingConfig"
+            },
+            "snapshotPath": {
+              "const": "playerSnapshot.selfRating"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "staffBypassRequiresExplicitFlag",
+            "nrUsesEventConfiguration",
+            "rangeSource"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "const": "rating_enforcement"
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "staffBypassRequiresExplicitFlag": {
+              "const": true
+            },
+            "nrUsesEventConfiguration": {
+              "const": true
+            },
+            "rangeSource": {
+              "const": "event.ratingConfig"
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "key",
+            "condition",
+            "policy"
+          ],
+          "properties": {
+            "id": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{8}$"
+            },
+            "key": {
+              "enum": [
+                "registration_access",
+                "public_verification",
+                "registration_reactivation",
+                "cancellation",
+                "status_transitions",
+                "registration_snapshot",
+                "rating_validation",
+                "event_settings_precedence",
+                "roster_summary"
+              ]
+            },
+            "condition": {
+              "$ref": "#/$defs/condition"
+            },
+            "policy": {
+              "$ref": "#/$defs/policy"
+            }
+          }
+        }
+      ]
+    },
+    "rateLimit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "maxAttempts",
+        "windowMs",
+        "blockMs"
+      ],
+      "properties": {
+        "maxAttempts": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "windowMs": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "blockMs": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "allowedEventStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "publicSignupWindow": {
+          "const": "enforced"
+        },
+        "staffBypass": {
+          "type": "boolean"
+        },
+        "cancelledEventAction": {
+          "const": "reject"
+        },
+        "emailRequired": {
+          "type": "boolean"
+        },
+        "verificationCodeRequired": {
+          "type": "boolean"
+        },
+        "verifier": {
+          "const": "peek_code"
+        },
+        "consumeOnSuccess": {
+          "type": "boolean"
+        },
+        "codeFormat": {
+          "const": "six_digit"
+        },
+        "codeTtlSeconds": {
+          "const": 600
+        },
+        "codeCooldownSeconds": {
+          "const": 30
+        },
+        "maxCodeAttempts": {
+          "const": 5
+        },
+        "senderSource": {
+          "const": "verified_env_then_event_contact"
+        },
+        "replyToSource": {
+          "const": "event_contact_when_different"
+        },
+        "failureAlertRecipients": {
+          "const": "event_contacts"
+        },
+        "requestCodeRateLimit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ip",
+            "email"
+          ],
+          "properties": {
+            "ip": {
+              "$ref": "#/$defs/rateLimit"
+            },
+            "email": {
+              "$ref": "#/$defs/rateLimit"
+            }
+          }
+        },
+        "submissionRateLimit": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ip",
+            "email"
+          ],
+          "properties": {
+            "ip": {
+              "$ref": "#/$defs/rateLimit"
+            },
+            "email": {
+              "$ref": "#/$defs/rateLimit"
+            }
+          }
+        },
+        "historicalRows": {
+          "const": "all"
+        },
+        "candidateStatus": {
+          "const": "cancelled"
+        },
+        "selection": {
+          "const": "newest_by_id"
+        },
+        "updateMode": {
+          "const": "in_place"
+        },
+        "blockedStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "clearFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "lookup": {
+          "const": "player_snapshot_email"
+        },
+        "alreadyCancelledAction": {
+          "const": "reject"
+        },
+        "cancelledStatus": {
+          "const": "cancelled"
+        },
+        "cancelledBy": {
+          "const": "participant"
+        },
+        "consumeVerificationCode": {
+          "type": "boolean"
+        },
+        "statuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "approval": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "available",
+            "full",
+            "setsApprovalMetadata"
+          ],
+          "properties": {
+            "available": {
+              "const": "confirmed"
+            },
+            "full": {
+              "const": "waitlisted"
+            },
+            "setsApprovalMetadata": {
+              "const": true
+            }
+          }
+        },
+        "rejection": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target"
+          ],
+          "properties": {
+            "target": {
+              "const": "rejected"
+            }
+          }
+        },
+        "promotion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "setsApprovalMetadata"
+          ],
+          "properties": {
+            "target": {
+              "const": "confirmed"
+            },
+            "setsApprovalMetadata": {
+              "const": true
+            }
+          }
+        },
+        "cancellation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target",
+            "setsCancellationMetadata"
+          ],
+          "properties": {
+            "target": {
+              "const": "cancelled"
+            },
+            "setsCancellationMetadata": {
+              "const": true
+            }
+          }
+        },
+        "reactivationClearsCancellationMetadata": {
+          "const": true
+        },
+        "source": {
+          "const": "member_at_write"
+        },
+        "sourceOfTruth": {
+          "const": "registration_snapshot"
+        },
+        "playerFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "partnerFields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "assignedRating": {
+          "const": "numeric_member_doubles_or_null"
+        },
+        "eventConfigSource": {
+          "const": "event.ratingConfig"
+        },
+        "numericPrecision": {
+          "const": 2
+        },
+        "numericRange": {
+          "const": "event_configured"
+        },
+        "skillValue": {
+          "const": "integer_level"
+        },
+        "nrRange": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "min",
+            "max"
+          ],
+          "properties": {
+            "min": {
+              "const": 2
+            },
+            "max": {
+              "const": 5
+            }
+          }
+        },
+        "nrPrecision": {
+          "const": 2
+        },
+        "missingRequiredConfig": {
+          "const": "reject"
+        },
+        "staffBypassRequiresExplicitFlag": {
+          "const": true
+        },
+        "eventSpecificSource": {
+          "const": "database_event"
+        },
+        "globalDefaultsSource": {
+          "const": "database_event_defaults"
+        },
+        "jsonDefaultsRole": {
+          "const": "initial_fallback"
+        },
+        "cloneSource": {
+          "const": "source_event"
+        },
+        "serverAuthority": {
+          "const": "database_event"
+        },
+        "countedStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "excludedStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        },
+        "total": {
+          "const": "sum_counted_statuses"
+        },
+        "capacitySource": {
+          "const": "event.maxParticipants"
+        },
+        "teamFields": {
+          "const": "null_for_rotating"
+        }
+      }
+    }
+  }
+}

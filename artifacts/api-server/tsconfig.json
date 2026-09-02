@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "incremental": true,
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "outDir": "dist",
+    "rootDir": ".",
+    "resolveJsonModule": true,
+    "types": ["node"]
+  },
+  "include": ["src", "../../app-config/**/*.json"],
+  "references": [
+    {
+      "path": "../../lib/db"
+    },
+    {
+      "path": "../../lib/api-zod"
+    },
+    {
+      "path": "../../lib/fixed-partner-config"
+    },
+    {
+      "path": "../../lib/rotating-partner-config"
+    },
+    {
+      "path": "../../lib/user-roles-config"
+    }
+  ]
+}

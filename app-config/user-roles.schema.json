@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Application user roles configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "roles",
+    "defaults",
+    "groups"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults"
+    },
+    "groups": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "adminOnly",
+        "adminPanel",
+        "eventManagers",
+        "eventWriters",
+        "assignableStaff"
+      ],
+      "properties": {
+        "adminOnly": {
+          "$ref": "#/$defs/roleList"
+        },
+        "adminPanel": {
+          "$ref": "#/$defs/roleList"
+        },
+        "eventManagers": {
+          "$ref": "#/$defs/roleList"
+        },
+        "eventWriters": {
+          "$ref": "#/$defs/roleList"
+        },
+        "assignableStaff": {
+          "$ref": "#/$defs/roleList"
+        }
+      }
+    }
+  },
+  "$defs": {
+    "role": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "badgeTone"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "badgeTone": {
+          "type": "string",
+          "enum": [
+            "primary",
+            "blue",
+            "purple",
+            "yellow",
+            "muted"
+          ]
+        }
+      }
+    },
+    "defaults": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "databaseRole",
+        "newUserRole",
+        "auditActorRole"
+      ],
+      "properties": {
+        "databaseRole": {
+          "type": "string"
+        },
+        "newUserRole": {
+          "type": "string"
+        },
+        "auditActorRole": {
+          "type": "string"
+        }
+      }
+    },
+    "roleList": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

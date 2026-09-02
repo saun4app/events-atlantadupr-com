@@ -1,0 +1,1399 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fixed-partner round-robin configuration",
+  "type": "object",
+  "required": [
+    "version",
+    "format",
+    "defaults",
+    "requirements"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "version": {
+      "const": 1
+    },
+    "format": {
+      "const": "fixed_partner"
+    },
+    "defaults": {
+      "$ref": "#/$defs/defaults"
+    },
+    "requirements": {
+      "type": "array",
+      "minItems": 14,
+      "maxItems": 14,
+      "items": {
+        "$ref": "#/$defs/requirement"
+      },
+      "allOf": [
+        {
+          "items": {
+            "allOf": [
+              {
+                "if": {
+            "properties": {
+              "key": {
+                "const": "partner_registration"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "required",
+              "acceptedIdentifiers"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "required",
+                "acceptedIdentifiers"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "team_capacity"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "playersPerTeam",
+              "registrationRepresents"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "playersPerTeam",
+                "registrationRepresents"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "team_capacity_enforcement"
+              }
+            }
+          },
+          "then": {
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "capacityUnit",
+                "capacityField",
+                "countedStatus",
+                "fullCapacityActions"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "operations"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "event_limit_safety"
+              }
+            }
+          },
+          "then": {
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "limitField",
+                "minimumSource",
+                "onConflict"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "operation"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "capacity_defaults"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "defaultsPath"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "defaultsPath"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "partner_rating_gap"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "comparison",
+              "fallbackPath"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "comparison",
+                "fallbackPath"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "required": [
+                  "ratingType",
+                  "approvalMode",
+                  "resolvedPartner",
+                  "bothEffectiveRatings"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "ratingType",
+                    "approvalMode",
+                    "resolvedPartner",
+                    "bothEffectiveRatings"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "nr_partner_check"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "check"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "check"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "required": [
+                  "ratingType",
+                  "nrAllowed",
+                  "publicRequest"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "ratingType",
+                    "nrAllowed",
+                    "publicRequest"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "partner_rating_range"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "includePartner"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "includePartner"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "required": [
+                  "ratingType",
+                  "approvalMode",
+                  "resolvedPartner"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "ratingType",
+                    "approvalMode",
+                    "resolvedPartner"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "admin_add_input"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "maxPrimaryEmailsPerSubmission"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "maxPrimaryEmailsPerSubmission"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "required": [
+                  "adminAdd"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "adminAdd"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "public_partner_preflight"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "requirePartnerBeforeCode"
+            ],
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "requirePartnerBeforeCode"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "required": [
+                  "publicSignup"
+                ],
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "publicSignup"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "roster_edit_validation"
+              }
+            }
+          },
+          "then": {
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "checks",
+                "staffBypass"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "operation",
+                    "ratingTypes",
+                    "approvalMode",
+                    "resolvedPartner"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "active_team_membership"
+              }
+            }
+          },
+          "then": {
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "scope",
+                "membershipRoles",
+                "activeStatuses",
+                "excludeCurrentRegistrationOnEdit"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "operations"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "membership_write_serialization"
+              }
+            }
+          },
+          "then": {
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "lockStrategy",
+                "lockScope",
+                "lockNamespace"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "operations"
+                  ]
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "capacity_write_serialization"
+              }
+            }
+          },
+          "then": {
+            "propertyNames": {
+              "enum": [
+                "id",
+                "key",
+                "condition",
+                "lockStrategy",
+                "lockScope",
+                "lockNamespace"
+              ]
+            },
+            "properties": {
+              "condition": {
+                "propertyNames": {
+                  "enum": [
+                    "eventFormat",
+                    "operations"
+                  ]
+                }
+              }
+            }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "partner_registration"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "team_capacity"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "team_capacity_enforcement"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "event_limit_safety"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_defaults"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "partner_rating_gap"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "nr_partner_check"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "partner_rating_range"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "admin_add_input"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "public_partner_preflight"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "roster_edit_validation"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "active_team_membership"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "membership_write_serialization"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        },
+        {
+          "contains": {
+            "properties": {
+              "key": {
+                "const": "capacity_write_serialization"
+              }
+            },
+            "required": [
+              "key"
+            ]
+          }
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "defaults": {
+      "type": "object",
+      "required": [
+        "capacity",
+        "rating"
+      ],
+      "properties": {
+        "capacity": {
+          "type": "object",
+          "required": [
+            "minTeams",
+            "maxTeams",
+            "minParticipants",
+            "maxParticipants"
+          ],
+          "properties": {
+            "minTeams": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "maxTeams": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "minParticipants": {
+              "type": "integer",
+              "minimum": 2
+            },
+            "maxParticipants": {
+              "type": "integer",
+              "minimum": 2
+            }
+          },
+          "additionalProperties": false
+        },
+        "rating": {
+          "type": "object",
+          "required": [
+            "maxPartnerGap"
+          ],
+          "properties": {
+            "maxPartnerGap": {
+              "type": "number",
+              "minimum": 0
+            },
+            "maxPartnerGapInput": {
+              "type": "number",
+              "minimum": 0
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "fullCapacityAction": {
+      "type": "object",
+      "required": [
+        "waitlistEnabled",
+        "waitlistDisabled"
+      ],
+      "properties": {
+        "waitlistEnabled": {
+          "enum": [
+            "waitlisted",
+            "reject"
+          ]
+        },
+        "waitlistDisabled": {
+          "const": "reject"
+        }
+      },
+      "additionalProperties": false
+    },
+    "requirement": {
+      "type": "object",
+      "required": [
+        "id",
+        "key",
+        "condition"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{8}$"
+        },
+        "key": {
+          "type": "string",
+          "enum": [
+            "partner_registration",
+            "team_capacity",
+            "team_capacity_enforcement",
+            "event_limit_safety",
+            "capacity_defaults",
+            "partner_rating_gap",
+            "nr_partner_check",
+            "partner_rating_range",
+            "admin_add_input",
+            "public_partner_preflight",
+            "roster_edit_validation",
+            "active_team_membership",
+            "membership_write_serialization",
+            "capacity_write_serialization"
+          ]
+        },
+        "condition": {
+          "type": "object",
+          "required": [
+            "eventFormat"
+          ],
+          "properties": {
+            "eventFormat": {
+              "const": "fixed_partner"
+            },
+            "operation": {
+              "enum": [
+                "roster_edit",
+                "event_limit_update"
+              ]
+            },
+            "operations": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "registration",
+                  "registration_create",
+                  "registration_reactivate",
+                  "approval",
+                  "waitlist_promotion",
+                  "roster_edit",
+                  "event_limit_update"
+                ]
+              },
+              "minItems": 1,
+              "uniqueItems": true
+            },
+            "ratingTypes": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "minLength": 1
+              },
+              "minItems": 1
+            },
+            "ratingType": {
+              "type": "string"
+            },
+            "approvalMode": {
+              "type": "string"
+            },
+            "resolvedPartner": {
+              "type": "boolean"
+            },
+            "bothEffectiveRatings": {
+              "type": "boolean"
+            },
+            "nrAllowed": {
+              "type": "boolean"
+            },
+            "publicRequest": {
+              "type": "boolean"
+            },
+            "adminAdd": {
+              "type": "boolean"
+            },
+            "publicSignup": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "acceptedIdentifiers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "playersPerTeam": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "registrationRepresents": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capacityUnit": {
+          "type": "string",
+          "minLength": 1
+        },
+        "capacityField": {
+          "type": "string",
+          "minLength": 1
+        },
+        "countedStatus": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fullCapacityActions": {
+          "type": "object"
+        },
+        "limitField": {
+          "type": "string",
+          "minLength": 1
+        },
+        "minimumSource": {
+          "type": "string",
+          "minLength": 1
+        },
+        "onConflict": {
+          "type": "string",
+          "minLength": 1
+        },
+        "defaultsPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "comparison": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fallbackPath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "check": {
+          "type": "string",
+          "minLength": 1
+        },
+        "includePartner": {
+          "type": "boolean"
+        },
+        "maxPrimaryEmailsPerSubmission": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "requirePartnerBeforeCode": {
+          "type": "boolean"
+        },
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "staffBypass": {
+          "type": "boolean"
+        },
+        "scope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "membershipRoles": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "activeStatuses": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        },
+        "excludeCurrentRegistrationOnEdit": {
+          "type": "boolean"
+        },
+        "lockStrategy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lockScope": {
+          "type": "string",
+          "minLength": 1
+        },
+        "lockNamespace": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "team_capacity_enforcement"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "capacityUnit",
+              "capacityField",
+              "countedStatus",
+              "fullCapacityActions"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operations"
+                ],
+                "properties": {
+                  "operations": {
+                    "contains": {
+                      "const": "registration_create"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "registration_reactivate"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "approval"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "waitlist_promotion"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "roster_edit"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "capacityUnit": {
+                "const": "team"
+              },
+              "capacityField": {
+                "const": "maxTeams"
+              },
+              "countedStatus": {
+                "const": "confirmed"
+              },
+              "fullCapacityActions": {
+                "type": "object",
+                "required": [
+                  "registration_create",
+                  "registration_reactivate",
+                  "approval",
+                  "waitlist_promotion",
+                  "roster_edit"
+                ],
+                "properties": {
+                  "registration_create": {
+                    "$ref": "#/$defs/fullCapacityAction"
+                  },
+                  "registration_reactivate": {
+                    "$ref": "#/$defs/fullCapacityAction"
+                  },
+                  "approval": {
+                    "$ref": "#/$defs/fullCapacityAction"
+                  },
+                  "waitlist_promotion": {
+                    "$ref": "#/$defs/fullCapacityAction"
+                  },
+                  "roster_edit": {
+                    "$ref": "#/$defs/fullCapacityAction"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "event_limit_safety"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "limitField",
+              "minimumSource",
+              "onConflict"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operation"
+                ],
+                "properties": {
+                  "operation": {
+                    "const": "event_limit_update"
+                  }
+                }
+              },
+              "limitField": {
+                "const": "maxTeams"
+              },
+              "minimumSource": {
+                "const": "confirmed_team_count"
+              },
+              "onConflict": {
+                "const": "reject"
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "roster_edit_validation"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "checks",
+              "staffBypass"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operation",
+                  "ratingTypes",
+                  "approvalMode",
+                  "resolvedPartner"
+                ],
+                "properties": {
+                  "operation": {
+                    "const": "roster_edit"
+                  },
+                  "ratingTypes": {
+                    "contains": {
+                      "const": "dupr"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "self_numeric"
+                        }
+                      }
+                    ]
+                  },
+                  "approvalMode": {
+                    "const": "enforce_rating"
+                  },
+                  "resolvedPartner": {
+                    "const": true
+                  }
+                }
+              },
+              "checks": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 3,
+                "contains": {
+                  "const": "nr"
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "rating_range"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "partner_rating_gap"
+                    }
+                  }
+                ]
+              },
+              "staffBypass": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "capacity_write_serialization"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "lockStrategy",
+              "lockScope",
+              "lockNamespace"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operations"
+                ],
+                "properties": {
+                  "operations": {
+                    "contains": {
+                      "const": "registration_create"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "registration_reactivate"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "approval"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "waitlist_promotion"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "roster_edit"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "event_limit_update"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "lockStrategy": {
+                "const": "postgres_advisory_xact"
+              },
+              "lockScope": {
+                "const": "event"
+              },
+              "lockNamespace": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "active_team_membership"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "scope",
+              "membershipRoles",
+              "activeStatuses",
+              "excludeCurrentRegistrationOnEdit"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operations"
+                ],
+                "properties": {
+                  "operations": {
+                    "contains": {
+                      "const": "registration"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "roster_edit"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "scope": {
+                "const": "event"
+              },
+              "membershipRoles": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 2,
+                "contains": {
+                  "const": "primary"
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "partner"
+                    }
+                  }
+                ]
+              },
+              "activeStatuses": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 3,
+                "contains": {
+                  "const": "confirmed"
+                },
+                "allOf": [
+                  {
+                    "contains": {
+                      "const": "waitlisted"
+                    }
+                  },
+                  {
+                    "contains": {
+                      "const": "pending_approval"
+                    }
+                  }
+                ]
+              },
+              "excludeCurrentRegistrationOnEdit": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "key": {
+                "const": "membership_write_serialization"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "condition",
+              "lockStrategy",
+              "lockScope",
+              "lockNamespace"
+            ],
+            "properties": {
+              "condition": {
+                "required": [
+                  "operations"
+                ],
+                "properties": {
+                  "operations": {
+                    "contains": {
+                      "const": "registration_create"
+                    },
+                    "allOf": [
+                      {
+                        "contains": {
+                          "const": "registration_reactivate"
+                        }
+                      },
+                      {
+                        "contains": {
+                          "const": "roster_edit"
+                        }
+                      }
+                    ]
+                  }
+                }
+              },
+              "lockStrategy": {
+                "const": "postgres_advisory_xact"
+              },
+              "lockScope": {
+                "const": "event"
+              },
+              "lockNamespace": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

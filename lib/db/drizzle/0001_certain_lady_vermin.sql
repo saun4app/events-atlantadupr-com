@@ -1,0 +1,1 @@
+ALTER TABLE "atl_dupr_events" ADD COLUMN "event_description" text;

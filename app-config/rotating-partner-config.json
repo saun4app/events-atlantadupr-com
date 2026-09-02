@@ -1,0 +1,418 @@
+{
+  "$schema": "./rotating-partner-config.schema.json",
+  "version": 1,
+  "format": "rotating",
+  "defaults": {
+    "capacity": {
+      "minParticipants": 4,
+      "maxParticipants": 16
+    }
+  },
+  "requirements": [
+    {
+      "id": "a1c4e7b2",
+      "key": "participant_registration",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate"
+        ]
+      },
+      "required": true,
+      "acceptedIdentifiers": [
+        "email",
+        "memberDuprId"
+      ]
+    },
+    {
+      "id": "d9f2036a",
+      "key": "participant_capacity",
+      "condition": {
+        "eventFormat": "rotating"
+      },
+      "capacityUnit": "participant",
+      "capacityField": "maxParticipants",
+      "countedStatus": "confirmed",
+      "registrationRepresents": "participant"
+    },
+    {
+      "id": "7b8e1d45",
+      "key": "capacity_defaults",
+      "condition": {
+        "eventFormat": "rotating"
+      },
+      "defaultsPath": "defaults.capacity"
+    },
+    {
+      "id": "c2a96f10",
+      "key": "capacity_enforcement",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit"
+        ]
+      },
+      "capacityUnit": "participant",
+      "capacityField": "maxParticipants",
+      "countedStatus": "confirmed",
+      "approvalPrecedesCapacity": true,
+      "fullCapacityActions": {
+        "registration_create": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "registration_reactivate": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "approval": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        },
+        "waitlist_promotion": {
+          "waitlistEnabled": "reject",
+          "waitlistDisabled": "reject"
+        },
+        "roster_edit": {
+          "waitlistEnabled": "waitlisted",
+          "waitlistDisabled": "reject"
+        }
+      }
+    },
+    {
+      "id": "6e3b7a91",
+      "key": "event_limit_safety",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "event_limit_update"
+      },
+      "limitField": "maxParticipants",
+      "minimumSource": "confirmed_participant_count",
+      "onConflict": "reject"
+    },
+    {
+      "id": "e4d71b83",
+      "key": "active_registration",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate"
+        ]
+      },
+      "scope": "event",
+      "activeStatuses": [
+        "confirmed",
+        "waitlisted",
+        "pending_approval"
+      ]
+    },
+    {
+      "id": "5f0a3c9e",
+      "key": "capacity_write_serialization",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit",
+          "event_limit_update"
+        ]
+      },
+      "lockStrategy": "postgres_advisory_xact",
+      "lockScope": "event",
+      "lockNamespace": "atl-dupr:rotating"
+    },
+    {
+      "id": "8a6e2d14",
+      "key": "self_rating_input",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_create",
+        "ratingTypes": [
+          "self_numeric",
+          "self_skill"
+        ],
+        "publicRequest": true
+      },
+      "required": true,
+      "valueSource": "request.selfRating",
+      "validationSource": "event.ratingConfig",
+      "snapshotPath": "playerSnapshot.selfRating"
+    },
+    {
+      "id": "b3c7f905",
+      "key": "rating_enforcement",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_create",
+        "ratingTypes": [
+          "dupr",
+          "self_numeric"
+        ],
+        "approvalMode": "enforce_rating"
+      },
+      "staffBypassRequiresExplicitFlag": true,
+      "nrUsesEventConfiguration": true,
+      "rangeSource": "event.ratingConfig"
+    },
+    {
+      "id": "4c8a1e73",
+      "key": "registration_access",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate"
+        ],
+        "audience": "public_and_staff"
+      },
+      "policy": {
+        "allowedEventStatuses": [
+          "upcoming"
+        ],
+        "publicSignupWindow": "enforced",
+        "staffBypass": true,
+        "cancelledEventAction": "reject"
+      }
+    },
+    {
+      "id": "e7b2d904",
+      "key": "public_verification",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "request_code",
+          "registration_create",
+          "registration_cancel"
+        ],
+        "publicRequest": true
+      },
+      "policy": {
+        "emailRequired": true,
+        "verificationCodeRequired": true,
+        "verifier": "peek_code",
+        "consumeOnSuccess": true,
+        "codeFormat": "six_digit",
+        "codeTtlSeconds": 600,
+        "codeCooldownSeconds": 30,
+        "maxCodeAttempts": 5,
+        "senderSource": "verified_env_then_event_contact",
+        "replyToSource": "event_contact_when_different",
+        "failureAlertRecipients": "event_contacts",
+        "requestCodeRateLimit": {
+          "ip": {
+            "maxAttempts": 3,
+            "windowMs": 3600000,
+            "blockMs": 3600000
+          },
+          "email": {
+            "maxAttempts": 3,
+            "windowMs": 3600000,
+            "blockMs": 3600000
+          }
+        },
+        "submissionRateLimit": {
+          "ip": {
+            "maxAttempts": 5,
+            "windowMs": 600000,
+            "blockMs": 900000
+          },
+          "email": {
+            "maxAttempts": 5,
+            "windowMs": 600000,
+            "blockMs": 900000
+          }
+        }
+      }
+    },
+    {
+      "id": "9f3d6b20",
+      "key": "registration_reactivation",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_reactivate"
+      },
+      "policy": {
+        "historicalRows": "all",
+        "candidateStatus": "cancelled",
+        "selection": "newest_by_id",
+        "updateMode": "in_place",
+        "blockedStatuses": [
+          "confirmed",
+          "waitlisted",
+          "pending_approval"
+        ],
+        "clearFields": [
+          "cancelledAt",
+          "cancelledBy",
+          "approvedAt",
+          "approvedBy"
+        ]
+      }
+    },
+    {
+      "id": "2a6e8c14",
+      "key": "cancellation",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_cancel",
+        "publicRequest": true
+      },
+      "policy": {
+        "lookup": "player_snapshot_email",
+        "alreadyCancelledAction": "reject",
+        "cancelledStatus": "cancelled",
+        "cancelledBy": "participant",
+        "consumeVerificationCode": true
+      }
+    },
+    {
+      "id": "d5b1f709",
+      "key": "status_transitions",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "approval",
+          "waitlist_promotion",
+          "roster_edit"
+        ]
+      },
+      "policy": {
+        "statuses": [
+          "confirmed",
+          "waitlisted",
+          "pending_approval",
+          "rejected",
+          "cancelled",
+          "no_show"
+        ],
+        "approval": {
+          "available": "confirmed",
+          "full": "waitlisted",
+          "setsApprovalMetadata": true
+        },
+        "rejection": {
+          "target": "rejected"
+        },
+        "promotion": {
+          "target": "confirmed",
+          "setsApprovalMetadata": true
+        },
+        "cancellation": {
+          "target": "cancelled",
+          "setsCancellationMetadata": true
+        },
+        "reactivationClearsCancellationMetadata": true
+      }
+    },
+    {
+      "id": "f0a4c682",
+      "key": "registration_snapshot",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "registration_create",
+          "registration_reactivate",
+          "roster_edit"
+        ]
+      },
+      "policy": {
+        "source": "member_at_write",
+        "sourceOfTruth": "registration_snapshot",
+        "playerFields": [
+          "name",
+          "doubles",
+          "singles",
+          "selfRating",
+          "email",
+          "phone"
+        ],
+        "partnerFields": [
+          "partnerName",
+          "partnerDoubles",
+          "partnerSelfRating"
+        ],
+        "assignedRating": "numeric_member_doubles_or_null"
+      }
+    },
+    {
+      "id": "7d2e9a41",
+      "key": "rating_validation",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "registration_create",
+        "ratingTypes": [
+          "dupr",
+          "self_numeric",
+          "self_skill"
+        ]
+      },
+      "policy": {
+        "eventConfigSource": "event.ratingConfig",
+        "numericPrecision": 2,
+        "numericRange": "event_configured",
+        "skillValue": "integer_level",
+        "nrRange": {
+          "min": 2,
+          "max": 5
+        },
+        "nrPrecision": 2,
+        "missingRequiredConfig": "reject",
+        "staffBypassRequiresExplicitFlag": true
+      }
+    },
+    {
+      "id": "a8c3e571",
+      "key": "event_settings_precedence",
+      "condition": {
+        "eventFormat": "rotating",
+        "operations": [
+          "event_create",
+          "event_clone",
+          "event_update",
+          "frontend_event_create"
+        ]
+      },
+      "policy": {
+        "eventSpecificSource": "database_event",
+        "globalDefaultsSource": "database_event_defaults",
+        "jsonDefaultsRole": "initial_fallback",
+        "cloneSource": "source_event",
+        "serverAuthority": "database_event"
+      }
+    },
+    {
+      "id": "c6f0b294",
+      "key": "roster_summary",
+      "condition": {
+        "eventFormat": "rotating",
+        "operation": "roster_summary"
+      },
+      "policy": {
+        "countedStatuses": [
+          "confirmed",
+          "waitlisted",
+          "pending_approval"
+        ],
+        "excludedStatuses": [
+          "rejected",
+          "cancelled",
+          "no_show"
+        ],
+        "total": "sum_counted_statuses",
+        "capacitySource": "event.maxParticipants",
+        "teamFields": "null_for_rotating"
+      }
+    }
+  ]
+}

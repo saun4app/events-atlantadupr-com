@@ -1,0 +1,836 @@
+import { Request, Response } from "express";
+import { db } from "@workspace/db";
+import {
+  eventsRotatingTable,
+  eventsFixedTable,
+  registrationsTable,
+  eventAssignmentsTable,
+  type EventFormat,
+  type EventRatingConfig,
+} from "@workspace/db";
+import { eq, and, count, sql } from "drizzle-orm";
+import { randomUUID } from "crypto";
+import { fixedPartnerConfig, getFixedPartnerRequirement } from "../../lib/fixed-partner-config.js";
+import {
+  getRotatingPartnerRequirement,
+  rotatingPartnerConfig,
+} from "../../lib/rotating-partner-config.js";
+import { hasUserRole } from "../../lib/user-roles.js";
+
+const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement(
+  "team_capacity_enforcement",
+);
+const EVENT_LIMIT_SAFETY_REQUIREMENT = getFixedPartnerRequirement(
+  "event_limit_safety",
+);
+const CAPACITY_WRITE_SERIALIZATION_REQUIREMENT = getFixedPartnerRequirement(
+  "capacity_write_serialization",
+);
+const FIXED_PARTNER_CAPACITY_OPERATIONS = new Set(
+  CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.condition.operations,
+);
+const FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE =
+  CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT =
+  getRotatingPartnerRequirement("participant_capacity");
+const ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT =
+  getRotatingPartnerRequirement("event_limit_safety");
+const ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT =
+  getRotatingPartnerRequirement("capacity_write_serialization");
+const ROTATING_CAPACITY_WRITE_OPERATIONS = new Set(
+  ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.condition.operations,
+);
+const ROTATING_CAPACITY_LOCK_NAMESPACE =
+  ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockNamespace;
+const ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT =
+  getRotatingPartnerRequirement("event_settings_precedence");
+const ROTATING_ROSTER_SUMMARY_REQUIREMENT =
+  getRotatingPartnerRequirement("roster_summary");
+
+function fixedPartnerEventLimitUpdateIsConfigured(): boolean {
+  return (
+    EVENT_LIMIT_SAFETY_REQUIREMENT.condition.operation ===
+      "event_limit_update" &&
+    EVENT_LIMIT_SAFETY_REQUIREMENT.limitField ===
+      TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.capacityField &&
+    EVENT_LIMIT_SAFETY_REQUIREMENT.minimumSource ===
+      "confirmed_team_count" &&
+    EVENT_LIMIT_SAFETY_REQUIREMENT.onConflict === "reject" &&
+    CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy ===
+      "postgres_advisory_xact" &&
+    CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    FIXED_PARTNER_CAPACITY_OPERATIONS.has("event_limit_update")
+  );
+}
+
+function rotatingPartnerEventLimitUpdateIsConfigured(): boolean {
+  return (
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.condition.operation ===
+      "event_limit_update" &&
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField ===
+      ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.capacityField &&
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.minimumSource ===
+      "confirmed_participant_count" &&
+    ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.onConflict === "reject" &&
+    ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockStrategy ===
+      "postgres_advisory_xact" &&
+    ROTATING_CAPACITY_WRITE_SERIALIZATION_REQUIREMENT.lockScope === "event" &&
+    ROTATING_CAPACITY_WRITE_OPERATIONS.has("event_limit_update")
+  );
+}
+
+function rotatingEventSettingsPrecedenceIsConfigured(): boolean {
+  return (
+    ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT.policy
+      .eventSpecificSource === "database_event" &&
+    ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT.policy.serverAuthority ===
+      "database_event" &&
+    ROTATING_EVENT_SETTINGS_PRECEDENCE_REQUIREMENT.policy.cloneSource ===
+      "source_event"
+  );
+}
+
+type EventLimitUnit = "participant" | "team";
+
+function validateEventLimitRange(
+  minimum: number,
+  maximum: number,
+  unit: EventLimitUnit,
+): string | null {
+  if (minimum <= maximum) return null;
+
+  return (
+    `Cannot set the minimum ${unit} limit to ${minimum}: ` +
+    `it cannot exceed the maximum ${unit} limit of ${maximum}.`
+  );
+}
+
+function validateEventLimitValue(value: unknown, field: string): string | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    return `${field} must be an integer >= 1`;
+  }
+  return null;
+}
+
+export function parseEventType(raw: string | undefined): EventFormat | null {
+  if (raw === "rotating" || raw === fixedPartnerConfig.format) return raw;
+  return null;
+}
+
+// A format-agnostic view of an event. The two storage tables are fully
+// independent (rotating tracks participant capacity, fixed tracks team
+// capacity); this shape lets read paths and registration logic stay uniform.
+export interface NormalizedEvent {
+  id: number;
+  seriesId: string | null;
+  name: string;
+  description: string | null;
+  eventDescription: string | null;
+  startDatetime: Date;
+  endDatetime: Date;
+  locationName: string;
+  locationAddress: string;
+  teamFormat: EventFormat;
+  ratingTypeRequired: string;
+  ratingConfig: EventRatingConfig;
+  minParticipants: number;
+  maxParticipants: number;
+  minTeams: number | null;
+  maxTeams: number | null;
+  waitlistEnabled: boolean;
+  requireApproval: string;
+  signupStartDatetime: Date;
+  signupEndDatetime: Date;
+  showSignupEnd: boolean;
+  status: string;
+  courtFeeEnabled: boolean;
+  memberFee: number;
+  nonMemberFee: number;
+  contactEmail: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Exact marker used by the event-access authorization suite. This is kept in
+ * the controller module so the suite's stale-fixture cleanup and its fixture
+ * ownership rule cannot drift apart.
+ */
+export const AUTHORIZATION_TEST_FIXTURE_MARKER = "__event_access_test_fixture__";
+
+type AuthorizationTestFixtureCandidate = Pick<
+  NormalizedEvent,
+  | "teamFormat"
+  | "name"
+  | "description"
+  | "eventDescription"
+  | "locationName"
+  | "locationAddress"
+>;
+
+/**
+ * Identify only records that the authorization suite can own.
+ *
+ * The marker is the preferred check for newly-created fixtures. The exact
+ * legacy patterns are retained so an interrupted run from before the marker
+ * was added can be cleaned up too. Requiring the generated name shape,
+ * location, and empty optional descriptions avoids treating a real event with
+ * a merely similar name as test data.
+ */
+export function isAuthorizationTestFixture(
+  event: AuthorizationTestFixtureCandidate,
+): boolean {
+  if (
+    event.description === AUTHORIZATION_TEST_FIXTURE_MARKER &&
+    event.locationName === "Access Test Courts" &&
+    event.locationAddress === "" &&
+    event.eventDescription === null
+  ) {
+    return true;
+  }
+
+  const legacyNamePattern =
+    event.teamFormat === "rotating"
+      ? /^Access test [a-z0-9]+(?: clone|\s\(Copy\))?$/
+      : /^Fixed access test [a-z0-9]+(?: clone|\s\(Copy\))?$/;
+
+  return (
+    event.description === null &&
+    event.eventDescription === null &&
+    event.locationName === "Access Test Courts" &&
+    event.locationAddress === "" &&
+    legacyNamePattern.test(event.name)
+  );
+}
+
+function generateRecurringDates(
+  startDatetime: Date,
+  endDatetime: Date,
+  frequency: "daily" | "weekly" | "monthly",
+  occurrences: number,
+): Array<{ start: Date; end: Date }> {
+  const results: Array<{ start: Date; end: Date }> = [];
+  const duration = endDatetime.getTime() - startDatetime.getTime();
+
+  for (let i = 0; i < occurrences; i++) {
+    const start = new Date(startDatetime);
+    if (frequency === "daily") start.setDate(start.getDate() + i);
+    else if (frequency === "weekly") start.setDate(start.getDate() + i * 7);
+    else if (frequency === "monthly") start.setMonth(start.getMonth() + i);
+    results.push({ start, end: new Date(start.getTime() + duration) });
+  }
+  return results;
+}
+
+export async function canAccessEvent(eventId: number, eventType: EventFormat, req: Request): Promise<boolean> {
+  const session = (req as any).session;
+  if (!session?.userId) return false;
+  const role: string = session.role ?? "";
+  if (hasUserRole(role, "eventManagers")) return true;
+  if (hasUserRole(role, "assignableStaff")) {
+    const [assignment] = await db
+      .select()
+      .from(eventAssignmentsTable)
+      .where(
+        and(
+          eq(eventAssignmentsTable.userId, Number(session.userId)),
+          eq(eventAssignmentsTable.eventId, eventId),
+          eq(eventAssignmentsTable.eventType, eventType),
+        ),
+      );
+    return !!assignment;
+  }
+  return false;
+}
+
+function buildCommonBase(body: any) {
+  return {
+    name: body.name,
+    description: body.description ?? null,
+    eventDescription: body.eventDescription ?? null,
+    locationName: body.locationName,
+    locationAddress: body.locationAddress ?? "",
+    ratingTypeRequired: body.ratingTypeRequired ?? "none",
+    ratingConfig: body.ratingConfig ?? null,
+    waitlistEnabled: body.waitlistEnabled ?? true,
+    requireApproval: body.requireApproval ?? "none",
+    showSignupEnd: body.showSignupEnd ?? false,
+    status: "upcoming" as const,
+    courtFeeEnabled: body.courtFeeEnabled ?? false,
+    memberFee: typeof body.memberFee === "number" ? body.memberFee : 0,
+    nonMemberFee: typeof body.nonMemberFee === "number" ? body.nonMemberFee : 0,
+    contactEmail: body.contactEmail ?? null,
+  };
+}
+
+/**
+ * Base controller holding the orchestration shared by both event formats.
+ * Format-specific behavior (storage table, capacity model, roster team math,
+ * normalization) is delegated to abstract members so that the two subclasses
+ * can diverge independently as fixed-partner grows its own features.
+ */
+export abstract class BaseEventController {
+  abstract readonly format: EventFormat;
+
+  /** The Drizzle table this format persists to. Typed loosely because the two
+   * tables have different column shapes; dynamic ops are cast to `any`. */
+  protected abstract get table(): any;
+
+  /** Convert a raw DB row into the format-agnostic NormalizedEvent shape. */
+  protected abstract normalize(row: any): NormalizedEvent;
+
+  /** Capacity columns to persist on create (rotating: participants, fixed: teams). */
+  protected abstract capacityForCreate(body: any): Record<string, unknown>;
+
+  /** Copy format-specific capacity fields from a PATCH body into the update set. */
+  protected abstract applyCapacityUpdate(updates: any, body: any): void;
+
+  /** Derive team count from a participant/registration count; null for rotating. */
+  protected abstract computeTeams(n: number): number | null;
+
+  async getNormalized(eventId: number): Promise<NormalizedEvent | null> {
+    const [r] = await db.select().from(this.table).where(eq(this.table.id, eventId));
+    return r ? this.normalize(r) : null;
+  }
+
+  async allNormalized(): Promise<NormalizedEvent[]> {
+    const rows = await db.select().from(this.table);
+    return rows.map((r: any) => this.normalize(r));
+  }
+
+  list = async (req: Request, res: Response) => {
+    const { upcoming, search } = req.query as Record<string, string>;
+    let rows = (await db.select().from(this.table).orderBy(this.table.startDatetime)).map((r: any) =>
+      this.normalize(r),
+    );
+
+    if (upcoming === "true") {
+      const now = new Date();
+      rows = rows.filter(
+        (e) => new Date(e.startDatetime) >= now && e.status !== "ended" && e.status !== "cancelled",
+      );
+    }
+
+    if (search) {
+      const q = search.toLowerCase();
+      rows = rows.filter(
+        (e) =>
+          e.name.toLowerCase().includes(q) ||
+          e.locationName.toLowerCase().includes(q) ||
+          e.locationAddress.toLowerCase().includes(q),
+      );
+    }
+
+    const counts = await db
+      .select({ eventId: registrationsTable.eventId, confirmedCount: count() })
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.status, "confirmed"), eq(registrationsTable.eventType, this.format)))
+      .groupBy(registrationsTable.eventId);
+    const countMap = Object.fromEntries(counts.map((c) => [c.eventId, c.confirmedCount]));
+
+    return res.json(
+      rows.map((r) => {
+        const confirmedCount = countMap[r.id] ?? 0;
+        return { ...r, confirmedCount, confirmedTeams: this.computeTeams(confirmedCount), maxTeams: r.maxTeams };
+      }),
+    );
+  };
+
+  getById = async (req: Request, res: Response) => {
+    const eventId = Number(req.params.id);
+    const event = await this.getNormalized(eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+    const canWrite = await canAccessEvent(eventId, this.format, req);
+    return res.json({ ...event, canWrite });
+  };
+
+  create = async (req: Request, res: Response) => {
+    const body = req.body;
+    const { startDatetime, endDatetime, signupStartDatetime, signupEndDatetime, recurrence } = body;
+    const baseEvent: any = { ...buildCommonBase(body), ...this.capacityForCreate(body) };
+    if (
+      this.format === rotatingPartnerConfig.format &&
+      !rotatingEventSettingsPrecedenceIsConfigured()
+    ) {
+      return res.status(500).json({
+        error: "Rotating event settings precedence is not configured",
+      });
+    }
+
+    const capacityFields =
+      this.format === fixedPartnerConfig.format
+        ? (["minTeams", "maxTeams"] as const)
+        : (["minParticipants", "maxParticipants"] as const);
+    for (const field of capacityFields) {
+      const valueError = validateEventLimitValue(baseEvent[field], field);
+      if (valueError) {
+        return res.status(400).json({ error: valueError });
+      }
+    }
+
+    if (this.format === fixedPartnerConfig.format && fixedPartnerEventLimitUpdateIsConfigured()) {
+      const requestedMinTeams = baseEvent.minTeams;
+      const requestedMaxTeams = baseEvent[EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
+      const rangeError = validateEventLimitRange(
+        requestedMinTeams,
+        requestedMaxTeams,
+        "team",
+      );
+      if (rangeError) {
+        return res.status(400).json({ error: rangeError });
+      }
+    }
+
+    if (this.format === rotatingPartnerConfig.format && rotatingPartnerEventLimitUpdateIsConfigured()) {
+      const requestedMinParticipants = baseEvent.minParticipants;
+      const requestedMaxParticipants =
+        baseEvent[ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField];
+      const rangeError = validateEventLimitRange(
+        requestedMinParticipants,
+        requestedMaxParticipants,
+        "participant",
+      );
+      if (rangeError) {
+        return res.status(400).json({ error: rangeError });
+      }
+    }
+
+    const startList: Date[] = [new Date(startDatetime)];
+    let seriesId: string | null = null;
+    const duration = new Date(endDatetime).getTime() - new Date(startDatetime).getTime();
+    const signupStartOffset = new Date(startDatetime).getTime() - new Date(signupStartDatetime).getTime();
+    const signupEndOffset = new Date(startDatetime).getTime() - new Date(signupEndDatetime).getTime();
+
+    if (recurrence) {
+      seriesId = randomUUID();
+      let additionalStarts: Date[] = [];
+      if (Array.isArray(recurrence.dates) && recurrence.dates.length > 0) {
+        additionalStarts = recurrence.dates.map((d: string) => new Date(d));
+      } else if (recurrence.frequency && recurrence.occurrences > 1) {
+        const allDates = generateRecurringDates(
+          new Date(startDatetime),
+          new Date(endDatetime),
+          recurrence.frequency,
+          recurrence.occurrences,
+        );
+        additionalStarts = allDates.slice(1).map(({ start }) => start);
+      }
+      startList.push(...additionalStarts);
+    }
+
+    const values = startList.map((start) => ({
+      ...baseEvent,
+      seriesId,
+      startDatetime: start,
+      endDatetime: new Date(start.getTime() + duration),
+      signupStartDatetime: new Date(start.getTime() - signupStartOffset),
+      signupEndDatetime: new Date(start.getTime() - signupEndOffset),
+    }));
+
+    const created = (await db.insert(this.table).values(values).returning()) as any[];
+    return res.status(201).json(created.map((r: any) => this.normalize(r)));
+  };
+
+  update = async (req: Request, res: Response) => {
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, this.format, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+    const existing = await this.getNormalized(eventId);
+    if (!existing) return res.status(404).json({ error: "Event not found" });
+
+    const b = req.body;
+    const capacityFields =
+      this.format === fixedPartnerConfig.format
+        ? (["minTeams", "maxTeams"] as const)
+        : (["minParticipants", "maxParticipants"] as const);
+    for (const field of capacityFields) {
+      if (b[field] !== undefined) {
+        const valueError = validateEventLimitValue(b[field], field);
+        if (valueError) {
+          return res.status(400).json({ error: valueError });
+        }
+      }
+    }
+
+    const updates: any = {};
+    if (b.name !== undefined) updates.name = b.name;
+    if (b.description !== undefined) updates.description = b.description;
+    if (b.eventDescription !== undefined) updates.eventDescription = b.eventDescription;
+    if (b.locationName !== undefined) updates.locationName = b.locationName;
+    if (b.locationAddress !== undefined) updates.locationAddress = b.locationAddress;
+    if (b.ratingTypeRequired !== undefined) updates.ratingTypeRequired = b.ratingTypeRequired;
+    if (b.ratingConfig !== undefined) updates.ratingConfig = b.ratingConfig;
+    if (b.waitlistEnabled !== undefined) updates.waitlistEnabled = b.waitlistEnabled;
+    if (b.requireApproval !== undefined) updates.requireApproval = b.requireApproval;
+    if (b.status !== undefined) updates.status = b.status;
+    if (b.courtFeeEnabled !== undefined) updates.courtFeeEnabled = b.courtFeeEnabled;
+    if (b.memberFee !== undefined) updates.memberFee = b.memberFee;
+    if (b.nonMemberFee !== undefined) updates.nonMemberFee = b.nonMemberFee;
+    if (b.contactEmail !== undefined) updates.contactEmail = b.contactEmail;
+    if (b.startDatetime !== undefined) updates.startDatetime = new Date(b.startDatetime);
+    if (b.endDatetime !== undefined) updates.endDatetime = new Date(b.endDatetime);
+    if (b.signupStartDatetime !== undefined) updates.signupStartDatetime = new Date(b.signupStartDatetime);
+    if (b.signupEndDatetime !== undefined) updates.signupEndDatetime = new Date(b.signupEndDatetime);
+    if (b.showSignupEnd !== undefined) updates.showSignupEnd = b.showSignupEnd;
+    this.applyCapacityUpdate(updates, b);
+
+    const fixedPartnerLimitField = EVENT_LIMIT_SAFETY_REQUIREMENT.limitField;
+    const rotatingLimitField = ROTATING_EVENT_LIMIT_SAFETY_REQUIREMENT.limitField;
+    if (
+      this.format === rotatingPartnerConfig.format &&
+      (typeof updates.minParticipants === "number" ||
+        typeof updates[rotatingLimitField] === "number") &&
+      rotatingPartnerEventLimitUpdateIsConfigured()
+    ) {
+      const capacityUpdate = await db.transaction(async (tx) => {
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${ROTATING_CAPACITY_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+        );
+
+        const [current] = await tx
+          .select()
+          .from(this.table)
+          .where(eq(this.table.id, eventId));
+        if (!current) return { kind: "missing" as const };
+
+        const requestedMinParticipants =
+          updates.minParticipants ?? current.minParticipants;
+        const requestedMaxParticipants =
+          updates[rotatingLimitField] ?? current[rotatingLimitField];
+        const rangeError = validateEventLimitRange(
+          requestedMinParticipants,
+          requestedMaxParticipants,
+          "participant",
+        );
+        if (rangeError) {
+          return {
+            kind: "range_conflict" as const,
+            error: rangeError,
+          };
+        }
+
+        const [{ confirmedCount }] = await tx
+          .select({ confirmedCount: count() })
+          .from(registrationsTable)
+          .where(
+            and(
+              eq(registrationsTable.eventId, eventId),
+              eq(registrationsTable.eventType, this.format),
+              eq(
+                registrationsTable.status,
+                ROTATING_PARTICIPANT_CAPACITY_REQUIREMENT.countedStatus,
+              ),
+            ),
+          );
+        const confirmedParticipants = Number(confirmedCount);
+        if (requestedMaxParticipants < confirmedParticipants) {
+          return {
+            kind: "capacity_conflict" as const,
+            requestedMaxParticipants,
+            confirmedParticipants,
+          };
+        }
+
+        const [updated] = (await tx
+          .update(this.table)
+          .set(updates)
+          .where(eq(this.table.id, eventId))
+          .returning()) as any[];
+        return { kind: "updated" as const, event: updated };
+      });
+
+      if (capacityUpdate.kind === "missing") {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (capacityUpdate.kind === "range_conflict") {
+        return res.status(400).json({ error: capacityUpdate.error });
+      }
+      if (capacityUpdate.kind === "capacity_conflict") {
+        return res.status(400).json({
+          error:
+            `Cannot lower the participant limit to ${capacityUpdate.requestedMaxParticipants}: ` +
+            `this event already has ${capacityUpdate.confirmedParticipants} confirmed participants. ` +
+            `Set the limit to at least ${capacityUpdate.confirmedParticipants} or remove participants first.`,
+        });
+      }
+      return res.json(this.normalize(capacityUpdate.event));
+    }
+
+    if (
+      this.format === fixedPartnerConfig.format &&
+      (typeof updates.minTeams === "number" ||
+        typeof updates[fixedPartnerLimitField] === "number") &&
+      fixedPartnerEventLimitUpdateIsConfigured()
+    ) {
+      const capacityUpdate = await db.transaction(async (tx) => {
+        // Event limit changes must serialize with fixed-partner membership
+        // writes. Otherwise a signup could read the old limit, wait for this
+        // update, and then create a team beyond the newly accepted limit.
+        await tx.execute(
+          sql`SELECT pg_advisory_xact_lock(hashtextextended(${`${FIXED_PARTNER_CAPACITY_LOCK_NAMESPACE}:${eventId}`}, 0))`,
+        );
+
+        const [current] = await tx
+          .select()
+          .from(this.table)
+          .where(eq(this.table.id, eventId));
+        if (!current) return { kind: "missing" as const };
+
+        const requestedMinTeams = updates.minTeams ?? current.minTeams;
+        const requestedMaxTeams =
+          updates[fixedPartnerLimitField] ?? current[fixedPartnerLimitField];
+        const rangeError = validateEventLimitRange(
+          requestedMinTeams,
+          requestedMaxTeams,
+          "team",
+        );
+        if (rangeError) {
+          return {
+            kind: "range_conflict" as const,
+            error: rangeError,
+          };
+        }
+
+        const [{ confirmedCount }] = await tx
+          .select({ confirmedCount: count() })
+          .from(registrationsTable)
+          .where(
+            and(
+              eq(registrationsTable.eventId, eventId),
+              eq(registrationsTable.eventType, this.format),
+              eq(
+                registrationsTable.status,
+                TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT.countedStatus,
+              ),
+            ),
+          );
+        const confirmedTeams = Number(confirmedCount);
+        if (requestedMaxTeams < confirmedTeams) {
+          return {
+            kind: "capacity_conflict" as const,
+            requestedMaxTeams,
+            confirmedTeams,
+          };
+        }
+
+        const [updated] = (await tx
+          .update(this.table)
+          .set(updates)
+          .where(eq(this.table.id, eventId))
+          .returning()) as any[];
+        return { kind: "updated" as const, event: updated };
+      });
+
+      if (capacityUpdate.kind === "missing") {
+        return res.status(404).json({ error: "Event not found" });
+      }
+      if (capacityUpdate.kind === "range_conflict") {
+        return res.status(400).json({ error: capacityUpdate.error });
+      }
+      if (capacityUpdate.kind === "capacity_conflict") {
+        return res.status(400).json({
+          error:
+            `Cannot lower the team limit to ${capacityUpdate.requestedMaxTeams}: ` +
+            `this event already has ${capacityUpdate.confirmedTeams} confirmed teams. ` +
+            `Set the limit to at least ${capacityUpdate.confirmedTeams} or remove teams first.`,
+        });
+      }
+      return res.json(this.normalize(capacityUpdate.event));
+    }
+
+    const [updated] = (await db
+      .update(this.table)
+      .set(updates)
+      .where(eq(this.table.id, eventId))
+      .returning()) as any[];
+    return res.json(this.normalize(updated));
+  };
+
+  remove = async (req: Request, res: Response) => {
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, this.format, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+
+    const deleted = await db.transaction(async (tx) => {
+      const [event] = (await tx
+        .delete(this.table)
+        .where(eq(this.table.id, eventId))
+        .returning()) as any[];
+      if (!event) return null;
+
+      // No cross-table FK exists, so cascade dependent rows at the application
+      // level scoped to this event's format. Keep all three deletes in the
+      // same transaction so a failure cannot leave a partial event deletion.
+      await tx.delete(registrationsTable).where(
+        and(
+          eq(registrationsTable.eventId, eventId),
+          eq(registrationsTable.eventType, this.format),
+        ),
+      );
+      await tx.delete(eventAssignmentsTable).where(
+        and(
+          eq(eventAssignmentsTable.eventId, eventId),
+          eq(eventAssignmentsTable.eventType, this.format),
+        ),
+      );
+
+      return event;
+    });
+    if (!deleted) return res.status(404).json({ error: "Event not found" });
+    return res.status(204).send();
+  };
+
+  clone = async (req: Request, res: Response) => {
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, this.format, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+    const { name } = req.body ?? {};
+
+    const [source] = (await db.select().from(this.table).where(eq(this.table.id, eventId))) as any[];
+    if (!source) return res.status(404).json({ error: "Source event not found" });
+    const { id: _id, createdAt: _c, seriesId: _s, ...rest } = source;
+    const [cloned] = (await db
+      .insert(this.table)
+      .values({ ...rest, name: name ?? `${source.name} (Copy)`, status: "upcoming" })
+      .returning()) as any[];
+    return res.status(201).json(this.normalize(cloned));
+  };
+
+  close = async (req: Request, res: Response) => {
+    const eventId = Number(req.params.id);
+    if (!(await canAccessEvent(eventId, this.format, req))) {
+      return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+    }
+    const [updated] = (await db
+      .update(this.table)
+      .set({ status: "closed" })
+      .where(eq(this.table.id, eventId))
+      .returning()) as any[];
+    if (!updated) return res.status(404).json({ error: "Event not found" });
+    return res.json(this.normalize(updated));
+  };
+
+  rosterSummary = async (req: Request, res: Response) => {
+    const eventId = Number(req.params.id);
+    const event = await this.getNormalized(eventId);
+    if (!event) return res.status(404).json({ error: "Event not found" });
+
+    const regs = await db
+      .select()
+      .from(registrationsTable)
+      .where(and(eq(registrationsTable.eventId, eventId), eq(registrationsTable.eventType, this.format)));
+    const countedStatuses =
+      this.format === rotatingPartnerConfig.format
+        ? ROTATING_ROSTER_SUMMARY_REQUIREMENT.policy.countedStatuses
+        : ["confirmed", "waitlisted", "pending_approval"];
+    const counts = new Map(
+      countedStatuses.map((status) => [
+        status,
+        regs.filter((registration) => registration.status === status).length,
+      ]),
+    );
+    const confirmed = counts.get("confirmed") ?? 0;
+    const waitlisted = counts.get("waitlisted") ?? 0;
+    const pendingApproval = counts.get("pending_approval") ?? 0;
+    const total =
+      this.format === rotatingPartnerConfig.format &&
+      ROTATING_ROSTER_SUMMARY_REQUIREMENT.policy.total ===
+        "sum_counted_statuses"
+        ? [...counts.values()].reduce((sum, value) => sum + value, 0)
+        : confirmed + waitlisted + pendingApproval;
+
+    return res.json({
+      confirmed,
+      waitlisted,
+      pendingApproval,
+      total,
+      maxParticipants: event.maxParticipants,
+      maxTeams: event.maxTeams ?? this.computeTeams(event.maxParticipants),
+      confirmedTeams: this.computeTeams(confirmed),
+      waitlistedTeams: this.computeTeams(waitlisted),
+      pendingTeams: this.computeTeams(pendingApproval),
+    });
+  };
+}
+
+class RotatingEventController extends BaseEventController {
+  readonly format = "rotating" as const;
+
+  protected get table() {
+    return eventsRotatingTable;
+  }
+
+  protected normalize(r: typeof eventsRotatingTable.$inferSelect): NormalizedEvent {
+    return { ...r, teamFormat: "rotating", minTeams: null, maxTeams: null };
+  }
+
+  protected capacityForCreate(body: any) {
+    return {
+      minParticipants:
+        body.minParticipants ??
+        rotatingPartnerConfig.defaults.capacity.minParticipants,
+      maxParticipants:
+        body.maxParticipants ??
+        rotatingPartnerConfig.defaults.capacity.maxParticipants,
+    };
+  }
+
+  protected applyCapacityUpdate(updates: any, b: any) {
+    if (b.minParticipants !== undefined) updates.minParticipants = b.minParticipants;
+    if (b.maxParticipants !== undefined) updates.maxParticipants = b.maxParticipants;
+  }
+
+  protected computeTeams(): number | null {
+    return null;
+  }
+}
+
+class FixedEventController extends BaseEventController {
+  readonly format = fixedPartnerConfig.format;
+
+  protected get table() {
+    return eventsFixedTable;
+  }
+
+  protected normalize(r: typeof eventsFixedTable.$inferSelect): NormalizedEvent {
+    const { minTeams, maxTeams, ...rest } = r;
+    return {
+      ...rest,
+      teamFormat: fixedPartnerConfig.format,
+      minTeams,
+      maxTeams,
+      minParticipants: minTeams * 2,
+      maxParticipants: maxTeams * 2,
+    };
+  }
+
+  protected capacityForCreate(body: any) {
+    return {
+      minTeams: body.minTeams ?? fixedPartnerConfig.defaults.capacity.minTeams,
+      maxTeams: body.maxTeams ?? fixedPartnerConfig.defaults.capacity.maxTeams,
+    };
+  }
+
+  protected applyCapacityUpdate(updates: any, b: any) {
+    if (b.minTeams !== undefined) updates.minTeams = b.minTeams;
+    if (b.maxTeams !== undefined) updates.maxTeams = b.maxTeams;
+  }
+
+  protected computeTeams(n: number): number | null {
+    return n; // each fixed-partner registration = 1 team (player + partner in one row)
+  }
+}
+
+export const eventControllers: Record<EventFormat, BaseEventController> = {
+  rotating: new RotatingEventController(),
+  [fixedPartnerConfig.format]: new FixedEventController(),
+};
+
+export async function getNormalizedEvent(
+  eventType: EventFormat,
+  eventId: number,
+): Promise<NormalizedEvent | null> {
+  return eventControllers[eventType].getNormalized(eventId);
+}
