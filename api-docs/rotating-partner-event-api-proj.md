@@ -8,7 +8,7 @@ The rotating-partner event API is a first-class module of the server, not the se
 The module should use JSON documents in its database as the domain persistence format rather than modeling rotating-partner business fields as relational columns. Adding a new optional business field should therefore require a document/schema-version update and validation rule, not a relational table migration. The storage layer may still use a database for durability, transactions, document-path indexes, and event-level locking.
 
 This plan is intentionally contract-first. The implementation should use the two companion specifications below as the source material for persistence and backend behavior:
-- `api-docs/rotating-partner-event-data-model.json`
+- `api-docs/rotating-partner-event-data-modle.json`
 - `api-docs/rotating-partner-event-config.json`
 
 The backend configuration is to be derived from `app-config/rotating-partner-config.json`, but must contain only API/server business rules. Frontend presentation, browser validation, and React-specific concerns do not belong in that configuration.
@@ -17,7 +17,7 @@ The new API server must use `api-docs/rotating-partner-event-config.json` as its
 
 ## Done looks like
 - A standalone API server project can be created from this plan without depending on the current React client or its component code.
-- `api-docs/rotating-partner-event-data-model.json` defines the rotating-event persistence model, field types, requiredness, enums, relationships, snapshot rules, indexes, and integrity constraints.
+- `api-docs/rotating-partner-event-data-modle.json` defines the rotating-event persistence model, field types, requiredness, enums, relationships, snapshot rules, indexes, and integrity constraints.
 - The data model explicitly describes JSON document envelopes, document versions, optional-field evolution, JSON-path indexes, validation rules, and ID-based references instead of cross-module relational foreign keys.
 - `api-docs/rotating-partner-event-config.json` defines the backend-only rotating-partner requirements, defaults, lifecycle rules, capacity semantics, verification/rate-limit policy, rating validation, event-setting precedence, and roster-summary behavior derived from the existing rotating configuration.
 - The API server loads and validates `api-docs/rotating-partner-event-config.json` through a centralized configuration boundary; invalid or missing configuration prevents startup or request processing rather than silently falling back to hardcoded rules.
@@ -57,7 +57,7 @@ rotating-partner-event-api/
   api-docs/
     rotating-partner-event-api-proj.md
     rotating-partner-event-config.json
-    rotating-partner-event-data-model.json
+    rotating-partner-event-data-modle.json
     rotating-partner-event-openapi.yaml
   database/
     migrations/

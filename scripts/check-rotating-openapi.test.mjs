@@ -5,7 +5,7 @@ import { validateRotatingOpenApi } from "./check-rotating-openapi.mjs";
 
 const [openApiText, dataModel, config] = await Promise.all([
   readFile("api-docs/rotating-partner-event-openapi.yaml", "utf8"),
-  readFile("api-docs/rotating-partner-event-data-model.json", "utf8").then(JSON.parse),
+  readFile("api-docs/rotating-partner-event-data-modle.json", "utf8").then(JSON.parse),
   readFile("api-docs/rotating-partner-event-config.json", "utf8").then(JSON.parse),
 ]);
 

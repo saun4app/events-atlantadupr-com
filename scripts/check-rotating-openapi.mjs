@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { format } from "prettier";
 
 const OPENAPI_PATH = "api-docs/rotating-partner-event-openapi.yaml";
-const DATA_MODEL_PATH = "api-docs/rotating-partner-event-data-model.json";
+const DATA_MODEL_PATH = "api-docs/rotating-partner-event-data-modle.json";
 const CONFIG_PATH = "api-docs/rotating-partner-event-config.json";
 
 function operationBlock(text, operationId) {
@@ -48,7 +48,7 @@ export async function validateRotatingOpenApi({
   );
   assertIncludes(
     openApiText,
-    "x-rotating-partner-data-model: ./rotating-partner-event-data-model.json",
+    "x-rotating-partner-data-model: ./rotating-partner-event-data-modle.json",
     "The contract must point to the rotating JSON data model",
   );
 
