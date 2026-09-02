@@ -46,12 +46,46 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Prepare API test diagnostics
+        run: mkdir -p test-results
+
       - name: Initialize isolated API test database
         env:
           TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/api_test
-        run: pnpm run test:api:setup
+        run: |
+          set -o pipefail
+          pnpm run test:api:setup 2>&1 | tee test-results/api-database-setup.log
 
       - name: Run API integration tests
         env:
           TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/api_test
-        run: pnpm run test:api
+          API_TEST_REPORT_PATH: ${{ github.workspace }}/test-results/api-tests.junit.xml
+        run: |
+          set -o pipefail
+          pnpm run test:api:ci 2>&1 | tee test-results/api-tests.log
+
+      - name: Capture PostgreSQL service logs
+        if: always()
+        run: docker logs "${{ job.services.postgres.id }}" > test-results/postgres.log 2>&1 || true
+
+      - name: Redact sensitive values from diagnostics
+        if: always()
+        run: |
+          if [ -d test-results ]; then
+            while IFS= read -r -d '' file; do
+              perl -0pi \
+                -e 's#(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis)://[^\s<>" ]+#[REDACTED_DATABASE_URL]#gi;' \
+                -e 's#(authorization\s*:\s*(?:bearer|basic)\s+)[^\s<>" ]+#${1}[REDACTED]#gi;' \
+                -e 's#((?:password|secret|token|api[_-]?key)\s*[=:]\s*)[^\s,}"<]+#${1}[REDACTED]#gi' \
+                "$file"
+            done < <(find test-results -type f -print0)
+          fi
+
+      - name: Upload API test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14

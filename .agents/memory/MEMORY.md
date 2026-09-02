@@ -16,3 +16,4 @@
 - [Scheduled maintenance deployments](scheduled-maintenance-deployments.md) — use a separate Scheduled Deployment for recurring checks; preserve artifact production commands
 - [Intentional API generation diffs](intentional-api-generation-diffs.md) — the generated-client guard compares against git baseline, so intentional spec changes appear as drift until merged
 - [Production schema preflight](production-schema-preflight.md) — users-table release checks stay read-only and surface legacy rename ambiguity
+- [CI test reporter output](ci-test-reporter-output.md) — Node’s JUnit destination writes to a file and leaves stdout empty, so capture console output separately
