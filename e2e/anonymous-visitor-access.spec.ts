@@ -49,9 +49,10 @@ type ApiRequest = {
 
 async function mockAnonymousVisitorApi(
   page: Page,
-  options: { fixedPartnerEventsFailure?: boolean } = {},
+  options: { fixedPartnerEventsFailure?: boolean | "once" } = {},
 ) {
   const requests: ApiRequest[] = [];
+  let fixedPartnerEventsRequestCount = 0;
 
   page.on("request", (request) => {
     const url = new URL(request.url());
@@ -151,7 +152,12 @@ async function mockAnonymousVisitorApi(
     }
 
     if (pathname === "/api/events/fixed_partner") {
-      if (options.fixedPartnerEventsFailure) {
+      fixedPartnerEventsRequestCount += 1;
+      const shouldFail =
+        options.fixedPartnerEventsFailure === true ||
+        (options.fixedPartnerEventsFailure === "once" &&
+          fixedPartnerEventsRequestCount === 1);
+      if (shouldFail) {
         await route.fulfill({
           status: 503,
           json: { error: "Fixed-partner events are temporarily unavailable" },
@@ -284,7 +290,9 @@ test("anonymous visitors can open fixed-partner event details and see partner re
 test("anonymous visitors see a format-specific error when fixed-partner events cannot load", async ({
   page,
 }) => {
-  await mockAnonymousVisitorApi(page, { fixedPartnerEventsFailure: true });
+  const requests = await mockAnonymousVisitorApi(page, {
+    fixedPartnerEventsFailure: true,
+  });
 
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "Upcoming Events" })).toBeVisible();
@@ -296,6 +304,73 @@ test("anonymous visitors see a format-specific error when fixed-partner events c
   await expect(error).toContainText("Please try again later.");
   await expect(page.getByText("No upcoming events", { exact: true })).toHaveCount(0);
   await expect(page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`)).toHaveCount(0);
+
+  const repeatedFailure = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/events/fixed_partner" &&
+      response.status() === 503,
+  );
+  await page.getByTestId("button-retry-event-list-fixed_partner").click();
+  await repeatedFailure;
+  await expect(error).toBeVisible();
+  await expect(error).toContainText("Unable to load fixed-partner events");
+  await expect(
+    page.getByTestId("button-retry-event-list-fixed_partner"),
+  ).toHaveText("Try again");
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/fixed_partner",
+    ),
+  ).toHaveLength(2);
+});
+
+test("anonymous visitors can retry a failed event format without affecting the other list", async ({
+  page,
+}) => {
+  const requests = await mockAnonymousVisitorApi(page, {
+    fixedPartnerEventsFailure: "once",
+  });
+
+  await page.goto("/");
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toBeVisible();
+  await page.getByTestId("tab-fixed_partner").click();
+
+  const error = page.getByTestId("event-list-error-fixed_partner");
+  await expect(error).toBeVisible();
+  await expect(error).toContainText("Unable to load fixed-partner events");
+  await expect(
+    page.getByTestId("button-retry-event-list-fixed_partner"),
+  ).toHaveText("Try again");
+
+  const initialUrl = page.url();
+  const recoveredEventResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/events/fixed_partner" &&
+      response.status() === 200,
+  );
+  await page.getByTestId("button-retry-event-list-fixed_partner").click();
+  await recoveredEventResponse;
+
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("event-list-error-fixed_partner"),
+  ).toHaveCount(0);
+  expect(page.url()).toBe(initialUrl);
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/fixed_partner",
+    ),
+  ).toHaveLength(2);
+
+  await page.getByTestId("tab-rotating").click();
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toBeVisible();
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toHaveCount(0);
 });
 
 test("anonymous visitors can open fixed-partner events from the public event list", async ({
