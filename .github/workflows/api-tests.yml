@@ -91,8 +91,14 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+      # Same-repository pull requests can publish this check because the
+      # workflow requests checks: write above. GitHub downgrades the token for
+      # fork-originated pull_request runs, so check creation may be rejected.
+      # Keep this after the diagnostic upload and tolerate only that expected
+      # fork permission failure; the API test step's failure still fails the job.
       - name: Publish API test results
         if: always() && hashFiles('test-results/api-tests.junit.xml') != ''
+        continue-on-error: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
         uses: dorny/test-reporter@v2
         with:
           name: API integration test results
