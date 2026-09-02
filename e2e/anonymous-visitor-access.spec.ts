@@ -52,6 +52,7 @@ async function mockAnonymousVisitorApi(
   options: {
     fixedPartnerEventsFailure?: boolean | "once";
     rotatingPartnerEventsFailure?: boolean | "once";
+    rotatingPartnerEventsRecoveryGate?: () => Promise<void>;
   } = {},
 ) {
   const requests: ApiRequest[] = [];
@@ -94,6 +95,9 @@ async function mockAnonymousVisitorApi(
           },
         });
         return;
+      }
+      if (options.rotatingPartnerEventsRecoveryGate) {
+        await options.rotatingPartnerEventsRecoveryGate();
       }
       await route.fulfill({ json: [PUBLIC_EVENT] });
       return;
@@ -446,6 +450,65 @@ test("anonymous visitors can retry a failed rotating-partner event list without 
         method === "GET" && pathname === "/api/events/fixed_partner",
     ),
   ).toHaveLength(1);
+});
+
+test("anonymous visitors cannot start duplicate rotating-partner retries from repeated clicks", async ({
+  page,
+}) => {
+  let releaseRecovery!: () => void;
+  const recoveryHeld = new Promise<void>((resolve) => {
+    releaseRecovery = resolve;
+  });
+  const requests = await mockAnonymousVisitorApi(page, {
+    rotatingPartnerEventsFailure: "once",
+    rotatingPartnerEventsRecoveryGate: () => recoveryHeld,
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Upcoming Events" }),
+  ).toBeVisible();
+
+  const error = page.getByTestId("event-list-error-rotating");
+  await expect(error).toBeVisible();
+
+  const retryButton = page.getByTestId("button-retry-event-list-rotating");
+  const retryRequest = page.waitForRequest(
+    (request) =>
+      new URL(request.url()).pathname === "/api/events/rotating" &&
+      request.method() === "GET",
+  );
+  const recoveredEventResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/events/rotating" &&
+      response.status() === 200,
+  );
+
+  await retryButton.dispatchEvent("click");
+  await retryRequest;
+  await expect(retryButton).toBeDisabled();
+  await expect(retryButton).toHaveText("Trying again...");
+  await retryButton.dispatchEvent("click");
+
+  releaseRecovery();
+  await recoveredEventResponse;
+  await expect
+    .poll(
+      () =>
+        requests.filter(
+          ({ method, pathname }) =>
+            method === "GET" && pathname === "/api/events/rotating",
+        ).length,
+    )
+    .toBe(2);
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toBeVisible();
+  await expect(error).toHaveCount(0);
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/rotating",
+    ),
+  ).toHaveLength(2);
 });
 
 test("anonymous visitors can open fixed-partner events from the public event list", async ({

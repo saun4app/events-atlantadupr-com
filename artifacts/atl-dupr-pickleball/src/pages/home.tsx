@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import React from "react";
 import { Link } from "wouter";
 import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
@@ -77,6 +77,8 @@ function isUpcoming(e: any): boolean {
 
 export default function Home() {
   const [tab, setTab] = useState<EventType>("rotating");
+  const [retryingFormat, setRetryingFormat] = useState<EventType | null>(null);
+  const retryingFormatRef = useRef<EventType | null>(null);
 
   const {
     data: rotatingEvents,
@@ -103,9 +105,24 @@ export default function Home() {
 
   const isLoading = tab === "rotating" ? rotLoading : fixedLoading;
   const hasError = tab === "rotating" ? rotError : fixedError;
-  const isRetrying = tab === "rotating" ? rotFetching : fixedFetching;
+  const isRetrying =
+    (tab === "rotating" ? rotFetching : fixedFetching) ||
+    retryingFormat === tab;
   const refetchEvents = tab === "rotating" ? refetchRotating : refetchFixed;
   const events = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
+  const handleRetry = () => {
+    const retryFormat = tab;
+    if (retryingFormatRef.current === retryFormat || isRetrying) return;
+
+    retryingFormatRef.current = retryFormat;
+    setRetryingFormat(retryFormat);
+    void refetchEvents().finally(() => {
+      if (retryingFormatRef.current === retryFormat) {
+        retryingFormatRef.current = null;
+        setRetryingFormat(null);
+      }
+    });
+  };
 
   const formatTabs: { value: EventType; label: string; icon: React.ElementType }[] = [
     { value: "rotating", label: "Rotating Partners", icon: Shuffle },
@@ -161,13 +178,7 @@ export default function Home() {
             );
           })}
         </div>
-        {isLoading ? (
-          <div className="space-y-4">
-            {[1, 2, 3].map(i => (
-              <Skeleton key={i} className="h-36 w-full rounded-lg" />
-            ))}
-          </div>
-        ) : hasError ? (
+        {hasError || retryingFormat === tab ? (
           <div
             className="flex flex-col items-center justify-center text-center py-16 text-muted-foreground"
             role="alert"
@@ -182,12 +193,18 @@ export default function Home() {
               type="button"
               variant="outline"
               className="mt-5"
-              onClick={() => refetchEvents()}
+              onClick={handleRetry}
               disabled={isRetrying}
               data-testid={`button-retry-event-list-${tab}`}
             >
               {isRetrying ? "Trying again..." : "Try again"}
             </Button>
+          </div>
+        ) : isLoading ? (
+          <div className="space-y-4">
+            {[1, 2, 3].map(i => (
+              <Skeleton key={i} className="h-36 w-full rounded-lg" />
+            ))}
           </div>
         ) : events && events.length > 0 ? (
           <div className="space-y-4">
