@@ -1,0 +1,135 @@
+name: API integration tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  schedule:
+    - cron: "47 3 * * *"
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: api_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d api_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare API test diagnostics
+        run: mkdir -p test-results
+
+      - name: Initialize isolated API test database
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/api_test
+        run: |
+          set -o pipefail
+          pnpm run test:api:setup 2>&1 | tee test-results/api-database-setup.log
+
+      - name: Run API integration tests
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/api_test
+          API_TEST_REPORT_PATH: ${{ github.workspace }}/test-results/api-tests.junit.xml
+        run: |
+          set -o pipefail
+          pnpm run test:api:ci 2>&1 | tee test-results/api-tests.log
+
+      - name: Capture PostgreSQL service logs
+        if: always()
+        run: docker logs "${{ job.services.postgres.id }}" > test-results/postgres.log 2>&1 || true
+
+      - name: Redact sensitive values from diagnostics
+        if: always()
+        run: |
+          if [ -d test-results ]; then
+            while IFS= read -r -d '' file; do
+              perl -0pi \
+                -e 's#(?:postgres(?:ql)?|mysql|mongodb(?:\+srv)?|redis)://[^\s<>" ]+#[REDACTED_DATABASE_URL]#gi;' \
+                -e 's#(authorization\s*:\s*(?:bearer|basic)\s+)[^\s<>" ]+#${1}[REDACTED]#gi;' \
+                -e 's#((?:password|secret|token|api[_-]?key)\s*[=:]\s*)[^\s,}"<]+#${1}[REDACTED]#gi' \
+                "$file"
+            done < <(find test-results -type f -print0)
+          fi
+
+      - name: Upload API test diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: api-test-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # Same-repository pull requests can publish this check because the
+      # workflow requests checks: write above. GitHub downgrades the token for
+      # fork-originated pull_request runs, so check creation may be rejected.
+      # Keep this after the diagnostic upload and tolerate only that expected
+      # fork permission failure; the API test step's failure still fails the job.
+      - name: Publish API test results
+        if: always() && hashFiles('test-results/api-tests.junit.xml') != ''
+        continue-on-error: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        id: publish-api-test-results
+        uses: dorny/test-reporter@v2
+        with:
+          name: API integration test results
+          path: test-results/api-tests.junit.xml
+          reporter: java-junit
+          fail-on-error: false
+
+      - name: Record API test check publication outcome
+        if: always() && hashFiles('test-results/api-tests.junit.xml') != ''
+        env:
+          REPORTER_OUTCOME: ${{ steps.publish-api-test-results.outcome }}
+          REPORTER_CONCLUSION: ${{ steps.publish-api-test-results.conclusion }}
+          FORK_PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: |
+          if [ "$REPORTER_OUTCOME" = "success" ]; then
+            publication="yes"
+          elif [ "$FORK_PULL_REQUEST" = "true" ]; then
+            publication="no (expected fork pull_request token restriction)"
+          else
+            publication="not confirmed (reporter failed outside the expected fork permission boundary)"
+          fi
+
+          {
+            echo "### API test check publication"
+            if [ "$FORK_PULL_REQUEST" = "true" ]; then
+              echo "- Pull request source: fork"
+            else
+              echo "- Pull request source: same repository or non-pull-request event"
+            fi
+            echo "- GitHub allowed check publication: $publication"
+            echo "- Reporter outcome: $REPORTER_OUTCOME"
+            echo "- Reporter conclusion: $REPORTER_CONCLUSION"
+          } >> "$GITHUB_STEP_SUMMARY"
