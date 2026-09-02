@@ -7,7 +7,7 @@ import {
   Users,
   type LucideIcon,
 } from "lucide-react";
-import rawSiteNav from "../../../../api-docs/site-nav.json";
+import rawSiteNav from "../../../../app-config/site-nav.json";
 import {
   USER_ROLE_GROUP_NAMES,
   loadUserRolesConfig,
@@ -143,7 +143,7 @@ if (!parsedSiteNav.success) {
   const details = parsedSiteNav.error.issues
     .map((issue) => `${issue.path.join(".") || "document"}: ${issue.message}`)
     .join("; ");
-  throw new Error(`Invalid api-docs/site-nav.json: ${details}`);
+  throw new Error(`Invalid app-config/site-nav.json: ${details}`);
 }
 
 const siteNav = parsedSiteNav.data;
@@ -152,7 +152,7 @@ const userRolesConfig = loadUserRolesConfig(rawUserRolesConfig);
 function validateIcons(items: NavigationItemConfig[]): void {
   for (const item of items) {
     if (!iconRegistry[item.icon]) {
-      throw new Error(`Invalid api-docs/site-nav.json: unsupported icon "${item.icon}"`);
+      throw new Error(`Invalid app-config/site-nav.json: unsupported icon "${item.icon}"`);
     }
     if (item.children) {
       validateIcons(item.children);
@@ -205,7 +205,7 @@ export function getAdminNavigationItems(role?: string): NavigationItem[] {
 export function getEventsNavigationItems(eventType: EventType): NavigationItem[] {
   const eventsItem = siteNav.items.find((item) => item.children?.length);
   if (!eventsItem?.children) {
-    throw new Error("Invalid api-docs/site-nav.json: no nested events navigation found");
+    throw new Error("Invalid app-config/site-nav.json: no nested events navigation found");
   }
   return eventsItem.children.map((item) => resolveItem(item, eventType));
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import siteNav from "../api-docs/site-nav.json" with { type: "json" };
+import siteNav from "../app-config/site-nav.json" with { type: "json" };
 
 function flatten(items) {
   return items.flatMap((item) => [item, ...flatten(item.children ?? [])]);

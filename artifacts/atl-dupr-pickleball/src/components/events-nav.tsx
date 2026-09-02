@@ -10,7 +10,7 @@ export function EventsNav({ eventType }: { eventType: EventType }) {
   const navigationItems = getEventsNavigationItems(eventType);
   const newItem = navigationItems.find((item) => item.match.type === "exact");
   if (!newItem) {
-    throw new Error("Invalid api-docs/site-nav.json: events navigation has no exact new-event item");
+    throw new Error("Invalid app-config/site-nav.json: events navigation has no exact new-event item");
   }
 
   return (

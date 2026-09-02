@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import rawSiteNav from "../api-docs/site-nav.json";
+import rawSiteNav from "../app-config/site-nav.json";
 import rawUserRolesConfig from "../app-config/user-roles.json";
 
 const userRolesConfig = rawUserRolesConfig;
