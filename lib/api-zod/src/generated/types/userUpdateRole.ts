@@ -10,7 +10,7 @@ export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
 
 
 export const UserUpdateRole = {
-  admin: 'admin',
+  app_admin: 'app_admin',
   event_organizer: 'event_organizer',
   event_participant: 'event_participant',
   event_captain: 'event_captain',

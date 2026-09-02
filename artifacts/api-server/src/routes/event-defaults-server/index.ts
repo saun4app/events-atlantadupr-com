@@ -35,7 +35,7 @@ router.get("/:eventType", async (req, res) => {
   return res.json(row);
 });
 
-router.put("/:eventType", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
+router.put("/:eventType", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
   const eventType = String(req.params.eventType);
   if (!VALID_EVENT_TYPES.has(eventType)) {
     return res.status(400).json({ error: "Invalid eventType" });

@@ -343,17 +343,17 @@ before(async () => {
       name: "Test Staff",
       username: "test-staff-" + Math.random().toString(36).slice(2),
       passwordHash: "test-password-hash",
-      role: userRoleIdMap.admin,
+      role: userRoleIdMap.app_admin,
     })
     .returning();
   createdUserIds.push(staffUser.id);
 
   await db
     .insert(sessionsTable)
-  .values({ token: STAFF_TOKEN, data: { userId: staffUser.id, role: userRoleIdMap.admin } })
+  .values({ token: STAFF_TOKEN, data: { userId: staffUser.id, role: userRoleIdMap.app_admin } })
     .onConflictDoUpdate({
       target: sessionsTable.token,
-      set: { data: { userId: staffUser.id, role: userRoleIdMap.admin } },
+      set: { data: { userId: staffUser.id, role: userRoleIdMap.app_admin } },
     });
 
   server = app.listen(0);

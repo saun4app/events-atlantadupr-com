@@ -194,10 +194,10 @@ async function createRotatingEvent(
 before(async () => {
   await db
     .insert(sessionsTable)
-    .values({ token: STAFF_TOKEN, data: { userId: -1, role: userRoleIdMap.admin } })
+    .values({ token: STAFF_TOKEN, data: { userId: -1, role: userRoleIdMap.app_admin } })
     .onConflictDoUpdate({
       target: sessionsTable.token,
-      set: { data: { userId: -1, role: userRoleIdMap.admin } },
+      set: { data: { userId: -1, role: userRoleIdMap.app_admin } },
     });
 
   server = app.listen(0);

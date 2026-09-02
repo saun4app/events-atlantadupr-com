@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { verifyPassword } from "../../lib/auth.js";
 import { deleteSession, setSession } from "../../lib/session.js";
 import {
@@ -10,6 +10,7 @@ import {
   recordSuccess,
   rateLimitErrorResponse,
 } from "../../lib/rate-limit.js";
+import { canonicalizeUserRole } from "../../lib/user-roles.js";
 
 const router = Router();
 
@@ -48,9 +49,24 @@ router.post("/login", async (req, res) => {
   recordSuccess(clientIp, "login:ip");
   recordSuccess(usernameKey, "login:user");
 
+  // Existing deployments may still contain legacy admin values. Normalize all
+  // of them on the first successful login without changing any other roles.
+  await db
+    .update(usersTable)
+    .set({ role: "app_admin" })
+    .where(eq(usersTable.role, "admin"));
+
+  const role = canonicalizeUserRole(user.role);
+  if (role !== user.role) {
+    await db
+      .update(usersTable)
+      .set({ role })
+      .where(and(eq(usersTable.id, user.id), eq(usersTable.role, user.role)));
+  }
+
   (req as any).session = {
     userId: user.id,
-    role: user.role,
+    role,
     name: user.name,
     username: user.username,
     duprId: user.duprId,
@@ -64,7 +80,7 @@ router.post("/login", async (req, res) => {
     id: user.id,
     name: user.name,
     username: user.username,
-    role: user.role,
+    role,
     createdAt: user.createdAt,
     duprId: user.duprId,
     duprFullname: user.duprFullname,

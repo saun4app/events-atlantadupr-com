@@ -3,8 +3,8 @@
   "version": 1,
   "roles": [
     {
-      "id": "admin",
-      "label": "Admin",
+      "id": "app_admin",
+      "label": "App Admin",
       "badgeTone": "primary"
     },
     {
@@ -31,24 +31,24 @@
   "defaults": {
     "databaseRole": "event_participant",
     "newUserRole": "event_organizer",
-    "auditActorRole": "admin"
+    "auditActorRole": "app_admin"
   },
   "groups": {
     "adminOnly": [
-      "admin"
+      "app_admin"
     ],
     "adminPanel": [
-      "admin",
+      "app_admin",
       "event_organizer",
       "event_captain",
       "court_leader"
     ],
     "eventManagers": [
-      "admin",
+      "app_admin",
       "event_organizer"
     ],
     "eventWriters": [
-      "admin",
+      "app_admin",
       "event_organizer",
       "event_captain",
       "court_leader"

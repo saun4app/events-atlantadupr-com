@@ -1506,7 +1506,7 @@ export default function AdminEventDetailRotating() {
               </div>
             </div>
             <DialogFooter className="flex-row items-center gap-2">
-              {user?.role === USER_ROLE_IDS.admin && (
+              {user?.role === USER_ROLE_IDS.app_admin && (
                 <Button
                   type="button"
                   variant="ghost"

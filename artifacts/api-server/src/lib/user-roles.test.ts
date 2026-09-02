@@ -3,6 +3,7 @@ import test from "node:test";
 
 import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 import {
+  canonicalizeUserRole,
   loadUserRolesConfig,
   userRoleIsInGroup,
 } from "@workspace/user-roles-config";
@@ -12,18 +13,23 @@ test("loads the configured user roles and preserves access groups", () => {
 
   assert.deepEqual(
     config.roles.map((role) => role.id),
-    ["admin", "event_organizer", "event_participant", "event_captain", "court_leader"],
+    ["app_admin", "event_organizer", "event_participant", "event_captain", "court_leader"],
   );
   assert.equal(config.defaults.databaseRole, "event_participant");
   assert.equal(config.defaults.newUserRole, "event_organizer");
-  assert.equal(userRoleIsInGroup(config, "admin", "adminOnly"), true);
+   assert.equal(userRoleIsInGroup(config, "app_admin", "adminOnly"), true);
   assert.equal(userRoleIsInGroup(config, "event_participant", "adminPanel"), false);
   assert.equal(userRoleIsInGroup(config, "event_captain", "assignableStaff"), true);
 });
 
+test("canonicalizes legacy admin values without changing other roles", () => {
+  assert.equal(canonicalizeUserRole("admin"), "app_admin");
+  assert.equal(canonicalizeUserRole("event_organizer"), "event_organizer");
+});
+
 test("rejects duplicate roles, unknown group members, and unknown defaults", () => {
   const config = structuredClone(rawUserRolesConfig);
-  config.roles.push({ id: "admin", label: "Duplicate", badgeTone: "primary" });
+   config.roles.push({ id: "app_admin", label: "Duplicate", badgeTone: "primary" });
   config.groups.adminOnly = ["missing_role"];
   config.defaults.databaseRole = "missing_role";
 

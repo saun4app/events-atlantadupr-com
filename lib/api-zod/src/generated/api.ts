@@ -28,7 +28,7 @@ export const LoginResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
+  "role": zod.enum(['app_admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable()
@@ -42,7 +42,7 @@ export const GetMeResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
+  "role": zod.enum(['app_admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable()
@@ -940,7 +940,7 @@ export const ListUsersResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
+  "role": zod.enum(['app_admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable()
@@ -955,7 +955,7 @@ export const CreateUserBody = zod.object({
   "name": zod.string(),
   "username": zod.string(),
   "password": zod.string(),
-  "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader'])
+  "role": zod.enum(['app_admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader'])
 })
 
 
@@ -984,7 +984,7 @@ export const UpdateUserBody = zod.object({
   "name": zod.string().optional(),
   "username": zod.string().optional(),
   "password": zod.string().nullish(),
-  "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']).optional(),
+  "role": zod.enum(['app_admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']).optional(),
   "duprId": zod.string().nullish(),
   "duprFullname": zod.string().nullish()
 })
@@ -993,7 +993,7 @@ export const UpdateUserResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
+  "role": zod.enum(['app_admin', 'event_organizer', 'event_participant', 'event_captain', 'court_leader']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable()

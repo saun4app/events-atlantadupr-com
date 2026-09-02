@@ -10,7 +10,7 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 
 export const UserRole = {
-  admin: 'admin',
+  app_admin: 'app_admin',
   event_organizer: 'event_organizer',
   event_participant: 'event_participant',
   event_captain: 'event_captain',

@@ -49,7 +49,7 @@ async function seed() {
   });
 
   await db.insert(usersTable).values([
-    { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: userRoleIdMap.admin },
+    { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: userRoleIdMap.app_admin },
     { name: "Organizer One", username: "organizer1", passwordHash: await hashPassword("org123"), role: userRoleIdMap.event_organizer },
     { name: "Participant User", username: "participant1", passwordHash: await hashPassword("part123"), role: defaultUserRole },
   ]);

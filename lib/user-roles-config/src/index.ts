@@ -16,6 +16,10 @@ export const USER_ROLE_GROUP_NAMES = [
   "assignableStaff",
 ] as const;
 
+export const LEGACY_USER_ROLE_ALIASES = {
+  admin: "app_admin",
+} as const;
+
 const roleSchema = z
   .object({
     id: z.string().regex(/^[a-z][a-z0-9_]*$/),
@@ -100,6 +104,10 @@ export function getUserRoleIds(config: UserRolesConfig): [string, ...string[]] {
 
 export function getUserRole(config: UserRolesConfig, roleId: string): UserRoleDefinition | undefined {
   return config.roles.find((role) => role.id === roleId);
+}
+
+export function canonicalizeUserRole(roleId: string): string {
+  return LEGACY_USER_ROLE_ALIASES[roleId as keyof typeof LEGACY_USER_ROLE_ALIASES] ?? roleId;
 }
 
 export function userRoleIsInGroup(

@@ -131,7 +131,7 @@ export default function AdminUsers() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-foreground">Manage Users</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">{users?.length ?? 0} admin users</p>
+            <p className="text-muted-foreground text-sm mt-0.5">{users?.length ?? 0} users</p>
           </div>
           <Button
             data-testid="button-add-user"
@@ -261,7 +261,7 @@ export default function AdminUsers() {
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Add Admin User</DialogTitle>
+            <DialogTitle>Add App Admin User</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleAdd} className="space-y-3">
             <div className="space-y-1.5">

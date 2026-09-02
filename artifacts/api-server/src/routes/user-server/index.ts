@@ -3,7 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole, hashPassword } from "../../lib/auth.js";
-import { USER_ROLE_GROUPS, USER_ROLE_IDS, hasUserRole, isConfiguredUserRole } from "../../lib/user-roles.js";
+import { canonicalizeUserRole, USER_ROLE_GROUPS, USER_ROLE_IDS, hasUserRole, isConfiguredUserRole } from "../../lib/user-roles.js";
 import { DeleteUserParams, UpdateUserBody, UpdateUserParams, UpdateUserResponse } from "@workspace/api-zod";
 
 const router = Router();
@@ -13,14 +13,14 @@ function toPublicUser(u: typeof usersTable.$inferSelect) {
     id: u.id,
     name: u.name,
     username: u.username,
-    role: u.role,
+    role: canonicalizeUserRole(u.role),
     createdAt: u.createdAt,
     duprId: u.duprId,
     duprFullname: u.duprFullname,
   };
 }
 
-router.get("/", requireRole(USER_ROLE_IDS.admin), async (_req, res) => {
+router.get("/", requireRole(USER_ROLE_IDS.app_admin), async (_req, res) => {
   const users = await db.select().from(usersTable);
   return res.json(users.map(toPublicUser));
 });
@@ -30,7 +30,7 @@ router.get("/assignable-staff", requireRole(...USER_ROLE_GROUPS.eventManagers), 
   return res.json(users.filter((user) => hasUserRole(user.role, "assignableStaff")).map(toPublicUser));
 });
 
-router.post("/", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
+router.post("/", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
   const { name, username, password, role } = req.body;
   if (!name || !username || !password || !role) {
     return res.status(400).json({ error: "name, username, password, and role are required" });
@@ -47,7 +47,7 @@ router.post("/", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
   return res.status(201).json(toPublicUser(user));
 });
 
-router.patch("/:id", requireRole(USER_ROLE_IDS.admin), async (req, res): Promise<void> => {
+router.patch("/:id", requireRole(USER_ROLE_IDS.app_admin), async (req, res): Promise<void> => {
   const parsedParams = UpdateUserParams.safeParse(req.params);
   if (!parsedParams.success) {
     res.status(400).json({ error: parsedParams.error.message });
@@ -89,7 +89,7 @@ router.patch("/:id", requireRole(USER_ROLE_IDS.admin), async (req, res): Promise
   res.json(UpdateUserResponse.parse(toPublicUser(updated)));
 });
 
-router.delete("/:id", requireRole(USER_ROLE_IDS.admin), async (req, res) => {
+router.delete("/:id", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
   const parsedParams = DeleteUserParams.safeParse(req.params);
   if (!parsedParams.success) {
     res.status(400).json({ error: parsedParams.error.message });

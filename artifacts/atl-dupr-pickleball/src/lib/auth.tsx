@@ -68,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         user: validUser,
         isLoading,
         isAuthenticated: !!validUser,
-        isAdmin: role === USER_ROLE_IDS.admin,
+        isAdmin: role === USER_ROLE_IDS.app_admin,
         canAccessAdmin: hasUserRole(role, "adminPanel"),
         authToken,
         setAuthToken,

@@ -3,7 +3,7 @@ import test from "node:test";
 import { checkUserRoles } from "./check-user-roles.mjs";
 
 const roleIds = [
-  "admin",
+  "app_admin",
   "event_organizer",
   "event_participant",
   "event_captain",
@@ -19,7 +19,7 @@ test("rejects a contract with a reordered or missing user role", async () => {
   await assert.rejects(
     checkUserRoles({
       config: { roles: roleIds.slice(0, -1).map((id) => ({ id })) },
-      openApiText: "enum: [admin, event_organizer, event_participant, event_captain]",
+      openApiText: "enum: [app_admin, event_organizer, event_participant, event_captain]",
       generatedTexts: ["", "", "", ""],
     }),
     /out of sync|Could not find generated/,

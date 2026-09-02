@@ -5,6 +5,7 @@ import cookieParser from "cookie-parser";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
 import { getSession, setSession, deleteSession } from "./lib/session.js";
+import { canonicalizeUserRole } from "./lib/user-roles.js";
 
 const SESSION_SECRET = process.env.SESSION_SECRET ?? (
   process.env.NODE_ENV === "production"
@@ -40,7 +41,15 @@ app.use(async (req, _res, next) => {
   if (req.url.startsWith("/api/auth")) {
     logger.info({ sid: sid ? "present" : "missing", bearer: token ? "present" : "missing", url: req.url }, "auth debug");
   }
-  const session = (await getSession(sid)) ?? (await getSession(token)) ?? null;
+  const storedSession = (await getSession(sid)) ?? (await getSession(token)) ?? null;
+  const session = storedSession
+    ? {
+        ...storedSession,
+        role: typeof storedSession.role === "string"
+          ? canonicalizeUserRole(storedSession.role)
+          : storedSession.role,
+      }
+    : null;
   (req as any).session = session;
   next();
 });

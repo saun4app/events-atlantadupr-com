@@ -18,7 +18,7 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 
 export const UserRole = {
-  admin: 'admin',
+  app_admin: 'app_admin',
   event_organizer: 'event_organizer',
   event_participant: 'event_participant',
   event_captain: 'event_captain',
@@ -41,7 +41,7 @@ export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
 
 
 export const UserInputRole = {
-  admin: 'admin',
+  app_admin: 'app_admin',
   event_organizer: 'event_organizer',
   event_participant: 'event_participant',
   event_captain: 'event_captain',
@@ -59,7 +59,7 @@ export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
 
 
 export const UserUpdateRole = {
-  admin: 'admin',
+  app_admin: 'app_admin',
   event_organizer: 'event_organizer',
   event_participant: 'event_participant',
   event_captain: 'event_captain',

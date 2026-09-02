@@ -10,7 +10,7 @@ export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
 
 
 export const UserInputRole = {
-  admin: 'admin',
+  app_admin: 'app_admin',
   event_organizer: 'event_organizer',
   event_participant: 'event_participant',
   event_captain: 'event_captain',

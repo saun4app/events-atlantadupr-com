@@ -19,7 +19,7 @@ import app from "../../app.js";
 import { USER_ROLE_GROUPS } from "../../lib/user-roles.js";
 
 const ASSIGNABLE_ROLES = USER_ROLE_GROUPS.assignableStaff;
-const ORGANIZER_ROLE = userRoleIdMap.admin;
+const ORGANIZER_ROLE = userRoleIdMap.app_admin;
 const ORGANIZER_ROLES = USER_ROLE_GROUPS.eventManagers;
 const ACCESS_ROLES = [...new Set([...ASSIGNABLE_ROLES, ...ORGANIZER_ROLES])];
 const FORBIDDEN_ERROR = "Forbidden: not assigned to this event";
