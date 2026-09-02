@@ -28,6 +28,7 @@ let server: Server;
 let baseUrl: string;
 const users: Array<{ id: number; role: string; token: string }> = [];
 const eventIds: Array<{ id: number; eventType: "rotating" | "fixed_partner" }> = [];
+const clonedEventIds: Array<{ id: number; eventType: "rotating" | "fixed_partner" }> = [];
 const memberIds: string[] = [];
 
 async function createRotatingEvent() {
@@ -282,6 +283,14 @@ async function runWriteAction(
       break;
   }
 
+  if (action === "clone-event" && response.response.status === 201) {
+    const clonedEventId = response.body?.id;
+    assert.equal(typeof clonedEventId, "number", "clone response should include the new event ID");
+    const clonedEvent = { id: clonedEventId, eventType };
+    eventIds.push(clonedEvent);
+    clonedEventIds.push(clonedEvent);
+  }
+
   return response;
 }
 
@@ -328,6 +337,26 @@ after(async () => {
     await db.delete(eventsFixedTable).where(
       inArray(eventsFixedTable.id, eventIds.filter((event) => event.eventType === "fixed_partner").map((event) => event.id)),
     );
+  }
+  const rotatingCloneIds = clonedEventIds
+    .filter((event) => event.eventType === "rotating")
+    .map((event) => event.id);
+  if (rotatingCloneIds.length > 0) {
+    const remainingRotatingClones = await db
+      .select({ id: eventsRotatingTable.id })
+      .from(eventsRotatingTable)
+      .where(inArray(eventsRotatingTable.id, rotatingCloneIds));
+    assert.deepEqual(remainingRotatingClones, []);
+  }
+  const fixedCloneIds = clonedEventIds
+    .filter((event) => event.eventType === "fixed_partner")
+    .map((event) => event.id);
+  if (fixedCloneIds.length > 0) {
+    const remainingFixedClones = await db
+      .select({ id: eventsFixedTable.id })
+      .from(eventsFixedTable)
+      .where(inArray(eventsFixedTable.id, fixedCloneIds));
+    assert.deepEqual(remainingFixedClones, []);
   }
   if (memberIds.length > 0) {
     await db.delete(membersTable).where(inArray(membersTable.duprId, memberIds));
