@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
 import { PublicNav } from "@/components/public-nav";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign, Shuffle, Link2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
@@ -81,6 +82,8 @@ export default function Home() {
     data: rotatingEvents,
     isLoading: rotLoading,
     isError: rotError,
+    isFetching: rotFetching,
+    refetch: refetchRotating,
   } = useListEvents("rotating", {
     query: { queryKey: getListEventsQueryKey("rotating"), retry: false }
   });
@@ -88,6 +91,8 @@ export default function Home() {
     data: fixedEvents,
     isLoading: fixedLoading,
     isError: fixedError,
+    isFetching: fixedFetching,
+    refetch: refetchFixed,
   } = useListEvents("fixed_partner", {
     query: { queryKey: getListEventsQueryKey("fixed_partner"), retry: false }
   });
@@ -98,6 +103,8 @@ export default function Home() {
 
   const isLoading = tab === "rotating" ? rotLoading : fixedLoading;
   const hasError = tab === "rotating" ? rotError : fixedError;
+  const isRetrying = tab === "rotating" ? rotFetching : fixedFetching;
+  const refetchEvents = tab === "rotating" ? refetchRotating : refetchFixed;
   const events = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
 
   const formatTabs: { value: EventType; label: string; icon: React.ElementType }[] = [
@@ -171,6 +178,16 @@ export default function Home() {
               Unable to load {tab === "fixed_partner" ? "fixed-partner" : "rotating"} events
             </p>
             <p className="text-sm mt-1">Please try again later.</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-5"
+              onClick={() => refetchEvents()}
+              disabled={isRetrying}
+              data-testid={`button-retry-event-list-${tab}`}
+            >
+              {isRetrying ? "Trying again..." : "Try again"}
+            </Button>
           </div>
         ) : events && events.length > 0 ? (
           <div className="space-y-4">
