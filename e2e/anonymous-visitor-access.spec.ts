@@ -30,6 +30,17 @@ const PUBLIC_EVENT = {
   createdAt: "2026-01-01T00:00:00.000Z",
 };
 
+const PUBLIC_FIXED_PARTNER_EVENT = {
+  ...PUBLIC_EVENT,
+  id: 902,
+  name: "Public fixed-partner visitor fixture",
+  eventDescription: "<p>Fixed-partner event details.</p>",
+  description: "<p>Fixed-partner registration guidelines.</p>",
+  teamFormat: "fixed_partner",
+  minTeams: 2,
+  maxTeams: 8,
+};
+
 type ApiRequest = {
   method: string;
   pathname: string;
@@ -89,6 +100,43 @@ async function mockAnonymousVisitorApi(page: Page) {
     }
 
     if (pathname === "/api/events/rotating/901/registrations/request-code") {
+      await route.fulfill({
+        json: {
+          sent: true,
+          cooldownSeconds: 30,
+          selfRatingRequired: false,
+        },
+      });
+      return;
+    }
+
+    if (pathname === "/api/events/fixed_partner/902") {
+      await route.fulfill({ json: PUBLIC_FIXED_PARTNER_EVENT });
+      return;
+    }
+
+    if (pathname === "/api/events/fixed_partner/902/roster-summary") {
+      await route.fulfill({
+        json: {
+          confirmed: 0,
+          waitlisted: 0,
+          pendingApproval: 0,
+          maxParticipants: PUBLIC_FIXED_PARTNER_EVENT.maxParticipants,
+          confirmedTeams: 0,
+          maxTeams: PUBLIC_FIXED_PARTNER_EVENT.maxTeams,
+        },
+      });
+      return;
+    }
+
+    if (pathname === "/api/events/fixed_partner/902/registrations") {
+      await route.fulfill({ json: [] });
+      return;
+    }
+
+    if (
+      pathname === "/api/events/fixed_partner/902/registrations/request-code"
+    ) {
       await route.fulfill({
         json: {
           sent: true,
@@ -185,4 +233,40 @@ test("anonymous visitors can open event details but cannot enter admin routes", 
         pathname === "/api/auth/login" && method === "POST",
     ),
   ).toHaveLength(0);
+});
+
+test("anonymous visitors can open fixed-partner event details and see partner requirements", async ({
+  page,
+}) => {
+  const requests = await mockAnonymousVisitorApi(page);
+
+  await page.goto("/events/fixed_partner/902");
+  await expect(page).toHaveURL(/\/events\/fixed_partner\/902$/);
+  await expect(
+    page.getByRole("heading", { name: PUBLIC_FIXED_PARTNER_EVENT.name }),
+  ).toBeVisible();
+  await expect(page.getByTestId("card-event-description")).toContainText(
+    "Fixed-partner event details.",
+  );
+  await expect(page.getByTestId("card-event-guidelines")).toContainText(
+    "Fixed-partner registration guidelines.",
+  );
+  await expect(page.getByTestId("card-registration")).toBeVisible();
+  await expect(page.getByTestId("input-partner-email")).toBeVisible();
+  await expect(page.getByText("Partner's Email", { exact: true })).toBeVisible();
+
+  expect(
+    await page.evaluate(() => localStorage.getItem("authToken")),
+  ).toBeNull();
+  await expect
+    .poll(async () =>
+      (await page.context().cookies()).find((cookie) => cookie.name === "sid"),
+    )
+    .toBeUndefined();
+  expect(
+    requests.every(
+      ({ headers }) =>
+        !headers.authorization && !headers.cookie?.includes("sid="),
+    ),
+  ).toBe(true);
 });
