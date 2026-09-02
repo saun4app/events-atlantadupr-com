@@ -13,17 +13,18 @@ test("loads the configured user roles and preserves access groups", () => {
 
   assert.deepEqual(
     config.roles.map((role) => role.id),
-    ["app_admin", "event_organizer", "event_participant", "event_captain", "court_leader"],
+    ["app_admin", "event_organizer", "club_member", "event_captain", "court_leader"],
   );
-  assert.equal(config.defaults.databaseRole, "event_participant");
+  assert.equal(config.defaults.databaseRole, "club_member");
   assert.equal(config.defaults.newUserRole, "event_organizer");
    assert.equal(userRoleIsInGroup(config, "app_admin", "adminOnly"), true);
-  assert.equal(userRoleIsInGroup(config, "event_participant", "adminPanel"), false);
+  assert.equal(userRoleIsInGroup(config, "club_member", "adminPanel"), false);
   assert.equal(userRoleIsInGroup(config, "event_captain", "assignableStaff"), true);
 });
 
 test("canonicalizes legacy admin values without changing other roles", () => {
   assert.equal(canonicalizeUserRole("admin"), "app_admin");
+  assert.equal(canonicalizeUserRole("event_participant"), "club_member");
   assert.equal(canonicalizeUserRole("event_organizer"), "event_organizer");
 });
 

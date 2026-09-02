@@ -13,8 +13,8 @@
       "badgeTone": "blue"
     },
     {
-      "id": "event_participant",
-      "label": "Participant",
+      "id": "club_member",
+      "label": "Club Member",
       "badgeTone": "muted"
     },
     {
@@ -29,7 +29,7 @@
     }
   ],
   "defaults": {
-    "databaseRole": "event_participant",
+    "databaseRole": "club_member",
     "newUserRole": "event_organizer",
     "auditActorRole": "app_admin"
   },

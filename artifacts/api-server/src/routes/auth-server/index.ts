@@ -55,6 +55,10 @@ router.post("/login", async (req, res) => {
     .update(usersTable)
     .set({ role: "app_admin" })
     .where(eq(usersTable.role, "admin"));
+  await db
+    .update(usersTable)
+    .set({ role: "club_member" })
+    .where(eq(usersTable.role, "event_participant"));
 
   const role = canonicalizeUserRole(user.role);
   if (role !== user.role) {

@@ -1058,7 +1058,7 @@ components:
           type: string
         role:
           type: string
-          enum: [app_admin, event_organizer, event_participant, event_captain, court_leader]
+          enum: [app_admin, event_organizer, club_member, event_captain, court_leader]
         createdAt:
           type: string
           format: date-time
@@ -1079,7 +1079,7 @@ components:
           type: string
         role:
           type: string
-          enum: [app_admin, event_organizer, event_participant, event_captain, court_leader]
+          enum: [app_admin, event_organizer, club_member, event_captain, court_leader]
 
     UserUpdate:
       type: object
@@ -1092,7 +1092,7 @@ components:
           type: ["string", "null"]
         role:
           type: string
-          enum: [app_admin, event_organizer, event_participant, event_captain, court_leader]
+          enum: [app_admin, event_organizer, club_member, event_captain, court_leader]
         duprId:
           type: ["string", "null"]
         duprFullname:

@@ -20,7 +20,7 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 export const UserRole = {
   app_admin: 'app_admin',
   event_organizer: 'event_organizer',
-  event_participant: 'event_participant',
+  club_member: 'club_member',
   event_captain: 'event_captain',
   court_leader: 'court_leader',
 } as const;
@@ -43,7 +43,7 @@ export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
 export const UserInputRole = {
   app_admin: 'app_admin',
   event_organizer: 'event_organizer',
-  event_participant: 'event_participant',
+  club_member: 'club_member',
   event_captain: 'event_captain',
   court_leader: 'court_leader',
 } as const;
@@ -61,7 +61,7 @@ export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
 export const UserUpdateRole = {
   app_admin: 'app_admin',
   event_organizer: 'event_organizer',
-  event_participant: 'event_participant',
+  club_member: 'club_member',
   event_captain: 'event_captain',
   court_leader: 'court_leader',
 } as const;

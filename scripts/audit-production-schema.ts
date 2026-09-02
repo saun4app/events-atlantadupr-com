@@ -78,7 +78,7 @@ const expectedColumns: ExpectedColumn[] = [
     nullable: false,
     defaultDescription: "the configured default role",
     matchesDefault: (value) =>
-      value !== null && value.includes("'event_participant'"),
+      value !== null && value.includes("'club_member'"),
   },
   {
     name: "dupr_id",

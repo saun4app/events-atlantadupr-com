@@ -18,6 +18,7 @@ export const USER_ROLE_GROUP_NAMES = [
 
 export const LEGACY_USER_ROLE_ALIASES = {
   admin: "app_admin",
+  event_participant: "club_member",
 } as const;
 
 const roleSchema = z
