@@ -1,0 +1,95 @@
+name: Hosted verification cleanup
+
+on:
+  workflow_dispatch:
+    inputs:
+      owner:
+        description: GitHub owner of the disposable verification repository
+        required: true
+        type: string
+      repo:
+        description: Disposable verification repository to delete and verify
+        required: true
+        type: string
+      run_urls:
+        description: Hosted verification run URLs, one per line
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare hosted verification evidence directory
+        run: mkdir -p test-results
+
+      # Run this manually after the hosted verification workflow has completed.
+      # HOSTED_CLEANUP_TOKEN must be a repository-owner token with permission
+      # to delete the disposable repository.
+      - name: Verify hosted cleanup
+        id: hosted-cleanup
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.HOSTED_CLEANUP_TOKEN }}
+          HOSTED_OWNER: ${{ inputs.owner }}
+          HOSTED_REPO: ${{ inputs.repo }}
+          HOSTED_RUN_URLS: ${{ inputs.run_urls }}
+        run: |
+          set -euo pipefail
+
+          run_url_args=()
+          while IFS= read -r run_url; do
+            [[ -z "$run_url" ]] && continue
+            run_url_args+=(--run-url "$run_url")
+          done <<< "$HOSTED_RUN_URLS"
+
+          if (( ${#run_url_args[@]} == 0 )); then
+            echo "::error::At least one hosted verification run URL is required"
+            exit 1
+          fi
+
+          pnpm run verify:hosted-cleanup -- \
+            --owner "$HOSTED_OWNER" \
+            --repo "$HOSTED_REPO" \
+            "${run_url_args[@]}" \
+            --evidence-file test-results/hosted-verification.json
+
+      # This must run even when cleanup returns a timeout, permission failure,
+      # or unresolved owner handoff. The verifier preserves the evidence file
+      # before teardown so it can still be downloaded from the failed run.
+      - name: Upload hosted verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosted-verification-evidence
+          path: test-results/hosted-verification.json
+          if-no-files-found: warn
+          retention-days: 14
+
+      # continue-on-error above lets the evidence upload finish, while this
+      # explicit failure keeps the cleanup result visible in the job status.
+      - name: Fail when hosted cleanup fails
+        if: steps.hosted-cleanup.outcome == 'failure'
+        run: |
+          echo "::error::Hosted cleanup verification failed; download the hosted-verification-evidence artifact for details."
+          exit 1
