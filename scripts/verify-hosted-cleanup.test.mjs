@@ -35,7 +35,9 @@ function fakeClient({ responses, onDelete } = {}) {
 }
 
 async function evidenceIn(directory) {
-  return JSON.parse(await readFile(join(directory, "hosted-verification.json"), "utf8"));
+  return JSON.parse(
+    await readFile(join(directory, "hosted-verification.json"), "utf8"),
+  );
 }
 
 test("records run URLs before deletion and proves the repository returns 404", async () => {
@@ -77,7 +79,9 @@ test("records run URLs before deletion and proves the repository returns 404", a
 test("reports an owner handoff for a 403 and preserves the run evidence", async () => {
   const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
   const client = fakeClient({
-    responses: [{ error: Object.assign(new Error("forbidden"), { status: 403 }) }],
+    responses: [
+      { error: Object.assign(new Error("forbidden"), { status: 403 }) },
+    ],
   });
 
   await assert.rejects(
@@ -105,6 +109,84 @@ test("reports an owner handoff for a 403 and preserves the run evidence", async 
   assert.equal(evidence.cleanup, undefined);
 });
 
+test("reports a retryable DELETE failure and preserves the run evidence", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    onDelete: async () => {
+      throw Object.assign(new Error("GitHub is temporarily unavailable"), {
+        status: 503,
+      });
+    },
+  });
+
+  await assert.rejects(
+    cleanupHostedRepository({
+      client,
+      owner: "example-owner",
+      repo: "disposable-fork",
+      runUrls: ["https://github.com/example-owner/project/actions/runs/512"],
+      evidencePath: join(directory, "hosted-verification.json"),
+    }),
+    (error) => {
+      assert(error instanceof HostedCleanupError);
+      assert.equal(error.code, "DELETE_REQUEST_FAILED");
+      assert.equal(error.status, 503);
+      assert.equal(error.retryable, true);
+      assert.equal(error.handoffRequired, false);
+      assert.match(error.message, /retryable API failure/);
+      assert.doesNotMatch(error.message, /owner handoff is required/);
+      return true;
+    },
+  );
+
+  const evidence = await evidenceIn(directory);
+  assert.deepEqual(evidence.run_urls, [
+    "https://github.com/example-owner/project/actions/runs/512",
+  ]);
+  assert.equal(evidence.cleanup, undefined);
+});
+
+test("reports a retryable GET network failure and preserves the run evidence", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  let currentTime = 0;
+  const client = fakeClient({
+    responses: [new Error("socket hang up"), new Error("socket hang up")],
+  });
+
+  await assert.rejects(
+    cleanupHostedRepository({
+      client,
+      owner: "example-owner",
+      repo: "disposable-fork",
+      runUrls: ["https://github.com/example-owner/project/actions/runs/513"],
+      evidencePath: join(directory, "hosted-verification.json"),
+      timeoutMs: 5,
+      intervalMs: 5,
+      now: () => currentTime,
+      sleep: async (delayMs) => {
+        currentTime += delayMs;
+      },
+    }),
+    (error) => {
+      assert(error instanceof HostedCleanupError);
+      assert.equal(error.code, "RETRYABLE_API_FAILURE");
+      assert.equal(error.status, "network-error");
+      assert.equal(error.retryable, true);
+      assert.equal(error.handoffRequired, false);
+      assert.match(error.message, /retryable API failure/);
+      assert.doesNotMatch(error.message, /owner handoff is required/);
+      assert.equal(error.observations[0].message, "socket hang up");
+      return true;
+    },
+  );
+
+  const evidence = await evidenceIn(directory);
+  assert.deepEqual(evidence.run_urls, [
+    "https://github.com/example-owner/project/actions/runs/513",
+  ]);
+  assert.equal(evidence.cleanup, undefined);
+});
+
 test("fails on timeout after repeated non-404 responses", async () => {
   let currentTime = 0;
   const statuses = [];
@@ -128,7 +210,10 @@ test("fails on timeout after repeated non-404 responses", async () => {
       assert(error instanceof HostedCleanupError);
       assert.equal(error.code, "CLEANUP_VERIFICATION_TIMEOUT");
       assert.equal(error.handoffRequired, true);
-      assert.match(error.message, /did not return 404.*owner handoff is required/);
+      assert.match(
+        error.message,
+        /did not return 404.*owner handoff is required/,
+      );
       return true;
     },
   );
@@ -172,7 +257,8 @@ test("preserves run evidence when 404 verification times out", async () => {
 test("does not delete an existing evidence file when a new cleanup cannot start", async () => {
   const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
   const evidencePath = join(directory, "hosted-verification.json");
-  const existingEvidence = '{"run_urls":["https://github.com/example-owner/project/actions/runs/789"]}\n';
+  const existingEvidence =
+    '{"run_urls":["https://github.com/example-owner/project/actions/runs/789"]}\n';
   await writeFile(evidencePath, existingEvidence);
 
   await assert.rejects(

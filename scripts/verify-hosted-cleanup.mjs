@@ -8,13 +8,21 @@ const DEFAULT_POLL_INTERVAL_MS = 2_000;
 export class HostedCleanupError extends Error {
   constructor(
     message,
-    { code, status, handoffRequired = false, evidencePath, observations } = {},
+    {
+      code,
+      status,
+      handoffRequired = false,
+      retryable = false,
+      evidencePath,
+      observations,
+    } = {},
   ) {
     super(message);
     this.name = "HostedCleanupError";
     this.code = code;
     this.status = status;
     this.handoffRequired = handoffRequired;
+    this.retryable = retryable;
     this.evidencePath = evidencePath;
     this.observations = observations;
   }
@@ -22,6 +30,10 @@ export class HostedCleanupError extends Error {
 
 function responseStatus(errorOrResponse) {
   return errorOrResponse?.status ?? errorOrResponse?.response?.status;
+}
+
+function isRetryableApiStatus(status) {
+  return status === 408 || status === 429 || (status >= 500 && status <= 599);
 }
 
 function repositoryLabel(owner, repo) {
@@ -103,7 +115,8 @@ export async function pollUntilRepositoryGone({
   timeoutMs = DEFAULT_POLL_TIMEOUT_MS,
   intervalMs = DEFAULT_POLL_INTERVAL_MS,
   now = () => Date.now(),
-  sleep = (delayMs) => new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs)),
+  sleep = (delayMs) =>
+    new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs)),
 }) {
   if (
     !Number.isFinite(timeoutMs) ||
@@ -111,7 +124,9 @@ export async function pollUntilRepositoryGone({
     timeoutMs < 0 ||
     intervalMs < 0
   ) {
-    throw new TypeError("timeoutMs and intervalMs must be finite, non-negative numbers");
+    throw new TypeError(
+      "timeoutMs and intervalMs must be finite, non-negative numbers",
+    );
   }
 
   const startedAt = now();
@@ -128,7 +143,8 @@ export async function pollUntilRepositoryGone({
     } catch (error) {
       status = responseStatus(error);
       if (status === undefined) {
-        observation = { status: "network-error", message: error?.message ?? String(error) };
+        status = "network-error";
+        observation = { status, message: error?.message ?? String(error) };
       } else {
         observation = { status };
       }
@@ -157,6 +173,20 @@ export async function pollUntilRepositoryGone({
 
     const remainingMs = deadline - now();
     if (remainingMs <= 0) {
+      const retryableFailure =
+        status === "network-error" || isRetryableApiStatus(status);
+      if (retryableFailure) {
+        throw new HostedCleanupError(
+          `Repository ${repositoryLabel(owner, repo)} could not be verified because the GitHub API returned a retryable API failure (last response: ${status}); retry cleanup verification. Owner handoff is not required for this transient failure.`,
+          {
+            code: "RETRYABLE_API_FAILURE",
+            status,
+            retryable: true,
+            observations,
+          },
+        );
+      }
+
       throw new HostedCleanupError(
         `Repository ${repositoryLabel(owner, repo)} did not return 404 before the ${timeoutMs}ms cleanup verification timeout (last response: ${status ?? "unknown"}); cleanup is unresolved and owner handoff is required.`,
         {
@@ -185,7 +215,9 @@ export async function cleanupHostedRepository({
   sleep,
 }) {
   if (!client?.rest?.repos?.delete || !client?.rest?.repos?.get) {
-    throw new TypeError("client must provide rest.repos.delete and rest.repos.get");
+    throw new TypeError(
+      "client must provide rest.repos.delete and rest.repos.get",
+    );
   }
   if (!evidencePath) {
     throw new TypeError("evidencePath is required");
@@ -202,7 +234,9 @@ export async function cleanupHostedRepository({
   // polling fails, the run URLs remain available for diagnosis and handoff.
   const targetEvidencePath = resolve(evidencePath);
   try {
-    await writeJsonAtomically(targetEvidencePath, evidence, { overwrite: false });
+    await writeJsonAtomically(targetEvidencePath, evidence, {
+      overwrite: false,
+    });
   } catch (error) {
     throw new HostedCleanupError(
       `Could not create verification evidence at ${targetEvidencePath}; existing evidence was left untouched.`,
@@ -217,12 +251,25 @@ export async function cleanupHostedRepository({
   try {
     deleteResponse = await client.rest.repos.delete({ owner, repo });
   } catch (error) {
+    const status = responseStatus(error);
+    const ownerHandoffRequired = status === 403;
+    const retryableFailure =
+      !ownerHandoffRequired &&
+      (status === undefined || isRetryableApiStatus(status));
+    const failureMessage = ownerHandoffRequired
+      ? `Repository deletion request for ${repositoryLabel(owner, repo)} failed with 403; owner handoff is required.`
+      : retryableFailure
+        ? `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${status ?? "an unknown error"}; this is a retryable API failure. Retry cleanup; owner handoff is not required for this failure.`
+        : `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${status ?? "an unknown error"}; owner handoff is not required for this failure.`;
     throw new HostedCleanupError(
-      `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${responseStatus(error) ?? "an unknown error"}.`,
+      failureMessage,
       {
-        code: responseStatus(error) === 403 ? "OWNER_HANDOFF_REQUIRED" : "DELETE_REQUEST_FAILED",
-        status: responseStatus(error),
-        handoffRequired: responseStatus(error) === 403,
+        code: ownerHandoffRequired
+          ? "OWNER_HANDOFF_REQUIRED"
+          : "DELETE_REQUEST_FAILED",
+        status,
+        handoffRequired: ownerHandoffRequired,
+        retryable: retryableFailure,
         evidencePath: targetEvidencePath,
       },
     );
@@ -322,7 +369,9 @@ async function main() {
 
   const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
   if (!token) {
-    throw new Error("GITHUB_TOKEN (or GH_TOKEN) is required; provide it through the environment, not command arguments");
+    throw new Error(
+      "GITHUB_TOKEN (or GH_TOKEN) is required; provide it through the environment, not command arguments",
+    );
   }
 
   const result = await cleanupHostedRepository({
@@ -339,9 +388,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   try {
     await main();
   } catch (error) {
-    console.error(`::error::${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `::error::${error instanceof Error ? error.message : String(error)}`,
+    );
     if (error?.handoffRequired) {
-      console.error("Owner handoff: the repository owner must complete deletion and rerun the 404 verification.");
+      console.error(
+        "Owner handoff: the repository owner must complete deletion and rerun the 404 verification.",
+      );
     }
     if (error?.evidencePath) {
       console.error(`Verification evidence preserved at ${error.evidencePath}`);
