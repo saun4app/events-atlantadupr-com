@@ -33,6 +33,7 @@ const PUBLIC_EVENT = {
 type ApiRequest = {
   method: string;
   pathname: string;
+  headers: Record<string, string>;
 };
 
 async function mockAnonymousVisitorApi(page: Page) {
@@ -41,7 +42,11 @@ async function mockAnonymousVisitorApi(page: Page) {
   page.on("request", (request) => {
     const url = new URL(request.url());
     if (url.pathname.startsWith("/api/")) {
-      requests.push({ method: request.method(), pathname: url.pathname });
+      requests.push({
+        method: request.method(),
+        pathname: url.pathname,
+        headers: request.headers(),
+      });
     }
   });
 
@@ -58,6 +63,39 @@ async function mockAnonymousVisitorApi(page: Page) {
 
     if (pathname === "/api/events/rotating") {
       await route.fulfill({ json: [PUBLIC_EVENT] });
+      return;
+    }
+
+    if (pathname === "/api/events/rotating/901") {
+      await route.fulfill({ json: PUBLIC_EVENT });
+      return;
+    }
+
+    if (pathname === "/api/events/rotating/901/roster-summary") {
+      await route.fulfill({
+        json: {
+          confirmed: 0,
+          waitlisted: 0,
+          pendingApproval: 0,
+          maxParticipants: PUBLIC_EVENT.maxParticipants,
+        },
+      });
+      return;
+    }
+
+    if (pathname === "/api/events/rotating/901/registrations") {
+      await route.fulfill({ json: [] });
+      return;
+    }
+
+    if (pathname === "/api/events/rotating/901/registrations/request-code") {
+      await route.fulfill({
+        json: {
+          sent: true,
+          cooldownSeconds: 30,
+          selfRatingRequired: false,
+        },
+      });
       return;
     }
 
@@ -95,7 +133,7 @@ async function mockAnonymousVisitorApi(page: Page) {
   return requests;
 }
 
-test("anonymous visitors can browse events but cannot enter admin routes", async ({
+test("anonymous visitors can open event details but cannot enter admin routes", async ({
   page,
 }) => {
   const requests = await mockAnonymousVisitorApi(page);
@@ -104,9 +142,21 @@ test("anonymous visitors can browse events but cannot enter admin routes", async
   await expect(
     page.getByRole("heading", { name: "Upcoming Events" }),
   ).toBeVisible();
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toBeVisible();
+
+  await page.getByTestId(`card-event-${PUBLIC_EVENT.id}`).click();
+  await expect(page).toHaveURL(/\/events\/rotating\/901$/);
   await expect(
-    page.getByTestId(`card-event-${PUBLIC_EVENT.id}`),
+    page.getByRole("heading", { name: PUBLIC_EVENT.name }),
   ).toBeVisible();
+  await expect(page.getByTestId("card-event-description")).toContainText(
+    "Public event details.",
+  );
+  await expect(page.getByTestId("card-registration")).toBeVisible();
+
+  await page.getByTestId("input-reg-email").fill("visitor@example.com");
+  await page.getByTestId("button-send-code").click();
+  await expect(page.getByTestId("input-reg-code")).toBeVisible();
 
   await page.goto("/admin/users");
   await expect(page).toHaveURL(/\/login$/);
@@ -118,15 +168,17 @@ test("anonymous visitors can browse events but cannot enter admin routes", async
     await page.evaluate(() => localStorage.getItem("authToken")),
   ).toBeNull();
   await expect
-    .poll(async () => (await page.context().cookies()).find((cookie) => cookie.name === "sid"))
+    .poll(async () =>
+      (await page.context().cookies()).find((cookie) => cookie.name === "sid"),
+    )
     .toBeUndefined();
-
   expect(
-    requests.filter(
-      ({ method, pathname }) =>
-        pathname === "/api/users" && method !== "GET",
+    requests.every(
+      ({ headers }) =>
+        !headers.authorization && !headers.cookie?.includes("sid="),
     ),
-  ).toHaveLength(0);
+  ).toBe(true);
+
   expect(
     requests.filter(
       ({ method, pathname }) =>
