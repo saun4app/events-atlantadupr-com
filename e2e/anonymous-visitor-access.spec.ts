@@ -347,6 +347,55 @@ test("anonymous visitors see a format-specific error when fixed-partner events c
   ).toHaveLength(2);
 });
 
+test("anonymous visitors see independent errors when both event formats cannot load", async ({
+  page,
+}) => {
+  const requests = await mockAnonymousVisitorApi(page, {
+    rotatingPartnerEventsFailure: true,
+    fixedPartnerEventsFailure: true,
+  });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Upcoming Events" })).toBeVisible();
+
+  const rotatingError = page.getByTestId("event-list-error-rotating");
+  await expect(rotatingError).toBeVisible();
+  await expect(rotatingError).toContainText("Unable to load rotating events");
+  await expect(rotatingError).toContainText("Please try again later.");
+  await expect(page.getByTestId("event-list-error-fixed_partner")).toHaveCount(0);
+  await expect(page.getByText("No upcoming events", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toHaveCount(0);
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toHaveCount(0);
+
+  await page.getByTestId("tab-fixed_partner").click();
+
+  const fixedError = page.getByTestId("event-list-error-fixed_partner");
+  await expect(fixedError).toBeVisible();
+  await expect(fixedError).toContainText("Unable to load fixed-partner events");
+  await expect(fixedError).toContainText("Please try again later.");
+  await expect(page.getByTestId("event-list-error-rotating")).toHaveCount(0);
+  await expect(page.getByText("No upcoming events", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toHaveCount(0);
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toHaveCount(0);
+
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/rotating",
+    ),
+  ).toHaveLength(1);
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/fixed_partner",
+    ),
+  ).toHaveLength(1);
+});
+
 test("anonymous visitors can retry a failed event format without affecting the other list", async ({
   page,
 }) => {
