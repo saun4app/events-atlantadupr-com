@@ -10,8 +10,9 @@ import {
   pollUntilRepositoryGone,
 } from "./verify-hosted-cleanup.mjs";
 
-function fakeClient({ responses, onDelete } = {}) {
+function fakeClient({ responses, deleteResponses, onDelete } = {}) {
   const queue = [...(responses ?? [{ status: 404 }])];
+  const deleteQueue = [...(deleteResponses ?? [])];
   const calls = [];
   return {
     calls,
@@ -20,7 +21,10 @@ function fakeClient({ responses, onDelete } = {}) {
         async delete(params) {
           calls.push({ operation: "delete", params });
           await onDelete?.();
-          return { status: 204 };
+          const response = deleteQueue.shift() ?? { status: 204 };
+          if (response instanceof Error) throw response;
+          if (response.error) throw response.error;
+          return response;
         },
         async get(params) {
           calls.push({ operation: "get", params });
@@ -107,6 +111,10 @@ test("reports an owner handoff for a 403 and preserves the run evidence", async 
     "https://github.com/example-owner/project/actions/runs/456",
   ]);
   assert.equal(evidence.cleanup, undefined);
+  assert.equal(
+    client.calls.filter((call) => call.operation === "delete").length,
+    1,
+  );
 });
 
 test("reports a retryable DELETE failure and preserves the run evidence", async () => {
@@ -126,6 +134,8 @@ test("reports a retryable DELETE failure and preserves the run evidence", async 
       repo: "disposable-fork",
       runUrls: ["https://github.com/example-owner/project/actions/runs/512"],
       evidencePath: join(directory, "hosted-verification.json"),
+      deleteRetryDelayMs: 0,
+      sleep: async () => {},
     }),
     (error) => {
       assert(error instanceof HostedCleanupError);
@@ -133,6 +143,15 @@ test("reports a retryable DELETE failure and preserves the run evidence", async 
       assert.equal(error.status, 503);
       assert.equal(error.retryable, true);
       assert.equal(error.handoffRequired, false);
+      assert.equal(error.observations.length, 3);
+      assert.deepEqual(
+        error.observations.map(({ attempt, status }) => ({ attempt, status })),
+        [
+          { attempt: 1, status: 503 },
+          { attempt: 2, status: 503 },
+          { attempt: 3, status: 503 },
+        ],
+      );
       assert.match(error.message, /retryable API failure/);
       assert.doesNotMatch(error.message, /owner handoff is required/);
       return true;
@@ -144,6 +163,70 @@ test("reports a retryable DELETE failure and preserves the run evidence", async 
     "https://github.com/example-owner/project/actions/runs/512",
   ]);
   assert.equal(evidence.cleanup, undefined);
+});
+
+test("retries a transient DELETE response and then verifies deletion", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    deleteResponses: [
+      { status: 503 },
+      { status: 204 },
+    ],
+  });
+  const delays = [];
+
+  const result = await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/514"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    deleteRetryDelayMs: 25,
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+    },
+    intervalMs: 0,
+  });
+
+  assert.equal(result.verification.status, "deleted");
+  assert.deepEqual(
+    client.calls.map((call) => call.operation),
+    ["delete", "delete", "get"],
+  );
+  assert.deepEqual(delays, [25]);
+  const evidence = await evidenceIn(directory);
+  assert.equal(evidence.cleanup.delete_status, 204);
+});
+
+test("retries a network DELETE failure within the bounded attempt budget", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    deleteResponses: [
+      new Error("socket hang up"),
+      { status: 204 },
+    ],
+  });
+  const delays = [];
+
+  await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/515"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    deleteAttempts: 2,
+    deleteRetryDelayMs: 100,
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+    },
+    intervalMs: 0,
+  });
+
+  assert.equal(
+    client.calls.filter((call) => call.operation === "delete").length,
+    2,
+  );
+  assert.deepEqual(delays, [100]);
 });
 
 test("reports a retryable GET network failure and preserves the run evidence", async () => {

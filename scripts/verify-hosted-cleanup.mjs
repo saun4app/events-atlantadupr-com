@@ -4,6 +4,9 @@ import { dirname, resolve } from "node:path";
 
 const DEFAULT_POLL_TIMEOUT_MS = 120_000;
 const DEFAULT_POLL_INTERVAL_MS = 2_000;
+const DEFAULT_DELETE_ATTEMPTS = 3;
+const DEFAULT_DELETE_RETRY_DELAY_MS = 1_000;
+const MAX_DELETE_RETRY_DELAY_MS = 10_000;
 
 export class HostedCleanupError extends Error {
   constructor(
@@ -34,6 +37,10 @@ function responseStatus(errorOrResponse) {
 
 function isRetryableApiStatus(status) {
   return status === 408 || status === 429 || (status >= 500 && status <= 599);
+}
+
+function isSuccessfulApiStatus(status) {
+  return status >= 200 && status < 300;
 }
 
 function repositoryLabel(owner, repo) {
@@ -211,8 +218,11 @@ export async function cleanupHostedRepository({
   recordedAt,
   timeoutMs = DEFAULT_POLL_TIMEOUT_MS,
   intervalMs = DEFAULT_POLL_INTERVAL_MS,
+  deleteAttempts = DEFAULT_DELETE_ATTEMPTS,
+  deleteRetryDelayMs = DEFAULT_DELETE_RETRY_DELAY_MS,
   now,
-  sleep,
+  sleep = (delayMs) =>
+    new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs)),
 }) {
   if (!client?.rest?.repos?.delete || !client?.rest?.repos?.get) {
     throw new TypeError(
@@ -221,6 +231,14 @@ export async function cleanupHostedRepository({
   }
   if (!evidencePath) {
     throw new TypeError("evidencePath is required");
+  }
+  if (!Number.isInteger(deleteAttempts) || deleteAttempts < 1) {
+    throw new TypeError("deleteAttempts must be a positive integer");
+  }
+  if (!Number.isFinite(deleteRetryDelayMs) || deleteRetryDelayMs < 0) {
+    throw new TypeError(
+      "deleteRetryDelayMs must be a finite, non-negative number",
+    );
   }
 
   const evidence = createVerificationEvidence({
@@ -248,29 +266,68 @@ export async function cleanupHostedRepository({
   }
 
   let deleteResponse;
-  try {
-    deleteResponse = await client.rest.repos.delete({ owner, repo });
-  } catch (error) {
-    const status = responseStatus(error);
+  const deleteObservations = [];
+  for (let attempt = 1; attempt <= deleteAttempts; attempt += 1) {
+    let response;
+    let status;
+    let errorMessage;
+    try {
+      response = await client.rest.repos.delete({ owner, repo });
+      status = responseStatus(response) ?? 204;
+      if (isSuccessfulApiStatus(status)) {
+        deleteResponse = response;
+        break;
+      }
+    } catch (error) {
+      status = responseStatus(error);
+      errorMessage = error?.message ?? String(error);
+    }
+
+    const diagnosticStatus = status ?? "network-error";
+    const observation = { attempt, status: diagnosticStatus };
+    if (errorMessage) observation.message = errorMessage;
+    deleteObservations.push(observation);
+
     const ownerHandoffRequired = status === 403;
     const retryableFailure =
       !ownerHandoffRequired &&
       (status === undefined || isRetryableApiStatus(status));
-    const failureMessage = ownerHandoffRequired
-      ? `Repository deletion request for ${repositoryLabel(owner, repo)} failed with 403; owner handoff is required.`
-      : retryableFailure
-        ? `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${status ?? "an unknown error"}; this is a retryable API failure. Retry cleanup; owner handoff is not required for this failure.`
-        : `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${status ?? "an unknown error"}; owner handoff is not required for this failure.`;
+    const finalAttempt = attempt === deleteAttempts;
+    if (ownerHandoffRequired || !retryableFailure || finalAttempt) {
+      const failureMessage = ownerHandoffRequired
+        ? `Repository deletion request for ${repositoryLabel(owner, repo)} failed with 403; owner handoff is required.`
+        : retryableFailure
+          ? `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${status ?? "an unknown error"} after ${attempt} attempt(s); this is a retryable API failure. Retry cleanup; owner handoff is not required for this failure.`
+          : `Repository deletion request for ${repositoryLabel(owner, repo)} failed with ${status ?? "an unknown error"}; owner handoff is not required for this failure.`;
+      throw new HostedCleanupError(
+        failureMessage,
+        {
+          code: ownerHandoffRequired
+            ? "OWNER_HANDOFF_REQUIRED"
+            : "DELETE_REQUEST_FAILED",
+          status,
+          handoffRequired: ownerHandoffRequired,
+          retryable: retryableFailure,
+          evidencePath: targetEvidencePath,
+          observations: deleteObservations,
+        },
+      );
+    }
+
+    const retryDelay = Math.min(
+      deleteRetryDelayMs * 2 ** (attempt - 1),
+      MAX_DELETE_RETRY_DELAY_MS,
+    );
+    await sleep(retryDelay);
+  }
+
+  if (!deleteResponse) {
     throw new HostedCleanupError(
-      failureMessage,
+      `Repository deletion request for ${repositoryLabel(owner, repo)} did not return a successful response.`,
       {
-        code: ownerHandoffRequired
-          ? "OWNER_HANDOFF_REQUIRED"
-          : "DELETE_REQUEST_FAILED",
-        status,
-        handoffRequired: ownerHandoffRequired,
-        retryable: retryableFailure,
+        code: "DELETE_REQUEST_FAILED",
         evidencePath: targetEvidencePath,
+        observations: deleteObservations,
       },
     );
   }
@@ -313,6 +370,8 @@ function parseArguments(argv) {
     runUrls: [],
     timeoutMs: DEFAULT_POLL_TIMEOUT_MS,
     intervalMs: DEFAULT_POLL_INTERVAL_MS,
+    deleteAttempts: DEFAULT_DELETE_ATTEMPTS,
+    deleteRetryDelayMs: DEFAULT_DELETE_RETRY_DELAY_MS,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -329,6 +388,10 @@ function parseArguments(argv) {
     else if (argument === "--evidence-file") args.evidencePath = value;
     else if (argument === "--poll-timeout-ms") args.timeoutMs = Number(value);
     else if (argument === "--poll-interval-ms") args.intervalMs = Number(value);
+    else if (argument === "--delete-attempts") args.deleteAttempts = Number(value);
+    else if (argument === "--delete-retry-delay-ms") {
+      args.deleteRetryDelayMs = Number(value);
+    }
     else throw new Error(`Unknown argument: ${argument}`);
     index += 1;
   }
@@ -345,7 +408,10 @@ function printUsage() {
     --evidence-file test-results/hosted-verification.json
 
 The run URL option may be repeated. The evidence file is written before the
-repository is deleted and is preserved if deletion or 404 verification fails.
+  repository is deleted and is preserved if deletion or 404 verification fails.
+  Retryable deletion failures are attempted up to three times by default. Use
+  --delete-attempts and --delete-retry-delay-ms to adjust the bounded retry
+  budget and initial exponential backoff.
 `);
 }
 
