@@ -20,3 +20,9 @@ Repository deletion can require fork-owner or organization authority beyond the 
 **Why:** The hosted verification fork reported admin-level repository permissions, but GitHub still rejected repository deletion for the connected identity.
 
 **How to apply:** Before creating a disposable fork for hosted verification, confirm that the connected identity can delete repositories owned by the fork owner; otherwise plan to remove refs and queue fork deletion for an owner-authorized follow-up.
+
+The GitHub connector can report `admin` repository permission while repository deletion still fails with `403 Must have admin rights to Repository` when its OAuth grant lacks the separate deletion scope.
+
+**Why:** Repository metadata and collaborator-permission endpoints confirm administrative access, but GitHub applies an additional deletion authorization boundary to `DELETE /repos/{owner}/{repo}`.
+
+**How to apply:** Treat a successful admin read as insufficient proof of deletability. Check the deletion endpoint once, inspect the connector's effective OAuth scopes, and use an owner-authorized GitHub account or UI when the connector cannot grant the deletion scope.
