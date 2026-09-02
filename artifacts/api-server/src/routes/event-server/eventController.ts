@@ -150,6 +150,58 @@ export interface NormalizedEvent {
   createdAt: Date;
 }
 
+/**
+ * Exact marker used by the event-access authorization suite. This is kept in
+ * the controller module so the suite's stale-fixture cleanup and its fixture
+ * ownership rule cannot drift apart.
+ */
+export const AUTHORIZATION_TEST_FIXTURE_MARKER = "__event_access_test_fixture__";
+
+type AuthorizationTestFixtureCandidate = Pick<
+  NormalizedEvent,
+  | "teamFormat"
+  | "name"
+  | "description"
+  | "eventDescription"
+  | "locationName"
+  | "locationAddress"
+>;
+
+/**
+ * Identify only records that the authorization suite can own.
+ *
+ * The marker is the preferred check for newly-created fixtures. The exact
+ * legacy patterns are retained so an interrupted run from before the marker
+ * was added can be cleaned up too. Requiring the generated name shape,
+ * location, and empty optional descriptions avoids treating a real event with
+ * a merely similar name as test data.
+ */
+export function isAuthorizationTestFixture(
+  event: AuthorizationTestFixtureCandidate,
+): boolean {
+  if (
+    event.description === AUTHORIZATION_TEST_FIXTURE_MARKER &&
+    event.locationName === "Access Test Courts" &&
+    event.locationAddress === "" &&
+    event.eventDescription === null
+  ) {
+    return true;
+  }
+
+  const legacyNamePattern =
+    event.teamFormat === "rotating"
+      ? /^Access test [a-z0-9]+(?: clone|\s\(Copy\))?$/
+      : /^Fixed access test [a-z0-9]+(?: clone|\s\(Copy\))?$/;
+
+  return (
+    event.description === null &&
+    event.eventDescription === null &&
+    event.locationName === "Access Test Courts" &&
+    event.locationAddress === "" &&
+    legacyNamePattern.test(event.name)
+  );
+}
+
 function generateRecurringDates(
   startDatetime: Date,
   endDatetime: Date,

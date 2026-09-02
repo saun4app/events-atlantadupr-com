@@ -17,6 +17,11 @@ import {
 } from "@workspace/db";
 import app from "../../app.js";
 import { USER_ROLE_GROUPS } from "../../lib/user-roles.js";
+import {
+  AUTHORIZATION_TEST_FIXTURE_MARKER,
+  eventControllers,
+  isAuthorizationTestFixture,
+} from "./eventController.js";
 
 const ASSIGNABLE_ROLES = USER_ROLE_GROUPS.assignableStaff;
 const ORGANIZER_ROLE = userRoleIdMap.app_admin;
@@ -37,6 +42,7 @@ async function createRotatingEvent() {
     .insert(eventsRotatingTable)
     .values({
       name: `Access test ${Math.random().toString(36).slice(2)}`,
+      description: AUTHORIZATION_TEST_FIXTURE_MARKER,
       startDatetime: new Date(now + 86_400_000),
       endDatetime: new Date(now + 90_000_000),
       locationName: "Access Test Courts",
@@ -55,6 +61,7 @@ async function createFixedEvent() {
     .insert(eventsFixedTable)
     .values({
       name: `Fixed access test ${Math.random().toString(36).slice(2)}`,
+      description: AUTHORIZATION_TEST_FIXTURE_MARKER,
       startDatetime: new Date(now + 86_400_000),
       endDatetime: new Date(now + 90_000_000),
       locationName: "Access Test Courts",
@@ -301,7 +308,54 @@ function expectedWriteStatus(action: WriteAction) {
   return 200;
 }
 
+async function cleanupStaleAuthorizationFixtures(
+  protectedEventKeys = new Set<string>(),
+) {
+  const candidates = (
+    await Promise.all([
+      eventControllers.rotating.allNormalized(),
+      eventControllers.fixed_partner.allNormalized(),
+    ])
+  ).flat();
+  const staleFixtures = candidates.filter(
+    (event) =>
+      isAuthorizationTestFixture(event) &&
+      !protectedEventKeys.has(`${event.teamFormat}:${event.id}`),
+  );
+
+  await db.transaction(async (tx) => {
+    for (const event of staleFixtures) {
+      await tx
+        .delete(registrationsTable)
+        .where(
+          and(
+            eq(registrationsTable.eventId, event.id),
+            eq(registrationsTable.eventType, event.teamFormat),
+          ),
+        );
+      await tx
+        .delete(eventAssignmentsTable)
+        .where(
+          and(
+            eq(eventAssignmentsTable.eventId, event.id),
+            eq(eventAssignmentsTable.eventType, event.teamFormat),
+          ),
+        );
+
+      if (event.teamFormat === "rotating") {
+        await tx.delete(eventsRotatingTable).where(eq(eventsRotatingTable.id, event.id));
+      } else {
+        await tx.delete(eventsFixedTable).where(eq(eventsFixedTable.id, event.id));
+      }
+    }
+  });
+
+  return staleFixtures;
+}
+
 before(async () => {
+  await cleanupStaleAuthorizationFixtures();
+
   for (const role of ACCESS_ROLES) {
     const [user] = await db
       .insert(usersTable)
@@ -367,6 +421,112 @@ after(async () => {
   }
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
+});
+
+describe("authorization fixture cleanup", () => {
+  it("removes interrupted legacy and marked fixtures but preserves unrelated events", async () => {
+    const now = Date.now();
+    const [legacyRotating] = await db
+      .insert(eventsRotatingTable)
+      .values({
+        name: "Access test interruptedrun",
+        startDatetime: new Date(now + 86_400_000),
+        endDatetime: new Date(now + 90_000_000),
+        locationName: "Access Test Courts",
+        signupStartDatetime: new Date(now - 86_400_000),
+        signupEndDatetime: new Date(now + 86_400_000),
+        status: "upcoming",
+      })
+      .returning();
+    const [markedFixed] = await db
+      .insert(eventsFixedTable)
+      .values({
+        name: "Fixed access test interruptedrun",
+        description: AUTHORIZATION_TEST_FIXTURE_MARKER,
+        startDatetime: new Date(now + 86_400_000),
+        endDatetime: new Date(now + 90_000_000),
+        locationName: "Access Test Courts",
+        signupStartDatetime: new Date(now - 86_400_000),
+        signupEndDatetime: new Date(now + 86_400_000),
+        status: "upcoming",
+      })
+      .returning();
+    const staleRegistration = await createAccessRegistration(
+      "rotating",
+      legacyRotating.id,
+      "confirmed",
+    );
+    const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+    await db.insert(eventAssignmentsTable).values({
+      userId: assignee.id,
+      eventId: legacyRotating.id,
+      eventType: "rotating",
+    });
+    const [unrelatedEvent] = await db
+      .insert(eventsRotatingTable)
+      .values({
+        name: "Access test event for a real tournament",
+        startDatetime: new Date(now + 86_400_000),
+        endDatetime: new Date(now + 90_000_000),
+        locationName: "Access Test Courts",
+        signupStartDatetime: new Date(now - 86_400_000),
+        signupEndDatetime: new Date(now + 86_400_000),
+        status: "upcoming",
+      })
+      .returning();
+    eventIds.push({ id: unrelatedEvent.id, eventType: "rotating" });
+
+    const cleaned = await cleanupStaleAuthorizationFixtures(
+      new Set(eventIds.map((event) => `${event.eventType}:${event.id}`)),
+    );
+
+    assert.deepEqual(
+      cleaned.map((event) => `${event.teamFormat}:${event.id}`),
+      [`rotating:${legacyRotating.id}`, `fixed_partner:${markedFixed.id}`],
+    );
+    const remainingRotating = await db
+      .select({ id: eventsRotatingTable.id })
+      .from(eventsRotatingTable)
+      .where(inArray(eventsRotatingTable.id, [legacyRotating.id, unrelatedEvent.id]));
+    const remainingFixed = await db
+      .select({ id: eventsFixedTable.id })
+      .from(eventsFixedTable)
+      .where(eq(eventsFixedTable.id, markedFixed.id));
+    assert.deepEqual(
+      remainingRotating.map(({ id }) => id),
+      [unrelatedEvent.id],
+    );
+    assert.deepEqual(remainingFixed, []);
+    const remainingRegistration = await db
+      .select({ id: registrationsTable.id })
+      .from(registrationsTable)
+      .where(eq(registrationsTable.id, staleRegistration.id));
+    const remainingAssignment = await db
+      .select()
+      .from(eventAssignmentsTable)
+      .where(
+        and(
+          eq(eventAssignmentsTable.eventId, legacyRotating.id),
+          eq(eventAssignmentsTable.eventType, "rotating"),
+        ),
+      );
+    assert.deepEqual(remainingRegistration, []);
+    assert.deepEqual(remainingAssignment, []);
+  });
+
+  it("does not classify a real event with a similar name as a fixture", () => {
+    assert.equal(
+      isAuthorizationTestFixture({
+        teamFormat: "rotating",
+        name: "Access test Saturday tournament",
+        description: null,
+        eventDescription: null,
+        locationName: "Access Test Courts",
+        locationAddress: "",
+      }),
+      false,
+    );
+  });
 });
 
 describe("event assignment write access", () => {
