@@ -9,7 +9,9 @@ This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlant
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
 - `pnpm run check:event-integrity` — read-only event-link audit; runs at the start of release builds and blocks on orphan rows
+- `pnpm run check:production-schema` — read-only production users-table/schema audit; runs before release builds and blocks on schema or rename-risk findings
 - `pnpm run audit:event-assignments` — inspect orphan event-link rows without changing data
+- `pnpm run audit:production-schema` — inspect the expected `app_users` shape, DUPR constraints, rename risk, and preserved user count without changing data
 - `pnpm run audit:event-assignments -- --apply` — explicitly reviewed, transactional cleanup of confirmed orphan rows
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
