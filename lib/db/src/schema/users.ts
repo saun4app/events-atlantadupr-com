@@ -3,7 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { defaultUserRole, userRoleIds } from "../user-roles.js";
 
-export const usersTable = pgTable("app_uses", {
+export const usersTable = pgTable("app_users", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   username: text("username").notNull().unique(),
@@ -13,6 +13,8 @@ export const usersTable = pgTable("app_uses", {
   })
     .notNull()
     .default(defaultUserRole),
+  duprId: text("dupr_id"),
+  duprFullname: text("dupr_fullname"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 

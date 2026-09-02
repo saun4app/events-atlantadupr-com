@@ -29,6 +29,13 @@
       "when": 1780602543000,
       "tag": "0003_glossy_ember",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788310609438,
+      "tag": "0004_rename_app_uses_to_app_users_and_add_dupr_fields",
+      "breakpoints": true
     }
   ]
 }

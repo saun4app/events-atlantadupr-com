@@ -11,7 +11,7 @@ async function hashPassword(password: string): Promise<string> {
 async function seed() {
   console.log("Seeding database...");
 
-  await db.execute(sql`TRUNCATE atl_dupr_signups, atl_dupr_events_rotating, atl_dupr_events_fixed, atl_dupr_event_roles, atl_dupr_member_list, app_uses, app_settings, atl_dupr_event_defaults RESTART IDENTITY CASCADE`);
+  await db.execute(sql`TRUNCATE atl_dupr_signups, atl_dupr_events_rotating, atl_dupr_events_fixed, atl_dupr_event_roles, atl_dupr_member_list, app_users, app_settings, atl_dupr_event_defaults RESTART IDENTITY CASCADE`);
 
   await db.insert(eventDefaultsTable).values([
     { eventType: "rotating", minCapacity: 8, maxCapacity: 24 },
