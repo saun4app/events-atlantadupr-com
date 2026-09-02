@@ -35,6 +35,72 @@ function responseStatus(errorOrResponse) {
   return errorOrResponse?.status ?? errorOrResponse?.response?.status;
 }
 
+function responseHeaders(errorOrResponse) {
+  return (
+    errorOrResponse?.headers ??
+    errorOrResponse?.response?.headers
+  );
+}
+
+function headerValue(headers, name) {
+  if (!headers) return undefined;
+  if (typeof headers.get === "function") {
+    return headers.get(name) ?? headers.get(name.toLowerCase()) ?? undefined;
+  }
+
+  const matchingKey = Object.keys(headers).find(
+    (key) => key.toLowerCase() === name.toLowerCase(),
+  );
+  return matchingKey ? headers[matchingKey] : undefined;
+}
+
+function parseRetryAfterMs(value, nowMs) {
+  if (typeof value !== "string" && typeof value !== "number") {
+    return undefined;
+  }
+
+  const normalized = String(value).trim();
+  if (/^\d+$/.test(normalized)) {
+    const delayMs = Number(normalized) * 1_000;
+    return Number.isSafeInteger(delayMs) ? delayMs : undefined;
+  }
+
+  const retryAtMs = Date.parse(normalized);
+  if (!Number.isNaN(retryAtMs) && retryAtMs >= nowMs) {
+    return retryAtMs - nowMs;
+  }
+
+  return undefined;
+}
+
+function parseRateLimitResetMs(value, nowMs) {
+  if (typeof value !== "string" && typeof value !== "number") {
+    return undefined;
+  }
+
+  const normalized = String(value).trim();
+  if (!/^\d+$/.test(normalized)) return undefined;
+
+  const resetAtMs = Number(normalized) * 1_000;
+  if (!Number.isSafeInteger(resetAtMs)) return undefined;
+
+  return Math.max(resetAtMs - nowMs, 0);
+}
+
+function githubRetryDelayMs(errorOrResponse, nowMs) {
+  const headers = responseHeaders(errorOrResponse);
+  const retryAfterMs = parseRetryAfterMs(
+    headerValue(headers, "retry-after"),
+    nowMs,
+  );
+  if (retryAfterMs !== undefined) return retryAfterMs;
+
+  return parseRateLimitResetMs(
+    headerValue(headers, "x-ratelimit-reset"),
+    nowMs,
+  );
+}
+
 function isRetryableApiStatus(status) {
   return status === 408 || status === 429 || (status >= 500 && status <= 599);
 }
@@ -220,7 +286,7 @@ export async function cleanupHostedRepository({
   intervalMs = DEFAULT_POLL_INTERVAL_MS,
   deleteAttempts = DEFAULT_DELETE_ATTEMPTS,
   deleteRetryDelayMs = DEFAULT_DELETE_RETRY_DELAY_MS,
-  now,
+  now = () => Date.now(),
   sleep = (delayMs) =>
     new Promise((resolvePromise) => setTimeout(resolvePromise, delayMs)),
 }) {
@@ -271,6 +337,7 @@ export async function cleanupHostedRepository({
     let response;
     let status;
     let errorMessage;
+    let retryDelayFromGithubMs;
     try {
       response = await client.rest.repos.delete({ owner, repo });
       status = responseStatus(response) ?? 204;
@@ -278,9 +345,11 @@ export async function cleanupHostedRepository({
         deleteResponse = response;
         break;
       }
+      retryDelayFromGithubMs = githubRetryDelayMs(response, now());
     } catch (error) {
       status = responseStatus(error);
       errorMessage = error?.message ?? String(error);
+      retryDelayFromGithubMs = githubRetryDelayMs(error, now());
     }
 
     const diagnosticStatus = status ?? "network-error";
@@ -314,8 +383,10 @@ export async function cleanupHostedRepository({
       );
     }
 
+    const exponentialRetryDelayMs =
+      deleteRetryDelayMs * 2 ** (attempt - 1);
     const retryDelay = Math.min(
-      deleteRetryDelayMs * 2 ** (attempt - 1),
+      retryDelayFromGithubMs ?? exponentialRetryDelayMs,
       MAX_DELETE_RETRY_DELAY_MS,
     );
     await sleep(retryDelay);

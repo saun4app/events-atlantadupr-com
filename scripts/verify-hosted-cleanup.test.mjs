@@ -198,6 +198,149 @@ test("retries a transient DELETE response and then verifies deletion", async () 
   assert.equal(evidence.cleanup.delete_status, 204);
 });
 
+test("uses a valid Retry-After header for a transient DELETE response", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    deleteResponses: [
+      { status: 429, headers: { "retry-after": "3" } },
+      { status: 204 },
+    ],
+  });
+  const delays = [];
+
+  await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/516"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    deleteRetryDelayMs: 25,
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+    },
+    intervalMs: 0,
+  });
+
+  assert.deepEqual(delays, [3_000]);
+});
+
+test("uses a valid rate-limit reset header for a transient DELETE error", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  let currentTime = 100_000;
+  const client = fakeClient({
+    deleteResponses: [
+      {
+        error: Object.assign(new Error("rate limited"), {
+          status: 429,
+          response: {
+            status: 429,
+            headers: { "x-ratelimit-reset": "103" },
+          },
+        }),
+      },
+      { status: 204 },
+    ],
+  });
+  const delays = [];
+
+  await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/517"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    deleteRetryDelayMs: 25,
+    now: () => currentTime,
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+      currentTime += delayMs;
+    },
+    intervalMs: 0,
+  });
+
+  assert.deepEqual(delays, [3_000]);
+});
+
+test("uses exponential backoff when retry timing is missing", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    deleteResponses: [{ status: 503 }, { status: 204 }],
+  });
+  const delays = [];
+
+  await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/518"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    deleteRetryDelayMs: 25,
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+    },
+    intervalMs: 0,
+  });
+
+  assert.deepEqual(delays, [25]);
+});
+
+test("ignores invalid retry timing and keeps the configured maximum backoff", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    deleteResponses: [
+      {
+        status: 503,
+        headers: {
+          "retry-after": "not-a-delay",
+          "x-ratelimit-reset": "not-a-timestamp",
+        },
+      },
+      { status: 204 },
+    ],
+  });
+  const delays = [];
+
+  await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/519"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    deleteRetryDelayMs: 20_000,
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+    },
+    intervalMs: 0,
+  });
+
+  assert.deepEqual(delays, [10_000]);
+});
+
+test("caps an excessive valid GitHub retry delay at the configured maximum", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
+  const client = fakeClient({
+    deleteResponses: [
+      { status: 429, headers: { "retry-after": "30" } },
+      { status: 204 },
+    ],
+  });
+  const delays = [];
+
+  await cleanupHostedRepository({
+    client,
+    owner: "example-owner",
+    repo: "disposable-fork",
+    runUrls: ["https://github.com/example-owner/project/actions/runs/520"],
+    evidencePath: join(directory, "hosted-verification.json"),
+    sleep: async (delayMs) => {
+      delays.push(delayMs);
+    },
+    intervalMs: 0,
+  });
+
+  assert.deepEqual(delays, [10_000]);
+});
+
 test("retries a network DELETE failure within the bounded attempt budget", async () => {
   const directory = await mkdtemp(join(tmpdir(), "hosted-cleanup-"));
   const client = fakeClient({
