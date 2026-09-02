@@ -148,13 +148,13 @@ async function mockAnonymousVisitorApi(page: Page) {
     }
 
     if (pathname === "/api/events/fixed_partner") {
-      await route.fulfill({ json: [] });
+      await route.fulfill({ json: [PUBLIC_FIXED_PARTNER_EVENT] });
       return;
     }
 
     if (pathname === "/api/events/summary") {
       await route.fulfill({
-        json: { rotating: 1, fixed_partner: 0 },
+        json: { rotating: 1, fixed_partner: 1 },
       });
       return;
     }
@@ -241,6 +241,52 @@ test("anonymous visitors can open fixed-partner event details and see partner re
   const requests = await mockAnonymousVisitorApi(page);
 
   await page.goto("/events/fixed_partner/902");
+  await expect(page).toHaveURL(/\/events\/fixed_partner\/902$/);
+  await expect(
+    page.getByRole("heading", { name: PUBLIC_FIXED_PARTNER_EVENT.name }),
+  ).toBeVisible();
+  await expect(page.getByTestId("card-event-description")).toContainText(
+    "Fixed-partner event details.",
+  );
+  await expect(page.getByTestId("card-event-guidelines")).toContainText(
+    "Fixed-partner registration guidelines.",
+  );
+  await expect(page.getByTestId("card-registration")).toBeVisible();
+  await expect(page.getByTestId("input-partner-email")).toBeVisible();
+  await expect(page.getByText("Partner's Email", { exact: true })).toBeVisible();
+
+  expect(
+    await page.evaluate(() => localStorage.getItem("authToken")),
+  ).toBeNull();
+  await expect
+    .poll(async () =>
+      (await page.context().cookies()).find((cookie) => cookie.name === "sid"),
+    )
+    .toBeUndefined();
+  expect(
+    requests.every(
+      ({ headers }) =>
+        !headers.authorization && !headers.cookie?.includes("sid="),
+    ),
+  ).toBe(true);
+});
+
+test("anonymous visitors can open fixed-partner events from the public event list", async ({
+  page,
+}) => {
+  const requests = await mockAnonymousVisitorApi(page);
+
+  await page.goto("/");
+  await expect(page.getByTestId("tab-fixed_partner")).toBeVisible();
+  await page.getByTestId("tab-fixed_partner").click();
+
+  const eventCard = page.getByTestId(
+    `card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`,
+  );
+  await expect(eventCard).toBeVisible();
+  await expect(eventCard).toContainText(PUBLIC_FIXED_PARTNER_EVENT.name);
+
+  await eventCard.click();
   await expect(page).toHaveURL(/\/events\/fixed_partner\/902$/);
   await expect(
     page.getByRole("heading", { name: PUBLIC_FIXED_PARTNER_EVENT.name }),
