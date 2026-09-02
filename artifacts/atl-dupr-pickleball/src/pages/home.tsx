@@ -4,7 +4,7 @@ import { Link } from "wouter";
 import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryKey, getGetEventsSummaryQueryKey } from "@workspace/api-client-react";
 import { PublicNav } from "@/components/public-nav";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign, Shuffle, Link2 } from "lucide-react";
+import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign, Shuffle, Link2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
 type EventType = "rotating" | "fixed_partner";
@@ -77,11 +77,19 @@ function isUpcoming(e: any): boolean {
 export default function Home() {
   const [tab, setTab] = useState<EventType>("rotating");
 
-  const { data: rotatingEvents, isLoading: rotLoading } = useListEvents("rotating", {
-    query: { queryKey: getListEventsQueryKey("rotating") }
+  const {
+    data: rotatingEvents,
+    isLoading: rotLoading,
+    isError: rotError,
+  } = useListEvents("rotating", {
+    query: { queryKey: getListEventsQueryKey("rotating"), retry: false }
   });
-  const { data: fixedEvents, isLoading: fixedLoading } = useListEvents("fixed_partner", {
-    query: { queryKey: getListEventsQueryKey("fixed_partner") }
+  const {
+    data: fixedEvents,
+    isLoading: fixedLoading,
+    isError: fixedError,
+  } = useListEvents("fixed_partner", {
+    query: { queryKey: getListEventsQueryKey("fixed_partner"), retry: false }
   });
   const { data: summary } = useGetEventsSummary({
     query: { queryKey: getGetEventsSummaryQueryKey() }
@@ -89,6 +97,7 @@ export default function Home() {
   const { data: settings } = useGetSettings();
 
   const isLoading = tab === "rotating" ? rotLoading : fixedLoading;
+  const hasError = tab === "rotating" ? rotError : fixedError;
   const events = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
 
   const formatTabs: { value: EventType; label: string; icon: React.ElementType }[] = [
@@ -150,6 +159,18 @@ export default function Home() {
             {[1, 2, 3].map(i => (
               <Skeleton key={i} className="h-36 w-full rounded-lg" />
             ))}
+          </div>
+        ) : hasError ? (
+          <div
+            className="flex flex-col items-center justify-center text-center py-16 text-muted-foreground"
+            role="alert"
+            data-testid={`event-list-error-${tab}`}
+          >
+            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive/70" />
+            <p className="font-medium text-foreground">
+              Unable to load {tab === "fixed_partner" ? "fixed-partner" : "rotating"} events
+            </p>
+            <p className="text-sm mt-1">Please try again later.</p>
           </div>
         ) : events && events.length > 0 ? (
           <div className="space-y-4">

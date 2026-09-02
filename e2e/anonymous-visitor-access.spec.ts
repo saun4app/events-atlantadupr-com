@@ -47,7 +47,10 @@ type ApiRequest = {
   headers: Record<string, string>;
 };
 
-async function mockAnonymousVisitorApi(page: Page) {
+async function mockAnonymousVisitorApi(
+  page: Page,
+  options: { fixedPartnerEventsFailure?: boolean } = {},
+) {
   const requests: ApiRequest[] = [];
 
   page.on("request", (request) => {
@@ -148,6 +151,13 @@ async function mockAnonymousVisitorApi(page: Page) {
     }
 
     if (pathname === "/api/events/fixed_partner") {
+      if (options.fixedPartnerEventsFailure) {
+        await route.fulfill({
+          status: 503,
+          json: { error: "Fixed-partner events are temporarily unavailable" },
+        });
+        return;
+      }
       await route.fulfill({ json: [PUBLIC_FIXED_PARTNER_EVENT] });
       return;
     }
@@ -269,6 +279,23 @@ test("anonymous visitors can open fixed-partner event details and see partner re
         !headers.authorization && !headers.cookie?.includes("sid="),
     ),
   ).toBe(true);
+});
+
+test("anonymous visitors see a format-specific error when fixed-partner events cannot load", async ({
+  page,
+}) => {
+  await mockAnonymousVisitorApi(page, { fixedPartnerEventsFailure: true });
+
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Upcoming Events" })).toBeVisible();
+  await page.getByTestId("tab-fixed_partner").click();
+
+  const error = page.getByTestId("event-list-error-fixed_partner");
+  await expect(error).toBeVisible();
+  await expect(error).toContainText("Unable to load fixed-partner events");
+  await expect(error).toContainText("Please try again later.");
+  await expect(page.getByText("No upcoming events", { exact: true })).toHaveCount(0);
+  await expect(page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`)).toHaveCount(0);
 });
 
 test("anonymous visitors can open fixed-partner events from the public event list", async ({

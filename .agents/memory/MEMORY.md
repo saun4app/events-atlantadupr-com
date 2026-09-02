@@ -18,3 +18,4 @@
 - [Production schema preflight](production-schema-preflight.md) — users-table release checks stay read-only and surface legacy rename ambiguity
 - [CI test reporter output](ci-test-reporter-output.md) — Node’s JUnit destination writes to a file and leaves stdout empty, so capture console output separately
 - [GitHub PR check verification](github-pr-check-verification.md) — hosted PR workflow tests need a seeded remote and authenticated GitHub write access
+- [Public event list error states](public-event-list-errors.md) — format-specific API failures must render separately from an empty event format
