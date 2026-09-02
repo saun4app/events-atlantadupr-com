@@ -560,6 +560,89 @@ test("anonymous visitors cannot start duplicate rotating-partner retries from re
   ).toHaveLength(2);
 });
 
+test("anonymous visitors keep a delayed rotating-partner retry scoped to its tab", async ({
+  page,
+}) => {
+  let releaseRecovery!: () => void;
+  const recoveryHeld = new Promise<void>((resolve) => {
+    releaseRecovery = resolve;
+  });
+  const requests = await mockAnonymousVisitorApi(page, {
+    rotatingPartnerEventsFailure: "once",
+    rotatingPartnerEventsRecoveryGate: () => recoveryHeld,
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Upcoming Events" }),
+  ).toBeVisible();
+
+  const rotatingError = page.getByTestId("event-list-error-rotating");
+  await expect(rotatingError).toBeVisible();
+
+  const rotatingRetryButton = page.getByTestId(
+    "button-retry-event-list-rotating",
+  );
+  const retryRequest = page.waitForRequest(
+    (request) =>
+      new URL(request.url()).pathname === "/api/events/rotating" &&
+      request.method() === "GET",
+  );
+  const recoveredEventResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/events/rotating" &&
+      response.status() === 200,
+  );
+
+  await rotatingRetryButton.click();
+  await retryRequest;
+  await expect(rotatingRetryButton).toBeDisabled();
+  await expect(rotatingRetryButton).toHaveText("Trying again...");
+
+  await page.getByTestId("tab-fixed_partner").click();
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("event-list-error-fixed_partner"),
+  ).toHaveCount(0);
+  await expect(page.getByText("No upcoming events", { exact: true })).toHaveCount(
+    0,
+  );
+
+  await page.getByTestId("tab-rotating").click();
+  await expect(page.getByTestId("event-list-error-rotating")).toBeVisible();
+  await expect(
+    page.getByTestId("button-retry-event-list-rotating"),
+  ).toBeDisabled();
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_EVENT.id}`),
+  ).toHaveCount(0);
+
+  await page.getByTestId("tab-fixed_partner").click();
+  releaseRecovery();
+  await recoveredEventResponse;
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("event-list-error-fixed_partner"),
+  ).toHaveCount(0);
+
+  await page.getByTestId("tab-rotating").click();
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toBeVisible();
+  await expect(page.getByTestId("event-list-error-rotating")).toHaveCount(0);
+  await expect(
+    page.getByTestId("button-retry-event-list-rotating"),
+  ).toHaveCount(0);
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/rotating",
+    ),
+  ).toHaveLength(2);
+});
+
 test("anonymous visitors can open fixed-partner events from the public event list", async ({
   page,
 }) => {
