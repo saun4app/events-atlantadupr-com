@@ -99,9 +99,37 @@ jobs:
       - name: Publish API test results
         if: always() && hashFiles('test-results/api-tests.junit.xml') != ''
         continue-on-error: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        id: publish-api-test-results
         uses: dorny/test-reporter@v2
         with:
           name: API integration test results
           path: test-results/api-tests.junit.xml
           reporter: java-junit
           fail-on-error: false
+
+      - name: Record API test check publication outcome
+        if: always() && hashFiles('test-results/api-tests.junit.xml') != ''
+        env:
+          REPORTER_OUTCOME: ${{ steps.publish-api-test-results.outcome }}
+          REPORTER_CONCLUSION: ${{ steps.publish-api-test-results.conclusion }}
+          FORK_PULL_REQUEST: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork }}
+        run: |
+          if [ "$REPORTER_OUTCOME" = "success" ]; then
+            publication="yes"
+          elif [ "$FORK_PULL_REQUEST" = "true" ]; then
+            publication="no (expected fork pull_request token restriction)"
+          else
+            publication="not confirmed (reporter failed outside the expected fork permission boundary)"
+          fi
+
+          {
+            echo "### API test check publication"
+            if [ "$FORK_PULL_REQUEST" = "true" ]; then
+              echo "- Pull request source: fork"
+            else
+              echo "- Pull request source: same repository or non-pull-request event"
+            fi
+            echo "- GitHub allowed check publication: $publication"
+            echo "- Reporter outcome: $REPORTER_OUTCOME"
+            echo "- Reporter conclusion: $REPORTER_CONCLUSION"
+          } >> "$GITHUB_STEP_SUMMARY"
