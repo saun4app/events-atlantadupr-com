@@ -14,6 +14,7 @@
     "check:rotating-openapi": "node scripts/check-rotating-openapi.mjs",
     "check:user-roles": "node scripts/check-user-roles.mjs",
     "test:api-generated": "node --test scripts/check-api-generated.test.mjs",
+    "test:api:setup": "pnpm --filter @workspace/db run push-test",
     "test:api": "pnpm --filter @workspace/api-server run test",
     "test:rotating-openapi": "node --test scripts/check-rotating-openapi.test.mjs",
     "test:site-nav": "node --test scripts/check-site-nav.test.mjs",
