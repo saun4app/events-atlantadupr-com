@@ -2,7 +2,7 @@ import { describe, it, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import type { Server, AddressInfo } from "node:net";
 
-import { db, pool } from "@workspace/db";
+import { assertTestDatabase, db, pool } from "@workspace/db";
 import {
   registrationsTable,
   membersTable,
@@ -337,6 +337,7 @@ async function createFixedEvent(
 }
 
 before(async () => {
+  await assertTestDatabase();
   const [staffUser] = await db
     .insert(usersTable)
     .values({
@@ -363,6 +364,7 @@ before(async () => {
 });
 
 afterEach(async () => {
+  await assertTestDatabase();
   for (const eventId of createdEventIds) {
     await db
       .delete(registrationsTable)
@@ -400,6 +402,7 @@ afterEach(async () => {
 });
 
 after(async () => {
+  await assertTestDatabase();
   await db.delete(sessionsTable).where(eq(sessionsTable.token, STAFF_TOKEN));
   for (const userId of createdUserIds) {
     await db.delete(usersTable).where(eq(usersTable.id, userId));

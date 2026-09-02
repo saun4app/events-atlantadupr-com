@@ -5,6 +5,7 @@ import type { AddressInfo, Server } from "node:net";
 import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   db,
+  assertTestDatabase,
   eventAssignmentsTable,
   eventsFixedTable,
   eventsRotatingTable,
@@ -354,6 +355,7 @@ async function cleanupStaleAuthorizationFixtures(
 }
 
 before(async () => {
+  await assertTestDatabase();
   await cleanupStaleAuthorizationFixtures();
 
   for (const role of ACCESS_ROLES) {
@@ -381,6 +383,7 @@ before(async () => {
 });
 
 after(async () => {
+  await assertTestDatabase();
   const ids = eventIds.map(({ id }) => id);
   if (ids.length > 0) {
     await db.delete(registrationsTable).where(inArray(registrationsTable.eventId, ids));

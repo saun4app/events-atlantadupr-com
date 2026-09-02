@@ -5,6 +5,7 @@ This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlant
 ## Run & Operate
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
+- `pnpm run test:api` — run API integration tests; set `TEST_DATABASE_URL` to an isolated PostgreSQL database first (or pair it with a dedicated non-public `TEST_DATABASE_SCHEMA`)
 - `pnpm --filter @workspace/atl-dupr-pickleball run dev` — run the web frontend (port 20563)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
@@ -16,6 +17,7 @@ This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlant
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API hooks and Zod schemas from the OpenAPI spec
 - `pnpm --filter @workspace/db run push` — push DB schema changes (dev only)
 - Required env: `DATABASE_URL` — Postgres connection string
+- API tests require `TEST_DATABASE_URL`; they refuse to use `DATABASE_URL` or the `public` schema for destructive fixture cleanup
 
 ## Stack
 

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import type { Server, AddressInfo } from "node:net";
 
 import {
+  assertTestDatabase,
   db,
   pool,
   emailVerificationCodesTable,
@@ -192,6 +193,7 @@ async function createRotatingEvent(
 }
 
 before(async () => {
+  await assertTestDatabase();
   await db
     .insert(sessionsTable)
     .values({ token: STAFF_TOKEN, data: { userId: -1, role: userRoleIdMap.app_admin } })
@@ -207,6 +209,7 @@ before(async () => {
 });
 
 afterEach(async () => {
+  await assertTestDatabase();
   for (const eventId of createdEventIds) {
     await db
       .delete(registrationsTable)
@@ -244,6 +247,7 @@ afterEach(async () => {
 });
 
 after(async () => {
+  await assertTestDatabase();
   await db.delete(sessionsTable).where(eq(sessionsTable.token, STAFF_TOKEN));
   await new Promise<void>((resolve) => server.close(() => resolve()));
   await pool.end();
