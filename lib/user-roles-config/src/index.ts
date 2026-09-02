@@ -34,6 +34,7 @@ const userRolesConfigSchema = z
     $schema: z.string().optional(),
     version: z.literal(1),
     roles: z.array(roleSchema).min(1),
+    virtualRoles: z.array(roleSchema).min(1),
     defaults: z
       .object({
         databaseRole: z.string().min(1),
@@ -54,8 +55,10 @@ const userRolesConfigSchema = z
   .strict()
   .superRefine((config, context) => {
     const roleIds = config.roles.map((role) => role.id);
-    const uniqueRoleIds = new Set(roleIds);
-    if (uniqueRoleIds.size !== roleIds.length) {
+    const virtualRoleIds = config.virtualRoles.map((role) => role.id);
+    const allRoleIds = [...roleIds, ...virtualRoleIds];
+    const uniqueRoleIds = new Set(allRoleIds);
+    if (uniqueRoleIds.size !== allRoleIds.length) {
       context.addIssue({
         code: z.ZodIssueCode.custom,
         message: "roles must not contain duplicate IDs",
@@ -85,6 +88,18 @@ const userRolesConfigSchema = z
         });
       }
     }
+
+    for (const roleId of virtualRoleIds) {
+      for (const groupName of USER_ROLE_GROUP_NAMES) {
+        if (config.groups[groupName].includes(roleId)) {
+          context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: `virtual role "${roleId}" cannot be assigned to ${groupName}`,
+            path: ["groups", groupName],
+          });
+        }
+      }
+    }
   });
 
 export type UserRoleBadgeTone = (typeof USER_ROLE_BADGE_TONES)[number];
@@ -104,7 +119,14 @@ export function getUserRoleIds(config: UserRolesConfig): [string, ...string[]] {
 }
 
 export function getUserRole(config: UserRolesConfig, roleId: string): UserRoleDefinition | undefined {
-  return config.roles.find((role) => role.id === roleId);
+  return [...config.roles, ...config.virtualRoles].find((role) => role.id === roleId);
+}
+
+export function getVirtualUserRoleIds(config: UserRolesConfig): [string, ...string[]] {
+  if (config.virtualRoles.length === 0) {
+    throw new Error("User roles configuration must define at least one virtual role");
+  }
+  return config.virtualRoles.map((role) => role.id) as [string, ...string[]];
 }
 
 export function canonicalizeUserRole(roleId: string): string {

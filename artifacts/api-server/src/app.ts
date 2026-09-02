@@ -5,7 +5,7 @@ import cookieParser from "cookie-parser";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
 import { getSession, setSession, deleteSession } from "./lib/session.js";
-import { canonicalizeUserRole } from "./lib/user-roles.js";
+import { canonicalizeUserRole, siteVisitorRole } from "./lib/user-roles.js";
 
 const SESSION_SECRET = process.env.SESSION_SECRET ?? (
   process.env.NODE_ENV === "production"
@@ -51,6 +51,7 @@ app.use(async (req, _res, next) => {
       }
     : null;
   (req as any).session = session;
+  (req as any).userRole = session?.role ?? siteVisitorRole;
   next();
 });
 

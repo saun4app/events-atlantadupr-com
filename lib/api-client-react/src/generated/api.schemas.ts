@@ -22,6 +22,7 @@ export const UserRole = {
   event_organizer: 'event_organizer',
   club_member: 'club_member',
   event_captain: 'event_captain',
+  club_director: 'club_director',
   court_leader: 'court_leader',
 } as const;
 
@@ -45,6 +46,7 @@ export const UserInputRole = {
   event_organizer: 'event_organizer',
   club_member: 'club_member',
   event_captain: 'event_captain',
+  club_director: 'club_director',
   court_leader: 'court_leader',
 } as const;
 
@@ -63,6 +65,7 @@ export const UserUpdateRole = {
   event_organizer: 'event_organizer',
   club_member: 'club_member',
   event_captain: 'event_captain',
+  club_director: 'club_director',
   court_leader: 'court_leader',
 } as const;
 
@@ -83,6 +86,7 @@ export type AssignableStaffRole = typeof AssignableStaffRole[keyof typeof Assign
 
 export const AssignableStaffRole = {
   event_captain: 'event_captain',
+  club_director: 'club_director',
   court_leader: 'court_leader',
 } as const;
 
@@ -112,6 +116,7 @@ export type EventAssignmentUserRole = typeof EventAssignmentUserRole[keyof typeo
 
 export const EventAssignmentUserRole = {
   event_captain: 'event_captain',
+  club_director: 'club_director',
   court_leader: 'court_leader',
 } as const;
 

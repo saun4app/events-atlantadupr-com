@@ -7,6 +7,7 @@ const roleIds = [
   "event_organizer",
   "club_member",
   "event_captain",
+  "club_director",
   "court_leader",
 ];
 

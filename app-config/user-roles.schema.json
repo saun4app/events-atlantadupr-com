@@ -6,6 +6,7 @@
   "required": [
     "version",
     "roles",
+    "virtualRoles",
     "defaults",
     "groups"
   ],
@@ -17,6 +18,13 @@
       "const": 1
     },
     "roles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "virtualRoles": {
       "type": "array",
       "minItems": 1,
       "items": {

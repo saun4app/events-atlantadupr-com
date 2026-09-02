@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
-import { isConfiguredUserRole } from "./user-roles.js";
+import { getRequestUserRole, isConfiguredUserRole } from "./user-roles.js";
 
 const SALT_ROUNDS = 12;
 
@@ -31,7 +31,7 @@ export function requireRole(...roles: string[]) {
       res.status(401).json({ error: "Not authenticated" });
       return;
     }
-    if (!roles.includes((req as any).session?.role)) {
+    if (!roles.includes(getRequestUserRole(req as any))) {
       res.status(403).json({ error: "Insufficient permissions" });
       return;
     }

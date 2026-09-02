@@ -23,9 +23,21 @@
       "badgeTone": "purple"
     },
     {
+      "id": "club_director",
+      "label": "Club Director",
+      "badgeTone": "purple"
+    },
+    {
       "id": "court_leader",
       "label": "Court Leader",
       "badgeTone": "yellow"
+    }
+  ],
+  "virtualRoles": [
+    {
+      "id": "site_visitor",
+      "label": "Site Visitor",
+      "badgeTone": "muted"
     }
   ],
   "defaults": {
@@ -41,6 +53,7 @@
       "app_admin",
       "event_organizer",
       "event_captain",
+      "club_director",
       "court_leader"
     ],
     "eventManagers": [
@@ -51,10 +64,12 @@
       "app_admin",
       "event_organizer",
       "event_captain",
+      "club_director",
       "court_leader"
     ],
     "assignableStaff": [
       "event_captain",
+      "club_director",
       "court_leader"
     ]
   }

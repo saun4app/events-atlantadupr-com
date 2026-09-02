@@ -1,6 +1,7 @@
 import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 import {
   getUserRole,
+  getVirtualUserRoleIds,
   loadUserRolesConfig,
   userRoleIsInGroup,
   type UserRoleGroupName,
@@ -11,6 +12,9 @@ export const userRolesConfig: UserRolesConfig = loadUserRolesConfig(rawUserRoles
 export const USER_ROLE_GROUPS = userRolesConfig.groups;
 export const USER_ROLE_IDS = Object.fromEntries(
   userRolesConfig.roles.map((role) => [role.id, role.id]),
+) as Record<string, string>;
+export const VIRTUAL_USER_ROLE_IDS = Object.fromEntries(
+  getVirtualUserRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
 ) as Record<string, string>;
 
 export const defaultNewUserRole = userRolesConfig.defaults.newUserRole;

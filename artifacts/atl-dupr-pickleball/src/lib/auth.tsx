@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { useGetMe } from "@workspace/api-client-react";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { USER_ROLE_IDS, hasUserRole } from "./user-roles";
+import { USER_ROLE_IDS, VIRTUAL_USER_ROLE_IDS, hasUserRole } from "./user-roles";
 
 interface User {
   id: number;
@@ -14,6 +14,7 @@ interface User {
 
 interface AuthContextType {
   user: User | null;
+  role: string;
   isLoading: boolean;
   isAuthenticated: boolean;
   isAdmin: boolean;
@@ -24,6 +25,7 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
+  role: VIRTUAL_USER_ROLE_IDS.site_visitor,
   isLoading: true,
   isAuthenticated: false,
   isAdmin: false,
@@ -60,12 +62,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const validUser = user ?? null;
-  const role = validUser?.role ?? null;
+  const role = validUser?.role ?? VIRTUAL_USER_ROLE_IDS.site_visitor;
 
   return (
     <AuthContext.Provider
       value={{
         user: validUser,
+        role,
         isLoading,
         isAuthenticated: !!validUser,
         isAdmin: role === USER_ROLE_IDS.app_admin,
