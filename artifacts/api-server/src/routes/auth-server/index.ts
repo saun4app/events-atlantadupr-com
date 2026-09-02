@@ -48,7 +48,14 @@ router.post("/login", async (req, res) => {
   recordSuccess(clientIp, "login:ip");
   recordSuccess(usernameKey, "login:user");
 
-  (req as any).session = { userId: user.id, role: user.role, name: user.name, username: user.username };
+  (req as any).session = {
+    userId: user.id,
+    role: user.role,
+    name: user.name,
+    username: user.username,
+    duprId: user.duprId,
+    duprFullname: user.duprFullname,
+  };
 
   const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
   await setSession(token, (req as any).session);
@@ -59,6 +66,8 @@ router.post("/login", async (req, res) => {
     username: user.username,
     role: user.role,
     createdAt: user.createdAt,
+    duprId: user.duprId,
+    duprFullname: user.duprFullname,
     token,
   });
 });
@@ -84,6 +93,8 @@ router.get("/me", (req, res) => {
     username: session.username,
     role: session.role,
     createdAt: new Date().toISOString(),
+    duprId: session.duprId ?? null,
+    duprFullname: session.duprFullname ?? null,
   });
 });
 

@@ -13,4 +13,8 @@ export interface User {
   username: string;
   role: UserRole;
   createdAt: Date;
+  /** @nullable */
+  duprId: string | null;
+  /** @nullable */
+  duprFullname: string | null;
 }

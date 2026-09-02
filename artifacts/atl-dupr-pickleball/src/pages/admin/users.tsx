@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import {
-  useListUsers, useCreateUser, useDeleteUser,
+  useListUsers, useCreateUser, useUpdateUser, useDeleteUser,
   getListUsersQueryKey
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -20,7 +20,7 @@ import {
   getUserRoleLabel,
   userRolesConfig,
 } from "@/lib/user-roles";
-import { Plus, Trash2, Shield } from "lucide-react";
+import { Plus, Pencil, Trash2, Shield } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -59,11 +59,14 @@ export default function AdminUsers() {
   const { data: users, isLoading: usersLoading } = useListUsers({ query: { queryKey: getListUsersQueryKey() } });
 
   const createUser = useCreateUser();
+  const updateUser = useUpdateUser();
   const deleteUser = useDeleteUser();
 
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [addForm, setAddForm] = useState({ name: "", username: "", password: "", role: defaultNewUserRole });
+  const [editUser, setEditUser] = useState<NonNullable<typeof users>[number] | null>(null);
+  const [editForm, setEditForm] = useState({ duprId: "", duprFullname: "" });
 
   function handleDelete() {
     if (deleteId === null) return;
@@ -90,6 +93,34 @@ export default function AdminUsers() {
          setAddForm({ name: "", username: "", password: "", role: defaultNewUserRole });
       },
       onError: (err: any) => toast({ title: err?.data?.error || "Failed to create user", variant: "destructive" }),
+    });
+  }
+
+  function openEditDialog(selectedUser: NonNullable<typeof users>[number]) {
+    setEditUser(selectedUser);
+    setEditForm({
+      duprId: selectedUser.duprId ?? "",
+      duprFullname: selectedUser.duprFullname ?? "",
+    });
+  }
+
+  function handleEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editUser) return;
+
+    updateUser.mutate({
+      id: editUser.id,
+      data: {
+        duprId: editForm.duprId.trim() || null,
+        duprFullname: editForm.duprFullname.trim() || null,
+      },
+    }, {
+      onSuccess: () => {
+        toast({ title: "DUPR profile updated" });
+        queryClient.invalidateQueries({ queryKey: getListUsersQueryKey() });
+        setEditUser(null);
+      },
+      onError: (err: any) => toast({ title: err?.data?.error || "Failed to update DUPR profile", variant: "destructive" }),
     });
   }
 
@@ -124,6 +155,8 @@ export default function AdminUsers() {
                 <tr className="border-b border-border bg-muted/40">
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Name</th>
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Username</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">DUPR ID</th>
+                  <th className="text-left px-5 py-3 font-medium text-muted-foreground">DUPR Full Name</th>
                   <th className="text-left px-5 py-3 font-medium text-muted-foreground">Role</th>
                   <th className="px-5 py-3" />
                 </tr>
@@ -133,8 +166,20 @@ export default function AdminUsers() {
                   <tr key={u.id} data-testid={`row-user-${u.id}`} className="border-b border-border last:border-0 hover:bg-muted/20 transition-colors">
                     <td className="px-5 py-3 font-medium">{u.name}</td>
                     <td className="px-5 py-3 font-mono text-sm text-muted-foreground">{u.username}</td>
+                    <td className="px-5 py-3 font-mono text-sm text-muted-foreground">{u.duprId || "—"}</td>
+                    <td className="px-5 py-3 text-muted-foreground">{u.duprFullname || "—"}</td>
                     <td className="px-5 py-3"><RoleBadge role={u.role} /></td>
                     <td className="px-5 py-3 text-right">
+                      <Button
+                        data-testid={`button-edit-user-${u.id}`}
+                        variant="ghost"
+                        size="sm"
+                        className="text-muted-foreground hover:text-foreground mr-1"
+                        onClick={() => openEditDialog(u)}
+                        aria-label={`Edit DUPR profile for ${u.name}`}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
                       {u.id !== user?.id && (
                         <Button
                           data-testid={`button-delete-user-${u.id}`}
@@ -173,6 +218,45 @@ export default function AdminUsers() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <Dialog open={editUser !== null} onOpenChange={open => !open && setEditUser(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Edit DUPR Profile</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEdit} className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              {editUser?.name} ({editUser?.username})
+            </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-dupr-id">DUPR ID</Label>
+              <Input
+                id="edit-dupr-id"
+                data-testid="input-edit-user-dupr-id"
+                value={editForm.duprId}
+                onChange={e => setEditForm(form => ({ ...form, duprId: e.target.value }))}
+                placeholder="Leave blank to clear"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-dupr-fullname">DUPR Full Name</Label>
+              <Input
+                id="edit-dupr-fullname"
+                data-testid="input-edit-user-dupr-fullname"
+                value={editForm.duprFullname}
+                onChange={e => setEditForm(form => ({ ...form, duprFullname: e.target.value }))}
+                placeholder="Leave blank to clear"
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setEditUser(null)}>Cancel</Button>
+              <Button type="submit" data-testid="button-submit-edit-user" disabled={updateUser.isPending}>
+                {updateUser.isPending ? "Saving..." : "Save Profile"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
         <DialogContent className="max-w-sm">

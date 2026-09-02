@@ -14,3 +14,4 @@
 - [Rotating verification boundaries](rotating-verification-boundaries.md) — rotating verification overrides are optional; fixed-partner callers retain independent defaults
 - [Vite build environment variables](vite-build-env.md) — workspace Vite builds require PORT and, for the mockup sandbox, BASE_PATH
 - [Scheduled maintenance deployments](scheduled-maintenance-deployments.md) — use a separate Scheduled Deployment for recurring checks; preserve artifact production commands
+- [Intentional API generation diffs](intentional-api-generation-diffs.md) — the generated-client guard compares against git baseline, so intentional spec changes appear as drift until merged

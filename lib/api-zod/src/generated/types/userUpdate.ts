@@ -13,4 +13,8 @@ export interface UserUpdate {
   /** @nullable */
   password?: string | null;
   role?: UserUpdateRole;
+  /** @nullable */
+  duprId?: string | null;
+  /** @nullable */
+  duprFullname?: string | null;
 }

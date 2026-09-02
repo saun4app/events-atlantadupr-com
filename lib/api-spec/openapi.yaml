@@ -1048,7 +1048,7 @@ components:
 
     User:
       type: object
-      required: [id, name, username, role, createdAt]
+      required: [id, name, username, role, createdAt, duprId, duprFullname]
       properties:
         id:
           type: integer
@@ -1062,6 +1062,10 @@ components:
         createdAt:
           type: string
           format: date-time
+        duprId:
+          type: ["string", "null"]
+        duprFullname:
+          type: ["string", "null"]
 
     UserInput:
       type: object
@@ -1089,6 +1093,10 @@ components:
         role:
           type: string
           enum: [admin, event_organizer, event_participant, event_captain, court_leader]
+        duprId:
+          type: ["string", "null"]
+        duprFullname:
+          type: ["string", "null"]
 
     AssignableStaff:
       type: object

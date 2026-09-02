@@ -31,6 +31,10 @@ export interface User {
   username: string;
   role: UserRole;
   createdAt: string;
+  /** @nullable */
+  duprId: string | null;
+  /** @nullable */
+  duprFullname: string | null;
 }
 
 export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
@@ -68,6 +72,10 @@ export interface UserUpdate {
   /** @nullable */
   password?: string | null;
   role?: UserUpdateRole;
+  /** @nullable */
+  duprId?: string | null;
+  /** @nullable */
+  duprFullname?: string | null;
 }
 
 export type AssignableStaffRole = typeof AssignableStaffRole[keyof typeof AssignableStaffRole];
