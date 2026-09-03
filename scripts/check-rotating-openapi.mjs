@@ -1,13 +1,178 @@
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { join, relative, resolve, sep } from "node:path";
 import { format } from "prettier";
 
 const OPENAPI_PATH = "api-docs/rotating-partner-event-api-module-openapi.yaml";
-const DATA_MODEL_PATH = "api-docs/rotating-partner-event-api-module-data-modle.json";
+// The module data-model spelling is an established contract filename. The
+// shared data-model filename is intentionally corrected below.
+const DATA_MODEL_PATH =
+  "api-docs/rotating-partner-event-api-module-data-modle.json";
 const CONFIG_PATH = "api-docs/rotating-partner-event-api-module-config.json";
 const PLATFORM_OPENAPI_PATH = "api-docs/dupr-event-api-openapi.yaml";
 const PLATFORM_DATA_MODEL_PATH = "api-docs/dupr-event-api-data-model.json";
 const PLATFORM_CONFIG_PATH = "api-docs/dupr-event-api-config.json";
+
+const CONTRACT_FILENAME_RULES = [
+  {
+    label: "shared data model",
+    canonicalPath: PLATFORM_DATA_MODEL_PATH,
+    stalePaths: [`api-docs/dupr-event-api-data-${"modle"}.json`],
+  },
+  {
+    label: "rotating module data model",
+    canonicalPath: DATA_MODEL_PATH,
+    stalePaths: [
+      `api-docs/rotating-partner-event-api-module-data-${"model"}.json`,
+      `api-docs/rotating-partner-event-data-${"model"}.json`,
+      `api-docs/rotating-partner-event-data-${"modle"}.json`,
+    ],
+  },
+];
+
+const IGNORED_REPOSITORY_DIRECTORIES = new Set([
+  ".agents",
+  ".git",
+  ".local",
+  "node_modules",
+  "dist",
+  "build",
+  "coverage",
+  ".cache",
+]);
+
+const TEXT_FILE_EXTENSIONS = new Set([
+  ".cjs",
+  ".css",
+  ".html",
+  ".js",
+  ".json",
+  ".md",
+  ".mjs",
+  ".ts",
+  ".tsx",
+  ".yaml",
+  ".yml",
+]);
+
+function normalizeRepositoryPath(repositoryPath) {
+  return repositoryPath.split(sep).join("/");
+}
+
+function isTextRepositoryPath(repositoryPath) {
+  const normalizedPath = normalizeRepositoryPath(repositoryPath);
+  if (
+    normalizedPath.startsWith("api-docs/") ||
+    normalizedPath.startsWith("scripts/")
+  ) {
+    return true;
+  }
+  const extension = normalizedPath
+    .slice(normalizedPath.lastIndexOf("."))
+    .toLowerCase();
+  return TEXT_FILE_EXTENSIONS.has(extension);
+}
+
+async function readRepositoryTextFiles(rootDirectory) {
+  const fileContents = new Map();
+
+  async function visit(directory) {
+    const entries = await readdir(directory, { withFileTypes: true });
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (
+          entry.isDirectory() &&
+          IGNORED_REPOSITORY_DIRECTORIES.has(entry.name)
+        ) {
+          return;
+        }
+
+        const absolutePath = join(directory, entry.name);
+        if (entry.isDirectory()) {
+          await visit(absolutePath);
+          return;
+        }
+        if (!entry.isFile()) {
+          return;
+        }
+
+        const repositoryPath = normalizeRepositoryPath(
+          relative(rootDirectory, absolutePath),
+        );
+        if (isTextRepositoryPath(repositoryPath)) {
+          fileContents.set(
+            repositoryPath,
+            await readFile(absolutePath, "utf8"),
+          );
+        }
+      }),
+    );
+  }
+
+  await visit(rootDirectory);
+  return fileContents;
+}
+
+export function validateDocumentationFilenames({ files, fileContents }) {
+  const presentFiles = new Set(files);
+  const contents =
+    fileContents instanceof Map
+      ? fileContents
+      : new Map(Object.entries(fileContents ?? {}));
+
+  for (const { label, canonicalPath, stalePaths } of CONTRACT_FILENAME_RULES) {
+    if (!presentFiles.has(canonicalPath)) {
+      throw new Error(
+        `Missing canonical ${label} contract filename "${canonicalPath}"`,
+      );
+    }
+
+    for (const stalePath of stalePaths) {
+      const staleFilename = stalePath.slice(stalePath.lastIndexOf("/") + 1);
+      const referrers = [...contents.entries()]
+        .filter(
+          ([, text]) =>
+            text.includes(stalePath) || text.includes(staleFilename),
+        )
+        .map(([filePath]) => filePath);
+      const staleFilePresent = presentFiles.has(stalePath);
+      if (!staleFilePresent && referrers.length === 0) {
+        continue;
+      }
+
+      const locations = [];
+      if (staleFilePresent) {
+        locations.push(`file "${stalePath}"`);
+      }
+      if (referrers.length > 0) {
+        locations.push(
+          `referenced by file(s) ${referrers.map((filePath) => `"${filePath}"`).join(", ")}`,
+        );
+      }
+      throw new Error(
+        `Stale ${label} contract filename "${stalePath}" found in ${locations.join(
+          " and ",
+        )}. Use "${canonicalPath}" instead.`,
+      );
+    }
+  }
+
+  return {
+    canonicalPaths: CONTRACT_FILENAME_RULES.map(
+      ({ canonicalPath }) => canonicalPath,
+    ),
+  };
+}
+
+async function validateRepositoryDocumentationFilenames(
+  rootDirectory = resolve("."),
+) {
+  const fileContents = await readRepositoryTextFiles(rootDirectory);
+  return validateDocumentationFilenames({
+    files: [...fileContents.keys()],
+    fileContents,
+  });
+}
 
 function operationBlock(text, operationId) {
   const marker = `      operationId: ${operationId}`;
@@ -364,6 +529,7 @@ export async function validateRotatingOpenApi({
 }
 
 async function main() {
+  await validateRepositoryDocumentationFilenames();
   const [
     openApiText,
     dataModelText,

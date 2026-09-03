@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  validateDocumentationFilenames,
   validateRotatingOpenApi,
   validateSharedApiContracts,
 } from "./check-rotating-openapi.mjs";
@@ -15,12 +16,22 @@ const [
   platformConfig,
 ] = await Promise.all([
   readFile("api-docs/rotating-partner-event-api-module-openapi.yaml", "utf8"),
-  readFile("api-docs/rotating-partner-event-api-module-data-modle.json", "utf8").then(JSON.parse),
-  readFile("api-docs/rotating-partner-event-api-module-config.json", "utf8").then(JSON.parse),
+  readFile(
+    "api-docs/rotating-partner-event-api-module-data-modle.json",
+    "utf8",
+  ).then(JSON.parse),
+  readFile(
+    "api-docs/rotating-partner-event-api-module-config.json",
+    "utf8",
+  ).then(JSON.parse),
   readFile("api-docs/dupr-event-api-openapi.yaml", "utf8"),
   readFile("api-docs/dupr-event-api-data-model.json", "utf8").then(JSON.parse),
   readFile("api-docs/dupr-event-api-config.json", "utf8").then(JSON.parse),
 ]);
+
+const staleSharedFilename = `dupr-event-api-data-${"modle"}.json`;
+const staleSharedPath = `api-docs/${staleSharedFilename}`;
+const incorrectModuleFilename = `rotating-partner-event-api-module-data-${"model"}.json`;
 
 test("accepts the shared API server contracts", async () => {
   const result = await validateSharedApiContracts({
@@ -29,6 +40,85 @@ test("accepts the shared API server contracts", async () => {
     config: platformConfig,
   });
   assert.equal(result.platformDocuments, 2);
+});
+
+test("accepts the canonical shared and module data-model filenames", () => {
+  const result = validateDocumentationFilenames({
+    files: [
+      "api-docs/dupr-event-api-data-model.json",
+      "api-docs/rotating-partner-event-api-module-data-modle.json",
+    ],
+    fileContents: new Map([
+      [
+        "api-docs/dupr-event-api-proj-plan.md",
+        "dupr-event-api-data-model.json",
+      ],
+      [
+        "api-docs/rotating-partner-event-api-module-plan.md",
+        "rotating-partner-event-api-module-data-modle.json",
+      ],
+    ]),
+  });
+  assert.deepEqual(result.canonicalPaths, [
+    "api-docs/dupr-event-api-data-model.json",
+    "api-docs/rotating-partner-event-api-module-data-modle.json",
+  ]);
+});
+
+test("rejects a stale shared data-model reference and identifies its referrer", () => {
+  assert.throws(
+    () =>
+      validateDocumentationFilenames({
+        files: [
+          "api-docs/dupr-event-api-data-model.json",
+          "api-docs/rotating-partner-event-api-module-data-modle.json",
+        ],
+        fileContents: new Map([
+          ["api-docs/dupr-event-api-proj-plan.md", staleSharedFilename],
+        ]),
+      }),
+    new RegExp(
+      `${staleSharedPath.replaceAll(".", "\\.")}.*api-docs/dupr-event-api-proj-plan\\.md`,
+    ),
+  );
+});
+
+test("rejects a reintroduced old contract file as a duplicate", () => {
+  assert.throws(
+    () =>
+      validateDocumentationFilenames({
+        files: [
+          "api-docs/dupr-event-api-data-model.json",
+          staleSharedPath,
+          "api-docs/rotating-partner-event-api-module-data-modle.json",
+        ],
+        fileContents: new Map(),
+      }),
+    new RegExp(
+      `${staleSharedPath.replaceAll(".", "\\.")}.*file "${staleSharedPath}"`,
+    ),
+  );
+});
+
+test("rejects an incorrect module data-model filename", () => {
+  assert.throws(
+    () =>
+      validateDocumentationFilenames({
+        files: [
+          "api-docs/dupr-event-api-data-model.json",
+          "api-docs/rotating-partner-event-api-module-data-modle.json",
+        ],
+        fileContents: new Map([
+          [
+            "api-docs/rotating-partner-event-api-module-openapi.yaml",
+            incorrectModuleFilename,
+          ],
+        ]),
+      }),
+    new RegExp(
+      `${incorrectModuleFilename.replaceAll(".", "\\.")}.*rotating-partner-event-api-module-openapi\\.yaml`,
+    ),
+  );
 });
 
 test("accepts the standalone rotating OpenAPI contract", async () => {
