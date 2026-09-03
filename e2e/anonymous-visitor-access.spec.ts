@@ -51,8 +51,9 @@ async function mockAnonymousVisitorApi(
   page: Page,
   options: {
     fixedPartnerEventsFailure?: boolean | "once";
-    rotatingPartnerEventsFailure?: boolean | "once";
+    rotatingPartnerEventsFailure?: boolean | "once" | "twice";
     rotatingPartnerEventsRecoveryGate?: () => Promise<void>;
+    rotatingPartnerEventsFailureGate?: () => Promise<void>;
   } = {},
 ) {
   const requests: ApiRequest[] = [];
@@ -86,8 +87,16 @@ async function mockAnonymousVisitorApi(
       const shouldFail =
         options.rotatingPartnerEventsFailure === true ||
         (options.rotatingPartnerEventsFailure === "once" &&
-          rotatingPartnerEventsRequestCount === 1);
+          rotatingPartnerEventsRequestCount === 1) ||
+        (options.rotatingPartnerEventsFailure === "twice" &&
+          rotatingPartnerEventsRequestCount <= 2);
       if (shouldFail) {
+        if (
+          options.rotatingPartnerEventsFailureGate &&
+          rotatingPartnerEventsRequestCount > 1
+        ) {
+          await options.rotatingPartnerEventsFailureGate();
+        }
         await route.fulfill({
           status: 503,
           json: {
@@ -634,6 +643,92 @@ test("anonymous visitors keep a delayed rotating-partner retry scoped to its tab
   await expect(page.getByTestId("event-list-error-rotating")).toHaveCount(0);
   await expect(
     page.getByTestId("button-retry-event-list-rotating"),
+  ).toHaveCount(0);
+  expect(
+    requests.filter(
+      ({ method, pathname }) =>
+        method === "GET" && pathname === "/api/events/rotating",
+    ),
+  ).toHaveLength(2);
+});
+
+test("anonymous visitors keep a delayed failed rotating-partner retry scoped to its tab", async ({
+  page,
+}) => {
+  let releaseRetryFailure!: () => void;
+  const retryFailureHeld = new Promise<void>((resolve) => {
+    releaseRetryFailure = resolve;
+  });
+  const requests = await mockAnonymousVisitorApi(page, {
+    rotatingPartnerEventsFailure: "twice",
+    rotatingPartnerEventsFailureGate: () => retryFailureHeld,
+  });
+
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Upcoming Events" }),
+  ).toBeVisible();
+
+  const rotatingError = page.getByTestId("event-list-error-rotating");
+  await expect(rotatingError).toBeVisible();
+
+  const rotatingRetryButton = page.getByTestId(
+    "button-retry-event-list-rotating",
+  );
+  const retryRequest = page.waitForRequest(
+    (request) =>
+      new URL(request.url()).pathname === "/api/events/rotating" &&
+      request.method() === "GET",
+  );
+  const failedRetryResponse = page.waitForResponse(
+    (response) =>
+      new URL(response.url()).pathname === "/api/events/rotating" &&
+      response.status() === 503,
+  );
+
+  await rotatingRetryButton.click();
+  await retryRequest;
+  await expect(rotatingRetryButton).toBeDisabled();
+  await expect(rotatingRetryButton).toHaveText("Trying again...");
+
+  await page.getByTestId("tab-fixed_partner").click();
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toBeVisible();
+  await expect(page.getByTestId("event-list-error-fixed_partner")).toHaveCount(
+    0,
+  );
+  await expect(
+    page.getByText("No upcoming events", { exact: true }),
+  ).toHaveCount(0);
+
+  await page.getByTestId("tab-rotating").click();
+  await expect(rotatingError).toBeVisible();
+  await expect(rotatingRetryButton).toBeDisabled();
+  await expect(page.getByTestId(`card-event-${PUBLIC_EVENT.id}`)).toHaveCount(
+    0,
+  );
+
+  await page.getByTestId("tab-fixed_partner").click();
+  releaseRetryFailure();
+  await failedRetryResponse;
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_FIXED_PARTNER_EVENT.id}`),
+  ).toBeVisible();
+  await expect(
+    page.getByTestId("event-list-error-fixed_partner"),
+  ).toHaveCount(0);
+  await expect(page.getByText("No upcoming events", { exact: true })).toHaveCount(
+    0,
+  );
+
+  await page.getByTestId("tab-rotating").click();
+  await expect(rotatingError).toBeVisible();
+  await expect(rotatingError).toContainText("Unable to load rotating events");
+  await expect(rotatingRetryButton).toBeEnabled();
+  await expect(rotatingRetryButton).toHaveText("Try again");
+  await expect(
+    page.getByTestId(`card-event-${PUBLIC_EVENT.id}`),
   ).toHaveCount(0);
   expect(
     requests.filter(
