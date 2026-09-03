@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   validateDocumentationFilenames,
+  validateDocumentationReferences,
   validateRotatingOpenApi,
   validateSharedApiContracts,
 } from "./check-rotating-openapi.mjs";
@@ -48,7 +49,7 @@ test("accepts the canonical shared and module data-model filenames", () => {
   const result = validateDocumentationFilenames({
     files: [
       "api-docs/dupr-event-api-data-model.json",
-        "api-docs/rotating-partner-event-api-module-data-model.json",
+      "api-docs/rotating-partner-event-api-module-data-model.json",
     ],
     fileContents: new Map([
       [
@@ -63,7 +64,7 @@ test("accepts the canonical shared and module data-model filenames", () => {
   });
   assert.deepEqual(result.canonicalPaths, [
     "api-docs/dupr-event-api-data-model.json",
-      "api-docs/rotating-partner-event-api-module-data-model.json",
+    "api-docs/rotating-partner-event-api-module-data-model.json",
   ]);
 });
 
@@ -139,6 +140,44 @@ test("rejects a stale rotating module data-model reference and identifies its re
       `${staleModulePath.replaceAll(".", "\\.")}.*rotating-partner-event-api-module-openapi\\.yaml`,
     ),
   );
+});
+
+test("rejects an external documentation target that is missing", () => {
+  assert.throws(
+    () =>
+      validateDocumentationReferences({
+        files: ["api-docs/module-openapi.yaml"],
+        fileContents: new Map([
+          [
+            "api-docs/module-openapi.yaml",
+            ["externalDocs:", "  url: ./missing-model.json"].join("\n"),
+          ],
+        ]),
+      }),
+    /api-docs\/missing-model\.json.*api-docs\/module-openapi\.yaml/,
+  );
+});
+
+test("accepts relative documentation and OpenAPI references", () => {
+  const result = validateDocumentationReferences({
+    files: [
+      "api-docs/module-openapi.yaml",
+      "api-docs/shared-openapi.yaml",
+      "api-docs/module-config.json",
+    ],
+    fileContents: new Map([
+      [
+        "api-docs/module-openapi.yaml",
+        [
+          "externalDocs:",
+          "  url: ./module-config.json",
+          "x-shared-openapi: ./shared-openapi.yaml#/components/schemas/Problem",
+          '  $ref: "./shared-openapi.yaml#/components/responses/BadRequest"',
+        ].join("\n"),
+      ],
+    ]),
+  });
+  assert.equal(result.referenceCount, 3);
 });
 
 test("accepts the standalone rotating OpenAPI contract", async () => {

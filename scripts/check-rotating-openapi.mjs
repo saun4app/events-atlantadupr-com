@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
-import { join, relative, resolve, sep } from "node:path";
+import { dirname, join, posix, relative, resolve, sep } from "node:path";
 import { format } from "prettier";
 
 const OPENAPI_PATH = "api-docs/rotating-partner-event-api-module-openapi.yaml";
@@ -162,12 +162,132 @@ export function validateDocumentationFilenames({ files, fileContents }) {
   };
 }
 
-async function validateRepositoryDocumentationFilenames(
-  rootDirectory = resolve("."),
-) {
+function readYamlScalar(line, key) {
+  const match = line.match(
+    new RegExp(`^\\s*${key}:\\s*(?:"([^"]*)"|'([^']*)'|([^\\s#]+))`),
+  );
+  return match?.[1] ?? match?.[2] ?? match?.[3] ?? null;
+}
+
+function collectDocumentationReferences(text) {
+  const references = [];
+  const lines = text.split(/\r?\n/);
+  let externalDocsIndent = null;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) {
+      continue;
+    }
+    const indentation = line.length - line.trimStart().length;
+    if (externalDocsIndent !== null && indentation <= externalDocsIndent) {
+      externalDocsIndent = null;
+    }
+    if (trimmed === "externalDocs:") {
+      externalDocsIndent = indentation;
+      continue;
+    }
+    if (externalDocsIndent !== null && indentation > externalDocsIndent) {
+      const url = readYamlScalar(line, "url");
+      if (url) {
+        references.push({ kind: "documentation", value: url });
+      }
+    }
+  }
+
+  for (const match of text.matchAll(
+    /\$ref:\s*(?:"([^"]+)"|'([^']+)'|([^\s,#]+))/g,
+  )) {
+    references.push({
+      kind: "OpenAPI",
+      value: match[1] ?? match[2] ?? match[3],
+    });
+  }
+
+  for (const line of lines) {
+    const match = line.match(
+      /^\s*x-[A-Za-z0-9_-]+:\s*(?:"([^"]+)"|'([^']+)'|((?:\.\.?\/)[^\s#]+))/,
+    );
+    const value = match?.[1] ?? match?.[2] ?? match?.[3];
+    if (value) {
+      references.push({ kind: "documentation", value });
+    }
+  }
+
+  return references;
+}
+
+function resolveRepositoryReference(referrer, reference) {
+  const target = reference.split("#", 1)[0];
+  if (
+    !target ||
+    target.startsWith("/") ||
+    target.startsWith("//") ||
+    /^[A-Za-z][A-Za-z0-9+.-]*:/.test(target)
+  ) {
+    return null;
+  }
+
+  return posix.normalize(posix.join(dirname(referrer), target));
+}
+
+export function validateDocumentationReferences({ files, fileContents }) {
+  const presentFiles = new Set(
+    files.map((filePath) => normalizeRepositoryPath(filePath)),
+  );
+  const contents =
+    fileContents instanceof Map
+      ? fileContents
+      : new Map(Object.entries(fileContents ?? {}));
+  const unresolvedReferences = [];
+  let referenceCount = 0;
+
+  for (const [rawReferrer, text] of contents.entries()) {
+    const referrer = normalizeRepositoryPath(rawReferrer);
+    if (!referrer.startsWith("api-docs/")) {
+      continue;
+    }
+
+    for (const reference of collectDocumentationReferences(text)) {
+      const targetPath = resolveRepositoryReference(referrer, reference.value);
+      if (!targetPath) {
+        continue;
+      }
+      referenceCount += 1;
+      if (!presentFiles.has(targetPath)) {
+        unresolvedReferences.push({
+          kind: reference.kind,
+          targetPath,
+          referrer,
+          value: reference.value,
+        });
+      }
+    }
+  }
+
+  if (unresolvedReferences.length > 0) {
+    throw new Error(
+      unresolvedReferences
+        .map(
+          ({ kind, targetPath, referrer, value }) =>
+            `Unresolved ${kind} reference target "${targetPath}" from file "${referrer}" (reference "${value}")`,
+        )
+        .join("; "),
+    );
+  }
+
+  return { referenceCount };
+}
+
+async function validateRepositoryDocumentation(rootDirectory = resolve(".")) {
   const fileContents = await readRepositoryTextFiles(rootDirectory);
-  return validateDocumentationFilenames({
-    files: [...fileContents.keys()],
+  const files = [...fileContents.keys()];
+  validateDocumentationFilenames({
+    files,
+    fileContents,
+  });
+  return validateDocumentationReferences({
+    files,
     fileContents,
   });
 }
@@ -527,7 +647,7 @@ export async function validateRotatingOpenApi({
 }
 
 async function main() {
-  await validateRepositoryDocumentationFilenames();
+  await validateRepositoryDocumentation();
   const [
     openApiText,
     dataModelText,
