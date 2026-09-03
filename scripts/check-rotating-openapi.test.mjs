@@ -17,7 +17,7 @@ const [
 ] = await Promise.all([
   readFile("api-docs/rotating-partner-event-api-module-openapi.yaml", "utf8"),
   readFile(
-    "api-docs/rotating-partner-event-api-module-data-modle.json",
+    "api-docs/rotating-partner-event-api-module-data-model.json",
     "utf8",
   ).then(JSON.parse),
   readFile(
@@ -31,7 +31,9 @@ const [
 
 const staleSharedFilename = `dupr-event-api-data-${"modle"}.json`;
 const staleSharedPath = `api-docs/${staleSharedFilename}`;
-const incorrectModuleFilename = `rotating-partner-event-api-module-data-${"model"}.json`;
+const staleModuleFilename = `rotating-partner-event-api-module-data-${"modle"}.json`;
+const staleModulePath = `api-docs/${staleModuleFilename}`;
+const incorrectModuleFilename = `rotating-partner-event-data-${"model"}.json`;
 
 test("accepts the shared API server contracts", async () => {
   const result = await validateSharedApiContracts({
@@ -46,7 +48,7 @@ test("accepts the canonical shared and module data-model filenames", () => {
   const result = validateDocumentationFilenames({
     files: [
       "api-docs/dupr-event-api-data-model.json",
-      "api-docs/rotating-partner-event-api-module-data-modle.json",
+        "api-docs/rotating-partner-event-api-module-data-model.json",
     ],
     fileContents: new Map([
       [
@@ -55,13 +57,13 @@ test("accepts the canonical shared and module data-model filenames", () => {
       ],
       [
         "api-docs/rotating-partner-event-api-module-plan.md",
-        "rotating-partner-event-api-module-data-modle.json",
+        "rotating-partner-event-api-module-data-model.json",
       ],
     ]),
   });
   assert.deepEqual(result.canonicalPaths, [
     "api-docs/dupr-event-api-data-model.json",
-    "api-docs/rotating-partner-event-api-module-data-modle.json",
+      "api-docs/rotating-partner-event-api-module-data-model.json",
   ]);
 });
 
@@ -71,7 +73,7 @@ test("rejects a stale shared data-model reference and identifies its referrer", 
       validateDocumentationFilenames({
         files: [
           "api-docs/dupr-event-api-data-model.json",
-          "api-docs/rotating-partner-event-api-module-data-modle.json",
+          "api-docs/rotating-partner-event-api-module-data-model.json",
         ],
         fileContents: new Map([
           ["api-docs/dupr-event-api-proj-plan.md", staleSharedFilename],
@@ -90,7 +92,7 @@ test("rejects a reintroduced old contract file as a duplicate", () => {
         files: [
           "api-docs/dupr-event-api-data-model.json",
           staleSharedPath,
-          "api-docs/rotating-partner-event-api-module-data-modle.json",
+          "api-docs/rotating-partner-event-api-module-data-model.json",
         ],
         fileContents: new Map(),
       }),
@@ -106,7 +108,7 @@ test("rejects an incorrect module data-model filename", () => {
       validateDocumentationFilenames({
         files: [
           "api-docs/dupr-event-api-data-model.json",
-          "api-docs/rotating-partner-event-api-module-data-modle.json",
+          "api-docs/rotating-partner-event-api-module-data-model.json",
         ],
         fileContents: new Map([
           [
@@ -117,6 +119,24 @@ test("rejects an incorrect module data-model filename", () => {
       }),
     new RegExp(
       `${incorrectModuleFilename.replaceAll(".", "\\.")}.*rotating-partner-event-api-module-openapi\\.yaml`,
+    ),
+  );
+});
+
+test("rejects a stale rotating module data-model reference and identifies its referrer", () => {
+  assert.throws(
+    () =>
+      validateDocumentationFilenames({
+        files: [
+          "api-docs/dupr-event-api-data-model.json",
+          "api-docs/rotating-partner-event-api-module-data-model.json",
+        ],
+        fileContents: new Map([
+          ["api-docs/rotating-partner-event-api-module-openapi.yaml", staleModuleFilename],
+        ]),
+      }),
+    new RegExp(
+      `${staleModulePath.replaceAll(".", "\\.")}.*rotating-partner-event-api-module-openapi\\.yaml`,
     ),
   );
 });

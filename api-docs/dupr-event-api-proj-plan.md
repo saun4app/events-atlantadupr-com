@@ -75,7 +75,7 @@ The server project must validate the shared JSON and OpenAPI documents, test aut
 ## Relevant files
 - `api-docs/rotating-partner-event-api-module-plan.md`
 - `api-docs/rotating-partner-event-api-module-config.json`
-- `api-docs/rotating-partner-event-api-module-data-modle.json`
+- `api-docs/rotating-partner-event-api-module-data-model.json`
 - `api-docs/rotating-partner-event-api-module-openapi.yaml`
 - `scripts/check-rotating-openapi.mjs`
 - `scripts/check-rotating-openapi.test.mjs`

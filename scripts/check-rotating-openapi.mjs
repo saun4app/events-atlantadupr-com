@@ -4,10 +4,8 @@ import { join, relative, resolve, sep } from "node:path";
 import { format } from "prettier";
 
 const OPENAPI_PATH = "api-docs/rotating-partner-event-api-module-openapi.yaml";
-// The module data-model spelling is an established contract filename. The
-// shared data-model filename is intentionally corrected below.
 const DATA_MODEL_PATH =
-  "api-docs/rotating-partner-event-api-module-data-modle.json";
+  "api-docs/rotating-partner-event-api-module-data-model.json";
 const CONFIG_PATH = "api-docs/rotating-partner-event-api-module-config.json";
 const PLATFORM_OPENAPI_PATH = "api-docs/dupr-event-api-openapi.yaml";
 const PLATFORM_DATA_MODEL_PATH = "api-docs/dupr-event-api-data-model.json";
@@ -23,7 +21,7 @@ const CONTRACT_FILENAME_RULES = [
     label: "rotating module data model",
     canonicalPath: DATA_MODEL_PATH,
     stalePaths: [
-      `api-docs/rotating-partner-event-api-module-data-${"model"}.json`,
+      `api-docs/rotating-partner-event-api-module-data-${"modle"}.json`,
       `api-docs/rotating-partner-event-data-${"model"}.json`,
       `api-docs/rotating-partner-event-data-${"modle"}.json`,
     ],
@@ -307,7 +305,7 @@ export async function validateRotatingOpenApi({
   );
   assertIncludes(
     openApiText,
-    "x-rotating-partner-data-model: ./rotating-partner-event-api-module-data-modle.json",
+    "x-rotating-partner-data-model: ./rotating-partner-event-api-module-data-model.json",
     "The contract must point to the rotating JSON data model",
   );
   assertIncludes(

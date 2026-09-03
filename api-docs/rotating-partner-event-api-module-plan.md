@@ -10,7 +10,7 @@ The shared server contract is defined in:
 - `api-docs/dupr-event-api-openapi.yaml`
 
 The module-specific persistence and policy sources are:
-- `api-docs/rotating-partner-event-api-module-data-modle.json`
+- `api-docs/rotating-partner-event-api-module-data-model.json`
 - `api-docs/rotating-partner-event-api-module-config.json`
 
 ## Done looks like
@@ -42,7 +42,7 @@ The module may depend on shared platform interfaces and its own domain code. It 
 The module loads and validates this configuration at its boundary. Missing, malformed, unknown-key, semantically invalid, or incompatible configuration fails closed. Shared server settings come only from the platform configuration and are not copied into this module document.
 
 ### 3. JSON document persistence
-`rotating-partner-event-api-module-data-modle.json` owns the rotating event, registration, participant profile, event-default, event-assignment, email-verification, and rotating audit document types. Every document uses the shared envelope conventions while retaining the module owner and rotating document-type constraints.
+`rotating-partner-event-api-module-data-model.json` owns the rotating event, registration, participant profile, event-default, event-assignment, email-verification, and rotating audit document types. Every document uses the shared envelope conventions while retaining the module owner and rotating document-type constraints.
 
 Use stable IDs rather than cross-module foreign keys. Preserve snapshots at registration write time. Readers support current and explicitly supported older document versions; writers emit the current version. Capacity-changing operations lock by rotating event, reread current documents after locking, and commit mutation plus audit record atomically.
 
@@ -75,7 +75,7 @@ Validate the module configuration, data model, OpenAPI paths and operation IDs, 
 - `api-docs/dupr-event-api-data-model.json`
 - `api-docs/dupr-event-api-openapi.yaml`
 - `api-docs/rotating-partner-event-api-module-config.json`
-- `api-docs/rotating-partner-event-api-module-data-modle.json`
+- `api-docs/rotating-partner-event-api-module-data-model.json`
 - `api-docs/rotating-partner-event-api-module-openapi.yaml`
 - `scripts/check-rotating-openapi.mjs`
 - `scripts/check-rotating-openapi.test.mjs`

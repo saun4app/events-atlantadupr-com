@@ -18,9 +18,9 @@ servers:
     description: Rotating-partner API base path
 externalDocs:
   description: Rotating-partner JSON document model
-  url: ./rotating-partner-event-api-module-data-modle.json
+  url: ./rotating-partner-event-api-module-data-model.json
 x-rotating-partner-config: ./rotating-partner-event-api-module-config.json
-x-rotating-partner-data-model: ./rotating-partner-event-api-module-data-modle.json
+x-rotating-partner-data-model: ./rotating-partner-event-api-module-data-model.json
 x-dupr-event-api-platform: ./dupr-event-api-openapi.yaml
 tags:
   - name: events
