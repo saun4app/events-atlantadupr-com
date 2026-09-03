@@ -28,10 +28,15 @@ export const LoginResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['app_admin', 'event_organizer', 'club_member', 'event_captain', 'club_director', 'court_leader']),
+  "role": zod.enum(['app_admin', 'club_director', 'club_member']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
-  "duprFullname": zod.string().nullable()
+  "duprFullname": zod.string().nullable(),
+  "eventAssignments": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "eventRole": zod.enum(['event_organizer', 'event_captain', 'court_leader'])
+})).optional()
 })
 
 
@@ -42,10 +47,15 @@ export const GetMeResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['app_admin', 'event_organizer', 'club_member', 'event_captain', 'club_director', 'court_leader']),
+  "role": zod.enum(['app_admin', 'club_director', 'club_member']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
-  "duprFullname": zod.string().nullable()
+  "duprFullname": zod.string().nullable(),
+  "eventAssignments": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "eventRole": zod.enum(['event_organizer', 'event_captain', 'court_leader'])
+})).optional()
 })
 
 
@@ -196,13 +206,14 @@ export const ListEventsResponseItem = zod.object({
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date(),
-  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls'),
+  "canManageAssignments": zod.boolean().optional().describe('Whether the authenticated caller can change event-role assignments')
 })
 export const ListEventsResponse = zod.array(ListEventsResponseItem)
 
 
 /**
- * @summary Create a new event (Admin/Organizer)
+ * @summary Create a new event (App Admin or Club Director)
  */
 export const CreateEventParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner'])
@@ -286,12 +297,13 @@ export const GetEventResponse = zod.object({
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date(),
-  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls'),
+  "canManageAssignments": zod.boolean().optional().describe('Whether the authenticated caller can change event-role assignments')
 })
 
 
 /**
- * @summary Update an event (Admin/Organizer)
+ * @summary Update an event (authorized event staff)
  */
 export const UpdateEventParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -360,12 +372,13 @@ export const UpdateEventResponse = zod.object({
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date(),
-  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls'),
+  "canManageAssignments": zod.boolean().optional().describe('Whether the authenticated caller can change event-role assignments')
 })
 
 
 /**
- * @summary Delete an event (Admin/Organizer)
+ * @summary Delete an event (authorized event staff)
  */
 export const DeleteEventParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -374,7 +387,7 @@ export const DeleteEventParams = zod.object({
 
 
 /**
- * @summary Clone an event as a new draft (Admin/Organizer)
+ * @summary Clone an event as a new draft (authorized event staff)
  */
 export const CloneEventParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -424,7 +437,8 @@ export const CloseEventResponse = zod.object({
   "contactEmail": zod.string().nullish(),
   "ratingConfig": zod.record(zod.string(), zod.unknown()).nullish(),
   "createdAt": zod.coerce.date(),
-  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls')
+  "canWrite": zod.boolean().optional().describe('Whether the authenticated caller can use event management write controls'),
+  "canManageAssignments": zod.boolean().optional().describe('Whether the authenticated caller can change event-role assignments')
 })
 
 
@@ -450,8 +464,8 @@ export const GetEventRosterSummaryResponse = zod.object({
 
 
 /**
- * Requires an authenticated admin or event organizer.
- * @summary List staff assigned to an event (Admin or organizer)
+ * Requires a global event manager or an organizer assignment for this event.
+ * @summary List staff assigned to an event (global manager or assigned organizer)
  */
 export const ListEventAssignmentsParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -462,17 +476,18 @@ export const ListEventAssignmentsResponseItem = zod.object({
   "userId": zod.number(),
   "eventId": zod.number(),
   "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "eventRole": zod.enum(['event_organizer', 'event_captain', 'court_leader']),
   "assignedAt": zod.coerce.date(),
   "userName": zod.string(),
   "userUsername": zod.string(),
-  "userRole": zod.enum(['event_captain', 'club_director', 'court_leader'])
+  "userRole": zod.enum(['app_admin', 'club_director', 'club_member'])
 })
 export const ListEventAssignmentsResponse = zod.array(ListEventAssignmentsResponseItem)
 
 
 /**
- * Assigns staff within the selected event format. Repeating an existing assignment returns the existing assignment.
- * @summary Assign a captain or court leader to an event (Admin or organizer)
+ * Assigns or changes one user's role within the selected event. A user has at most one event role per event.
+ * @summary Assign an event role (global manager or assigned organizer)
  */
 export const AssignEventStaffParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -483,13 +498,14 @@ export const AssignEventStaffParams = zod.object({
 
 
 export const AssignEventStaffBody = zod.object({
-  "userId": zod.number().min(1)
+  "userId": zod.number().min(1),
+  "eventRole": zod.enum(['event_organizer', 'event_captain', 'court_leader'])
 })
 
 
 /**
  * Removes an assignment only from the selected event format.
- * @summary Remove staff assignment from an event (Admin or organizer)
+ * @summary Remove staff assignment from an event (global manager or assigned organizer)
  */
 export const RemoveEventStaffAssignmentParams = zod.object({
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -940,10 +956,15 @@ export const ListUsersResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['app_admin', 'event_organizer', 'club_member', 'event_captain', 'club_director', 'court_leader']),
+  "role": zod.enum(['app_admin', 'club_director', 'club_member']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
-  "duprFullname": zod.string().nullable()
+  "duprFullname": zod.string().nullable(),
+  "eventAssignments": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "eventRole": zod.enum(['event_organizer', 'event_captain', 'court_leader'])
+})).optional()
 })
 export const ListUsersResponse = zod.array(ListUsersResponseItem)
 
@@ -955,19 +976,19 @@ export const CreateUserBody = zod.object({
   "name": zod.string(),
   "username": zod.string(),
   "password": zod.string(),
-  "role": zod.enum(['app_admin', 'event_organizer', 'club_member', 'event_captain', 'club_director', 'court_leader'])
+  "role": zod.enum(['app_admin', 'club_director', 'club_member'])
 })
 
 
 /**
- * Returns only users in the configured assignable-staff roles.
- * @summary List staff who can be assigned to events (Admin or organizer)
+ * Returns all persisted account users. The selected event role is supplied when creating the assignment.
+ * @summary List account users who can be assigned event roles
  */
 export const ListAssignableStaffResponseItem = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['event_captain', 'club_director', 'court_leader']),
+  "role": zod.enum(['app_admin', 'club_director', 'club_member']),
   "createdAt": zod.coerce.date()
 })
 export const ListAssignableStaffResponse = zod.array(ListAssignableStaffResponseItem)
@@ -984,7 +1005,7 @@ export const UpdateUserBody = zod.object({
   "name": zod.string().optional(),
   "username": zod.string().optional(),
   "password": zod.string().nullish(),
-  "role": zod.enum(['app_admin', 'event_organizer', 'club_member', 'event_captain', 'club_director', 'court_leader']).optional(),
+  "role": zod.enum(['app_admin', 'club_director', 'club_member']).optional(),
   "duprId": zod.string().nullish(),
   "duprFullname": zod.string().nullish()
 })
@@ -993,10 +1014,15 @@ export const UpdateUserResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "username": zod.string(),
-  "role": zod.enum(['app_admin', 'event_organizer', 'club_member', 'event_captain', 'club_director', 'court_leader']),
+  "role": zod.enum(['app_admin', 'club_director', 'club_member']),
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
-  "duprFullname": zod.string().nullable()
+  "duprFullname": zod.string().nullable(),
+  "eventAssignments": zod.array(zod.object({
+  "eventId": zod.number(),
+  "eventType": zod.enum(['rotating', 'fixed_partner']),
+  "eventRole": zod.enum(['event_organizer', 'event_captain', 'court_leader'])
+})).optional()
 })
 
 

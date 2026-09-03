@@ -36,6 +36,13 @@
       "when": 1788310609438,
       "tag": "0004_rename_app_uses_to_app_users_and_add_dupr_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788310609439,
+      "tag": "0005_separate_account_and_event_roles",
+      "breakpoints": true
     }
   ]
 }

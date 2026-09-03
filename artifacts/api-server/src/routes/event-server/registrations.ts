@@ -10,7 +10,7 @@ import {
 } from "@workspace/db";
 import type { EventFormat } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { requireAuth, requireRole } from "../../lib/auth.js";
+import { requireAuth } from "../../lib/auth.js";
 import { canAccessEvent, getNormalizedEvent, parseEventType } from "./events.js";
 import {
   issueCode,
@@ -39,14 +39,13 @@ import type {
 import type {
   RotatingPartnerCapacityOperation,
 } from "../../lib/rotating-partner-config.js";
-import { USER_ROLE_GROUPS, auditActorRole, hasUserRole } from "../../lib/user-roles.js";
+import { auditActorRole } from "../../lib/user-roles.js";
 
 const router = Router({ mergeParams: true });
 
 type EventParams = { eventType: string; id: string };
 type RegParams = { eventType: string; id: string; regId: string };
 
-const STAFF_ROLES = USER_ROLE_GROUPS.eventWriters;
 const FIXED_PARTNER_FORMAT = fixedPartnerConfig.format;
 const ROTATING_PARTNER_FORMAT = rotatingPartnerConfig.format;
 const PARTNER_REGISTRATION_REQUIREMENT = getFixedPartnerRequirement("partner_registration");
@@ -330,11 +329,6 @@ function excludesCurrentFixedPartnerRegistration(
   );
 }
 
-function isStaffRequest(req: Request): boolean {
-  const role = (req as any).session?.role;
-  return typeof role === "string" && STAFF_ROLES.includes(role);
-}
-
 type RatingParticipant = {
   doubles: string | null | undefined;
   selfRating: string | null | undefined;
@@ -611,13 +605,7 @@ function buildRosterEntry(reg: typeof registrationsTable.$inferSelect, includeAd
 }
 
 async function canIncludeAdminFields(eventId: number, eventType: EventFormat, req: Request): Promise<boolean> {
-  const role = (req as any).session?.role;
-  if (!role) return false;
-  if (hasUserRole(role, "eventManagers")) return true;
-  if (hasUserRole(role, "assignableStaff")) {
-    return canAccessEvent(eventId, eventType, req);
-  }
-  return false;
+  return canAccessEvent(eventId, eventType, req);
 }
 
 router.get("/", async (req: Request<EventParams>, res: Response) => {
@@ -768,10 +756,7 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   const event = await getNormalizedEvent(eventType, eventId);
   if (!event) return res.status(404).json({ error: "Event not found" });
 
-  const staff = isStaffRequest(req);
-  if (staff && !(await canAccessEvent(eventId, eventType, req))) {
-    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
-  }
+  const staff = await canAccessEvent(eventId, eventType, req);
   if (
     event.status === "cancelled" &&
     (eventType !== ROTATING_PARTNER_FORMAT ||
@@ -1436,7 +1421,6 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
 router.post(
   "/bulk-set-assigned-ratings",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<EventParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -1485,7 +1469,6 @@ router.get("/:regId", async (req: Request<RegParams>, res: Response) => {
 router.patch(
   "/:regId",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -1696,7 +1679,7 @@ router.patch(
         event,
         primary,
         partnerMember,
-        isStaffRequest(req) && req.body.bypassRatingRequirements === true,
+        req.body.bypassRatingRequirements === true,
       );
       if (partnerValidationError) {
         return res.status(400).json({ error: partnerValidationError });
@@ -1930,7 +1913,6 @@ router.patch(
 router.delete(
   "/:regId",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -1951,7 +1933,6 @@ router.delete(
 router.post(
   "/:regId/approve",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -2048,7 +2029,6 @@ router.post(
 router.post(
   "/:regId/reject",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -2081,7 +2061,6 @@ router.post(
 router.post(
   "/:regId/promote",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventWriters),
   async (req: Request<RegParams>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });

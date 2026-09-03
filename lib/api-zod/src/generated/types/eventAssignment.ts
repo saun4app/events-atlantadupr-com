@@ -5,6 +5,7 @@
  * Atlanta DUPR Pickleball Events API
  * OpenAPI spec version: 0.1.0
  */
+import type { EventAssignmentEventRole } from './eventAssignmentEventRole';
 import type { EventAssignmentEventType } from './eventAssignmentEventType';
 import type { EventAssignmentUserRole } from './eventAssignmentUserRole';
 
@@ -12,6 +13,7 @@ export interface EventAssignment {
   userId: number;
   eventId: number;
   eventType: EventAssignmentEventType;
+  eventRole: EventAssignmentEventRole;
   assignedAt: Date;
   userName: string;
   userUsername: string;

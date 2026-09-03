@@ -24,9 +24,9 @@ import {
   isAuthorizationTestFixture,
 } from "./eventController.js";
 
-const ASSIGNABLE_ROLES = USER_ROLE_GROUPS.assignableStaff;
+const ASSIGNABLE_ROLES = ["club_member"];
 const ORGANIZER_ROLE = userRoleIdMap.app_admin;
-const ORGANIZER_ROLES = USER_ROLE_GROUPS.eventManagers;
+const ORGANIZER_ROLES = USER_ROLE_GROUPS.globalEventManagers;
 const ACCESS_ROLES = [...new Set([...ASSIGNABLE_ROLES, ...ORGANIZER_ROLES])];
 const FORBIDDEN_ERROR = "Forbidden: not assigned to this event";
 
@@ -183,6 +183,7 @@ async function runWriteAction(
   action: WriteAction,
   actor: { id: number; token: string },
   assignActor: boolean,
+  eventRole = "event_captain",
 ) {
   const event = await createEvent(eventType);
   if (assignActor) {
@@ -190,6 +191,7 @@ async function runWriteAction(
       userId: actor.id,
       eventId: event.id,
       eventType,
+      eventRole,
     });
   }
 
@@ -464,6 +466,7 @@ describe("authorization fixture cleanup", () => {
       userId: assignee.id,
       eventId: legacyRotating.id,
       eventType: "rotating",
+      eventRole: "event_captain",
     });
     const [unrelatedEvent] = await db
       .insert(eventsRotatingTable)
@@ -543,6 +546,7 @@ describe("event assignment write access", () => {
         userId: staff.id,
         eventId: event.id,
         eventType: "rotating",
+        eventRole: "event_captain",
       });
 
       const loaded = await request(`/events/rotating/${event.id}`, staff.token);
@@ -601,6 +605,38 @@ describe("event assignment write access", () => {
       assert.equal(bulk.body.error, "Forbidden: not assigned to this event");
     });
   }
+
+  for (const eventType of ["rotating", "fixed_partner"] as const) {
+    it(`an organizer assignment can write only its ${eventType} event`, async () => {
+      const organizer = users.find((user) => user.role === "club_member")!;
+      const result = await runWriteAction(
+        eventType,
+        "update-event",
+        organizer,
+        true,
+        "event_organizer",
+      );
+      assert.equal(result.response.status, 200);
+    });
+  }
+
+  it("an organizer assignment can manage assignments for only its event", async () => {
+    const organizer = users.find((user) => user.role === "club_member")!;
+    const assignee = users.find((user) => user.role === "club_director")!;
+    const event = await createRotatingEvent();
+    await db.insert(eventAssignmentsTable).values({
+      userId: organizer.id,
+      eventId: event.id,
+      eventType: "rotating",
+      eventRole: "event_organizer",
+    });
+    const added = await request(`/events/rotating/${event.id}/assignments`, organizer.token, {
+      method: "POST",
+      body: JSON.stringify({ userId: assignee.id, eventRole: "court_leader" }),
+    });
+    assert.equal(added.response.status, 201);
+    assert.equal(added.body.eventRole, "court_leader");
+  });
 
   it("organizers retain write access without an event assignment", async () => {
     const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
@@ -677,6 +713,7 @@ describe("event assignment management access", () => {
           userId: assignee.id,
           eventId: event.id,
           eventType: otherEventType,
+          eventRole: "event_captain",
         });
 
         const beforeAdd = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token);
@@ -685,7 +722,7 @@ describe("event assignment management access", () => {
 
         const added = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token, {
           method: "POST",
-          body: JSON.stringify({ userId: assignee.id }),
+          body: JSON.stringify({ userId: assignee.id, eventRole: "event_captain" }),
         });
         assert.equal(added.response.status, 201);
         assert.equal(added.body.userId, assignee.id);
@@ -734,11 +771,12 @@ describe("event assignment management access", () => {
           userId: staff.id,
           eventId: event.id,
           eventType,
+          eventRole: "event_captain",
         });
 
         const listed = await request(`/events/${eventType}/${event.id}/assignments`, staff.token);
         assert.equal(listed.response.status, 403);
-        assert.equal(listed.body.error, "Insufficient permissions");
+        assert.equal(listed.body.error, "Forbidden: cannot manage assignments for this event");
 
         const added = await request(`/events/${eventType}/${event.id}/assignments`, staff.token, {
           method: "POST",
@@ -782,8 +820,8 @@ describe("event deletion cleanup", () => {
       const otherRegistration = await createAccessRegistration(otherEventType, event.id, "confirmed");
       const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
       await db.insert(eventAssignmentsTable).values([
-        { userId: assignee.id, eventId: event.id, eventType },
-        { userId: organizer.id, eventId: event.id, eventType: otherEventType },
+        { userId: assignee.id, eventId: event.id, eventType, eventRole: "event_captain" },
+        { userId: organizer.id, eventId: event.id, eventType: otherEventType, eventRole: "event_organizer" },
       ]);
 
       const deleted = await request(`/events/${eventType}/${event.id}`, organizer.token, {
@@ -835,6 +873,7 @@ describe("event deletion cleanup", () => {
       userId: assignee.id,
       eventId: event.id,
       eventType: "rotating",
+      eventRole: "event_captain",
     });
 
     const triggerName = `event_delete_rollback_${event.id}`;

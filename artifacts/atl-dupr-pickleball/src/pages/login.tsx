@@ -32,7 +32,10 @@ export default function Login() {
             setAuthToken(token);
           }
           queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-          if (user.role === USER_ROLE_IDS.club_member) {
+          if (
+            user.role === USER_ROLE_IDS.club_member &&
+            !((user as any).eventAssignments?.length > 0)
+          ) {
             setLocation("/");
           } else {
             setLocation("/admin/events");

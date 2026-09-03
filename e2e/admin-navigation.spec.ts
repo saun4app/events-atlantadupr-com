@@ -301,7 +301,7 @@ async function expectEventsNavigation(
 
 for (const staffRole of userRolesConfig.groups.assignableStaff) {
   const roleLabel =
-    userRolesConfig.roles.find((role) => role.id === staffRole)?.label ??
+    userRolesConfig.accountRoles.find((role) => role.id === staffRole)?.label ??
     staffRole;
 
   test(`${roleLabel} keeps configured event-management access`, async ({
@@ -350,7 +350,7 @@ for (const staffRole of userRolesConfig.groups.assignableStaff) {
 
 for (const staffRole of userRolesConfig.groups.assignableStaff) {
   const roleLabel =
-    userRolesConfig.roles.find((role) => role.id === staffRole)?.label ??
+    userRolesConfig.accountRoles.find((role) => role.id === staffRole)?.label ??
     staffRole;
 
   test(`${roleLabel} cannot use controls for an unassigned event`, async ({ page }) => {

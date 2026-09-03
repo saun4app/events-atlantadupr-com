@@ -283,7 +283,7 @@ export default function AdminUsers() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {userRolesConfig.roles.map((role) => (
+                  {userRolesConfig.accountRoles.map((role) => (
                     <SelectItem key={role.id} value={role.id}>{role.label}</SelectItem>
                   ))}
                 </SelectContent>

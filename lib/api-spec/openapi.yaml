@@ -258,7 +258,7 @@ paths:
     post:
       operationId: createEvent
       tags: [events]
-      summary: Create a new event (Admin/Organizer)
+      summary: Create a new event (App Admin or Club Director)
       requestBody:
         required: true
         content:
@@ -305,7 +305,7 @@ paths:
     patch:
       operationId: updateEvent
       tags: [events]
-      summary: Update an event (Admin/Organizer)
+      summary: Update an event (authorized event staff)
       parameters:
         - in: path
           name: id
@@ -330,7 +330,7 @@ paths:
     delete:
       operationId: deleteEvent
       tags: [events]
-      summary: Delete an event (Admin/Organizer)
+      summary: Delete an event (authorized event staff)
       parameters:
         - in: path
           name: id
@@ -354,7 +354,7 @@ paths:
     post:
       operationId: cloneEvent
       tags: [events]
-      summary: Clone an event as a new draft (Admin/Organizer)
+      summary: Clone an event as a new draft (authorized event staff)
       parameters:
         - in: path
           name: id
@@ -445,8 +445,8 @@ paths:
     get:
       operationId: listEventAssignments
       tags: [event-assignments]
-      summary: List staff assigned to an event (Admin or organizer)
-      description: Requires an authenticated admin or event organizer.
+      summary: List staff assigned to an event (global manager or assigned organizer)
+      description: Requires a global event manager or an organizer assignment for this event.
       security:
         - bearerAuth: []
       responses:
@@ -467,8 +467,8 @@ paths:
     post:
       operationId: assignEventStaff
       tags: [event-assignments]
-      summary: Assign a captain or court leader to an event (Admin or organizer)
-      description: Assigns staff within the selected event format. Repeating an existing assignment returns the existing assignment.
+      summary: Assign an event role (global manager or assigned organizer)
+      description: Assigns or changes one user's role within the selected event. A user has at most one event role per event.
       security:
         - bearerAuth: []
       requestBody:
@@ -514,7 +514,7 @@ paths:
     delete:
       operationId: removeEventStaffAssignment
       tags: [event-assignments]
-      summary: Remove staff assignment from an event (Admin or organizer)
+      summary: Remove staff assignment from an event (global manager or assigned organizer)
       description: Removes an assignment only from the selected event format.
       security:
         - bearerAuth: []
@@ -968,8 +968,8 @@ paths:
     get:
       operationId: listAssignableStaff
       tags: [users]
-      summary: List staff who can be assigned to events (Admin or organizer)
-      description: Returns only users in the configured assignable-staff roles.
+      summary: List account users who can be assigned event roles
+      description: Returns all persisted account users. The selected event role is supplied when creating the assignment.
       security:
         - bearerAuth: []
       responses:
@@ -1058,7 +1058,7 @@ components:
           type: string
         role:
           type: string
-          enum: [app_admin, event_organizer, club_member, event_captain, club_director, court_leader]
+          enum: [app_admin, club_director, club_member]
         createdAt:
           type: string
           format: date-time
@@ -1066,6 +1066,23 @@ components:
           type: ["string", "null"]
         duprFullname:
           type: ["string", "null"]
+        eventAssignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventAssignmentReference"
+
+    EventAssignmentReference:
+      type: object
+      required: [eventId, eventType, eventRole]
+      properties:
+        eventId:
+          type: integer
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        eventRole:
+          type: string
+          enum: [event_organizer, event_captain, court_leader]
 
     UserInput:
       type: object
@@ -1079,7 +1096,7 @@ components:
           type: string
         role:
           type: string
-          enum: [app_admin, event_organizer, club_member, event_captain, club_director, court_leader]
+          enum: [app_admin, club_director, club_member]
 
     UserUpdate:
       type: object
@@ -1092,7 +1109,7 @@ components:
           type: ["string", "null"]
         role:
           type: string
-          enum: [app_admin, event_organizer, club_member, event_captain, club_director, court_leader]
+          enum: [app_admin, club_director, club_member]
         duprId:
           type: ["string", "null"]
         duprFullname:
@@ -1110,22 +1127,25 @@ components:
           type: string
         role:
           type: string
-          enum: [event_captain, club_director, court_leader]
+          enum: [app_admin, club_director, club_member]
         createdAt:
           type: string
           format: date-time
 
     EventAssignmentInput:
       type: object
-      required: [userId]
+      required: [userId, eventRole]
       properties:
         userId:
           type: integer
           minimum: 1
+        eventRole:
+          type: string
+          enum: [event_organizer, event_captain, court_leader]
 
     EventAssignment:
       type: object
-      required: [userId, eventId, eventType, assignedAt, userName, userUsername, userRole]
+      required: [userId, eventId, eventType, eventRole, assignedAt, userName, userUsername, userRole]
       properties:
         userId:
           type: integer
@@ -1134,6 +1154,9 @@ components:
         eventType:
           type: string
           enum: [rotating, fixed_partner]
+        eventRole:
+          type: string
+          enum: [event_organizer, event_captain, court_leader]
         assignedAt:
           type: string
           format: date-time
@@ -1143,7 +1166,7 @@ components:
           type: string
         userRole:
           type: string
-          enum: [event_captain, club_director, court_leader]
+          enum: [app_admin, club_director, club_member]
 
     Member:
       type: object
@@ -1292,6 +1315,9 @@ components:
         canWrite:
           type: boolean
           description: Whether the authenticated caller can use event management write controls
+        canManageAssignments:
+          type: boolean
+          description: Whether the authenticated caller can change event-role assignments
 
     EventCloneInput:
       type: object

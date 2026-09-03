@@ -1,6 +1,8 @@
 import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 import {
   getUserRole,
+  getUserRoleIds,
+  getEventRoleIds,
   getVirtualUserRoleIds,
   loadUserRolesConfig,
   userRoleIsInGroup,
@@ -11,7 +13,10 @@ import {
 export const userRolesConfig: UserRolesConfig = loadUserRolesConfig(rawUserRolesConfig);
 export const USER_ROLE_GROUPS = userRolesConfig.groups;
 export const USER_ROLE_IDS = Object.fromEntries(
-  userRolesConfig.roles.map((role) => [role.id, role.id]),
+  getUserRoleIds(userRolesConfig).map((role) => [role, role]),
+) as Record<string, string>;
+export const EVENT_ROLE_IDS = Object.fromEntries(
+  getEventRoleIds(userRolesConfig).map((role) => [role, role]),
 ) as Record<string, string>;
 export const VIRTUAL_USER_ROLE_IDS = Object.fromEntries(
   getVirtualUserRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),

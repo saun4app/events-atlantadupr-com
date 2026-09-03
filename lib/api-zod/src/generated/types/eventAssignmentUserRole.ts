@@ -10,7 +10,7 @@ export type EventAssignmentUserRole = typeof EventAssignmentUserRole[keyof typeo
 
 
 export const EventAssignmentUserRole = {
-  event_captain: 'event_captain',
+  app_admin: 'app_admin',
   club_director: 'club_director',
-  court_leader: 'court_leader',
+  club_member: 'club_member',
 } as const;

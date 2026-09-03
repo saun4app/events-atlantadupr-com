@@ -196,9 +196,9 @@ function hasRole(item: NavigationItemConfig, role?: string): boolean {
   return userRoleIsInGroup(userRolesConfig, role, item.roleGroup);
 }
 
-export function getAdminNavigationItems(role?: string): NavigationItem[] {
+export function getAdminNavigationItems(role?: string, hasEventAssignment = false): NavigationItem[] {
   return siteNav.items
-    .filter((item) => hasRole(item, role))
+    .filter((item) => hasRole(item, role) || (hasEventAssignment && item.testId === "manage-events"))
     .map((item) => resolveItem(item));
 }
 

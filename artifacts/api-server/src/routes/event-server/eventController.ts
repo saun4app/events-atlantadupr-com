@@ -15,7 +15,7 @@ import {
   getRotatingPartnerRequirement,
   rotatingPartnerConfig,
 } from "../../lib/rotating-partner-config.js";
-import { hasUserRole } from "../../lib/user-roles.js";
+import { USER_ROLE_GROUPS, hasUserRole } from "../../lib/user-roles.js";
 
 const TEAM_CAPACITY_ENFORCEMENT_REQUIREMENT = getFixedPartnerRequirement(
   "team_capacity_enforcement",
@@ -221,25 +221,32 @@ function generateRecurringDates(
   return results;
 }
 
-export async function canAccessEvent(eventId: number, eventType: EventFormat, req: Request): Promise<boolean> {
+export type EventAccess = { canWrite: boolean; canManageAssignments: boolean };
+
+export async function getEventAccess(eventId: number, eventType: EventFormat, req: Request): Promise<EventAccess> {
   const session = (req as any).session;
-  if (!session?.userId) return false;
+  if (!session?.userId) return { canWrite: false, canManageAssignments: false };
   const role: string = session.role ?? "";
-  if (hasUserRole(role, "eventManagers")) return true;
-  if (hasUserRole(role, "assignableStaff")) {
-    const [assignment] = await db
-      .select()
-      .from(eventAssignmentsTable)
-      .where(
-        and(
-          eq(eventAssignmentsTable.userId, Number(session.userId)),
-          eq(eventAssignmentsTable.eventId, eventId),
-          eq(eventAssignmentsTable.eventType, eventType),
-        ),
-      );
-    return !!assignment;
+  if (hasUserRole(role, "globalEventManagers")) {
+    return { canWrite: true, canManageAssignments: true };
   }
-  return false;
+  const [assignment] = await db
+    .select({ eventRole: eventAssignmentsTable.eventRole })
+    .from(eventAssignmentsTable)
+    .where(and(
+      eq(eventAssignmentsTable.userId, Number(session.userId)),
+      eq(eventAssignmentsTable.eventId, eventId),
+      eq(eventAssignmentsTable.eventType, eventType),
+    ));
+  if (!assignment) return { canWrite: false, canManageAssignments: false };
+  return {
+    canWrite: USER_ROLE_GROUPS.eventWriters.includes(assignment.eventRole),
+    canManageAssignments: USER_ROLE_GROUPS.eventManagers.includes(assignment.eventRole),
+  };
+}
+
+export async function canAccessEvent(eventId: number, eventType: EventFormat, req: Request): Promise<boolean> {
+  return (await getEventAccess(eventId, eventType, req)).canWrite;
 }
 
 function buildCommonBase(body: any) {
@@ -328,10 +335,17 @@ export abstract class BaseEventController {
     const countMap = Object.fromEntries(counts.map((c) => [c.eventId, c.confirmedCount]));
 
     return res.json(
-      rows.map((r) => {
+      await Promise.all(rows.map(async (r) => {
         const confirmedCount = countMap[r.id] ?? 0;
-        return { ...r, confirmedCount, confirmedTeams: this.computeTeams(confirmedCount), maxTeams: r.maxTeams };
-      }),
+        const access = await getEventAccess(r.id, this.format, req);
+        return {
+          ...r,
+          confirmedCount,
+          confirmedTeams: this.computeTeams(confirmedCount),
+          maxTeams: r.maxTeams,
+          ...access,
+        };
+      })),
     );
   };
 
@@ -339,8 +353,8 @@ export abstract class BaseEventController {
     const eventId = Number(req.params.id);
     const event = await this.getNormalized(eventId);
     if (!event) return res.status(404).json({ error: "Event not found" });
-    const canWrite = await canAccessEvent(eventId, this.format, req);
-    return res.json({ ...event, canWrite });
+    const access = await getEventAccess(eventId, this.format, req);
+    return res.json({ ...event, ...access });
   };
 
   create = async (req: Request, res: Response) => {

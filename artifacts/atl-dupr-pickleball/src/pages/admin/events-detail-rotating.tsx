@@ -38,7 +38,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { loadRotatingPartnerConfig, getRotatingPartnerRequirement } from "@workspace/rotating-partner-config";
 import rawRotatingPartnerConfig from "../../../../../app-config/rotating-partner-config.json";
-import { hasUserRole, USER_ROLE_IDS } from "@/lib/user-roles";
+import { USER_ROLE_IDS } from "@/lib/user-roles";
 
 interface SkillLevel { text: string; level: number; }
 interface DuprRatingConfig { enabled: boolean; minAllowed: number; maxAllowed: number; defaultMin: number; defaultMax: number; defaultNrAllowed: boolean; }
@@ -138,14 +138,17 @@ export default function AdminEventDetailRotating() {
   const { data: event, isLoading: evLoading } = useGetEvent(eventType, eventId, {
     query: { enabled: !!eventId, queryKey: getGetEventQueryKey(eventType, eventId) }
   });
+  useEffect(() => {
+    if (!evLoading && event && !(event as any).canWrite) setLocation("/");
+  }, [evLoading, event, setLocation]);
   const { data: registrations, isLoading: regLoading } = useListRegistrations(eventType, eventId, {
     query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventType, eventId) }
   });
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const eventContactEmails: string[] = ((settings as any)?.eventContactEmails as string[] | undefined) ?? [];
-  const isAdminOrOrganizer = hasUserRole(user?.role, "eventManagers");
-  const canWriteEvent = isAdminOrOrganizer || (event as any)?.canWrite === true;
+  const canWriteEvent = (event as any)?.canWrite === true;
+  const canManageAssignments = (event as any)?.canManageAssignments === true;
 
 
   const updateEvent = useUpdateEvent();
@@ -660,7 +663,7 @@ export default function AdminEventDetailRotating() {
              <EventAssignmentManager
                eventType={eventType}
                eventId={eventId}
-               canManage={isAdminOrOrganizer}
+               canManage={canManageAssignments}
              />
 
             {canWriteEvent && <div className="bg-card border border-card-border rounded-lg p-5 mb-6">

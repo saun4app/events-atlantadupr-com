@@ -4,7 +4,7 @@ import { eventAssignmentsTable, usersTable, registrationsTable, appSettingsTable
 import { AssignEventStaffBody } from "@workspace/api-zod";
 import { eq, and, sql, inArray } from "drizzle-orm";
 import { requireAuth, requireRole } from "../../lib/auth.js";
-import { eventControllers, parseEventType, canAccessEvent, getNormalizedEvent } from "./eventController.js";
+import { eventControllers, parseEventType, canAccessEvent, getEventAccess, getNormalizedEvent } from "./eventController.js";
 import { sendBroadcastEmail } from "../../lib/email.js";
 import { logger } from "../../lib/logger.js";
 import { USER_ROLE_GROUPS, hasUserRole } from "../../lib/user-roles.js";
@@ -19,7 +19,7 @@ export {
 
 const router = Router();
 
-const writeRoles = USER_ROLE_GROUPS.eventWriters;
+const globalManagerRoles = USER_ROLE_GROUPS.globalEventManagers;
 
 // Dispatch a request to the controller for its event format. Each format owns
 // an independent controller subclass; this router only routes to the right one.
@@ -54,19 +54,18 @@ router.get("/summary", async (_req, res) => {
 // Per-format event CRUD. Each format has its own independent listing; there is
 // no merged/aggregated events feed.
 router.get("/:eventType", dispatch("list"));
-router.post("/:eventType", requireAuth, requireRole(...USER_ROLE_GROUPS.eventManagers), dispatch("create"));
+router.post("/:eventType", requireAuth, requireRole(...globalManagerRoles), dispatch("create"));
 router.get("/:eventType/:id", dispatch("getById"));
-router.patch("/:eventType/:id", requireAuth, requireRole(...writeRoles), dispatch("update"));
-router.delete("/:eventType/:id", requireAuth, requireRole(...writeRoles), dispatch("remove"));
-router.post("/:eventType/:id/clone", requireAuth, requireRole(...writeRoles), dispatch("clone"));
-router.post("/:eventType/:id/close", requireAuth, requireRole(...writeRoles), dispatch("close"));
+router.patch("/:eventType/:id", requireAuth, dispatch("update"));
+router.delete("/:eventType/:id", requireAuth, dispatch("remove"));
+router.post("/:eventType/:id/clone", requireAuth, dispatch("clone"));
+router.post("/:eventType/:id/close", requireAuth, dispatch("close"));
 router.get("/:eventType/:id/roster-summary", dispatch("rosterSummary"));
 
 // Broadcast email to all confirmed participants
 router.post(
   "/:eventType/:id/broadcast",
   requireAuth,
-  requireRole(...writeRoles),
   async (req: Request, res: Response) => {
     const eventType = parseEventType(req.params.eventType as string);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
@@ -135,17 +134,19 @@ router.post(
 router.get(
   "/:eventType/:id/assignments",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (req: Request<{ eventType: string; id: string }>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
     const eventId = Number(req.params.id);
+    if (!(await getEventAccess(eventId, eventType, req)).canManageAssignments) {
+      return res.status(403).json({ error: "Forbidden: cannot manage assignments for this event" });
+    }
     const assignments = await db
       .select({
         userId: eventAssignmentsTable.userId,
         eventId: eventAssignmentsTable.eventId,
         eventType: eventAssignmentsTable.eventType,
-        assignedAt: eventAssignmentsTable.assignedAt,
+        assignedAt: eventAssignmentsTable.assignedAt, eventRole: eventAssignmentsTable.eventRole,
         userName: usersTable.name,
         userUsername: usersTable.username,
         userRole: usersTable.role,
@@ -160,32 +161,28 @@ router.get(
 router.post(
   "/:eventType/:id/assignments",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (req: Request<{ eventType: string; id: string }>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
     const eventId = Number(req.params.id);
+    if (!(await getEventAccess(eventId, eventType, req)).canManageAssignments) {
+      return res.status(403).json({ error: "Forbidden: cannot manage assignments for this event" });
+    }
     const parsedBody = AssignEventStaffBody.safeParse(req.body);
     if (!parsedBody.success) {
-      return res.status(400).json({ error: "userId is required and must be a positive integer" });
+      return res.status(400).json({ error: "userId and eventRole are required" });
     }
-    const { userId } = parsedBody.data;
+    const { userId, eventRole } = parsedBody.data;
 
     const event = await getNormalizedEvent(eventType, eventId);
     if (!event) return res.status(404).json({ error: "Event not found" });
 
     const [user] = await db.select().from(usersTable).where(eq(usersTable.id, userId));
     if (!user) return res.status(404).json({ error: "User not found" });
-    if (!hasUserRole(user.role, "assignableStaff")) {
-      return res.status(400).json({
-        error: `Only ${USER_ROLE_GROUPS.assignableStaff.join(" or ")} users can be assigned to events`,
-      });
-    }
-
     await db
       .insert(eventAssignmentsTable)
-      .values({ userId, eventId, eventType })
-      .onConflictDoNothing()
+      .values({ userId, eventId, eventType, eventRole })
+      .onConflictDoUpdate({ target: [eventAssignmentsTable.userId, eventAssignmentsTable.eventId, eventAssignmentsTable.eventType], set: { eventRole } })
       .returning();
 
     const [assignmentWithUser] = await db
@@ -193,7 +190,7 @@ router.post(
         userId: eventAssignmentsTable.userId,
         eventId: eventAssignmentsTable.eventId,
         eventType: eventAssignmentsTable.eventType,
-        assignedAt: eventAssignmentsTable.assignedAt,
+        assignedAt: eventAssignmentsTable.assignedAt, eventRole: eventAssignmentsTable.eventRole,
         userName: usersTable.name,
         userUsername: usersTable.username,
         userRole: usersTable.role,
@@ -219,11 +216,13 @@ router.post(
 router.delete(
   "/:eventType/:id/assignments/:userId",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventManagers),
   async (req: Request<{ eventType: string; id: string; userId: string }>, res: Response) => {
     const eventType = parseEventType(req.params.eventType);
     if (!eventType) return res.status(404).json({ error: "Unknown event format" });
     const eventId = Number(req.params.id);
+    if (!(await getEventAccess(eventId, eventType, req)).canManageAssignments) {
+      return res.status(403).json({ error: "Forbidden: cannot manage assignments for this event" });
+    }
     const userId = Number(req.params.userId);
 
     const [deleted] = await db

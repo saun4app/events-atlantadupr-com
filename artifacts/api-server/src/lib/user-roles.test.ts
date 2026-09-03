@@ -6,6 +6,7 @@ import {
   canonicalizeUserRole,
   loadUserRolesConfig,
   getUserRoleIds,
+  getEventRoleIds,
   getVirtualUserRoleIds,
   userRoleIsInGroup,
 } from "@workspace/user-roles-config";
@@ -21,23 +22,20 @@ test("loads the configured user roles and preserves access groups", () => {
   const config = loadUserRolesConfig(rawUserRolesConfig);
 
   assert.deepEqual(
-    config.roles.map((role) => role.id),
-    ["app_admin", "event_organizer", "club_member", "event_captain", "club_director", "court_leader"],
+    config.accountRoles.map((role) => role.id),
+    ["app_admin", "club_director", "club_member"],
   );
+  assert.deepEqual(getEventRoleIds(config), ["event_organizer", "event_captain", "court_leader"]);
   assert.deepEqual(config.virtualRoles.map((role) => role.id), ["site_visitor"]);
-  assert.deepEqual(getUserRoleIds(config), config.roles.map((role) => role.id));
+  assert.deepEqual(getUserRoleIds(config), config.accountRoles.map((role) => role.id));
   assert.deepEqual(getVirtualUserRoleIds(config), ["site_visitor"]);
   assert.equal(config.defaults.databaseRole, "club_member");
-  assert.equal(config.defaults.newUserRole, "event_organizer");
+  assert.equal(config.defaults.newUserRole, "club_member");
    assert.equal(userRoleIsInGroup(config, "app_admin", "adminOnly"), true);
   assert.equal(userRoleIsInGroup(config, "club_member", "adminPanel"), false);
-  assert.equal(userRoleIsInGroup(config, "event_captain", "assignableStaff"), true);
-  for (const groupName of ["adminPanel", "eventWriters", "assignableStaff"] as const) {
-    assert.equal(
-      userRoleIsInGroup(config, "club_director", groupName),
-      userRoleIsInGroup(config, "event_captain", groupName),
-    );
-  }
+  assert.equal(userRoleIsInGroup(config, "club_member", "assignableStaff"), true);
+  assert.equal(userRoleIsInGroup(config, "club_director", "globalEventManagers"), true);
+  assert.equal(userRoleIsInGroup(config, "event_captain", "eventWriters"), true);
   assert.equal(userRoleIsInGroup(config, "club_director", "eventManagers"), false);
   assert.equal(userRoleIsInGroup(config, "site_visitor", "adminPanel"), false);
 });
@@ -61,7 +59,7 @@ test("canonicalizes legacy admin values without changing other roles", () => {
 
 test("rejects duplicate roles, unknown group members, and unknown defaults", () => {
   const config = structuredClone(rawUserRolesConfig);
-   config.roles.push({ id: "app_admin", label: "Duplicate", badgeTone: "primary" });
+   config.accountRoles.push({ id: "app_admin", label: "Duplicate", badgeTone: "primary" });
   config.groups.adminOnly = ["missing_role"];
   config.defaults.databaseRole = "missing_role";
 

@@ -6,6 +6,7 @@ import {
   timestamp,
 } from "drizzle-orm/pg-core";
 import { usersTable } from "./users";
+import { eventRoleIds } from "../user-roles";
 
 // eventId is intentionally not a foreign key: it references the event table
 // selected by eventType. Run scripts/audit-event-assignments.ts to audit this
@@ -20,6 +21,7 @@ export const eventAssignmentsTable = pgTable(
     eventType: text("event_type", { enum: ["rotating", "fixed_partner"] })
       .notNull()
       .default("rotating"),
+    eventRole: text("event_role", { enum: eventRoleIds }).notNull(),
     assignedAt: timestamp("assigned_at").notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.userId, t.eventId, t.eventType] })],

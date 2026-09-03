@@ -10,6 +10,7 @@ interface User {
   username: string;
   role: string;
   createdAt: string;
+  eventAssignments?: Array<{ eventId: number; eventType: string; eventRole: string }>;
 }
 
 interface AuthContextType {
@@ -72,7 +73,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!validUser,
         isAdmin: role === USER_ROLE_IDS.app_admin,
-        canAccessAdmin: hasUserRole(role, "adminPanel"),
+        canAccessAdmin:
+          hasUserRole(role, "adminPanel") ||
+          ((validUser as User | null)?.eventAssignments?.length ?? 0) > 0,
         authToken,
         setAuthToken,
       }}

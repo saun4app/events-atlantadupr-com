@@ -41,7 +41,7 @@ import {
   loadFixedPartnerConfig,
 } from "@workspace/fixed-partner-config";
 import rawFixedPartnerConfig from "../../../../../app-config/fixed-partner-config.json";
-import { hasUserRole, USER_ROLE_IDS } from "@/lib/user-roles";
+import { USER_ROLE_IDS } from "@/lib/user-roles";
 
 const fixedPartnerConfig = loadFixedPartnerConfig(rawFixedPartnerConfig);
 
@@ -144,14 +144,17 @@ export default function AdminEventDetailFixed() {
   const { data: event, isLoading: evLoading } = useGetEvent(eventType, eventId, {
     query: { enabled: !!eventId, queryKey: getGetEventQueryKey(eventType, eventId) }
   });
+  useEffect(() => {
+    if (!evLoading && event && !(event as any).canWrite) setLocation("/");
+  }, [evLoading, event, setLocation]);
   const { data: registrations, isLoading: regLoading } = useListRegistrations(eventType, eventId, {
     query: { enabled: !!eventId, queryKey: getListRegistrationsQueryKey(eventType, eventId) }
   });
   const { data: settings } = useGetSettings();
   const eventRolesList: string[] = ((settings as any)?.eventRoles as string[] | undefined) ?? [];
   const eventContactEmails: string[] = ((settings as any)?.eventContactEmails as string[] | undefined) ?? [];
-  const isAdminOrOrganizer = hasUserRole(user?.role, "eventManagers");
-  const canWriteEvent = isAdminOrOrganizer || (event as any)?.canWrite === true;
+  const canWriteEvent = (event as any)?.canWrite === true;
+  const canManageAssignments = (event as any)?.canManageAssignments === true;
 
 
   const updateEvent = useUpdateEvent();
@@ -765,7 +768,7 @@ export default function AdminEventDetailFixed() {
              <EventAssignmentManager
                eventType={eventType}
                eventId={eventId}
-               canManage={isAdminOrOrganizer}
+               canManage={canManageAssignments}
              />
 
             {canWriteEvent && <div className="bg-card border border-card-border rounded-lg p-5 mb-6">

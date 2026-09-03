@@ -22,6 +22,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
+import { hasUserRole } from "@/lib/user-roles";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
 import { format } from "date-fns";
@@ -109,7 +110,7 @@ function EmailFailureBadge() {
 }
 
 export default function AdminEventsFixed() {
-  const { isAuthenticated, isLoading, canAccessAdmin } = useAuth();
+  const { isAuthenticated, isLoading, canAccessAdmin, role } = useAuth();
   const [, setLocation] = useLocation();
   const eventType = "fixed_partner" as const;
 
@@ -128,14 +129,16 @@ export default function AdminEventsFixed() {
   );
 
   const now = Date.now();
-  const upcomingEvents = events?.filter(e => new Date(e.startDatetime).getTime() >= now) ?? [];
-  const pastEvents = (events?.filter(e => new Date(e.startDatetime).getTime() < now) ?? [])
+  const visibleEvents = events?.filter((event) => event.canWrite) ?? [];
+  const upcomingEvents = visibleEvents.filter(e => new Date(e.startDatetime).getTime() >= now);
+  const pastEvents = visibleEvents.filter(e => new Date(e.startDatetime).getTime() < now)
     .sort((a, b) => new Date(b.startDatetime).getTime() - new Date(a.startDatetime).getTime());
   const selectedEvents = (eventView === "upcoming" ? upcomingEvents : pastEvents).filter(e =>
     !search || e.name.toLowerCase().includes(search.toLowerCase()) || e.locationName.toLowerCase().includes(search.toLowerCase())
   );
 
   const formatLabel = "Fixed-Partner";
+  const canCreateEvents = hasUserRole(role, "globalEventManagers");
 
   function renderEventList(list: typeof selectedEvents) {
     return (
@@ -176,11 +179,11 @@ export default function AdminEventsFixed() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-xl font-bold text-foreground">Manage Events — {formatLabel}</h1>
-            <p className="text-muted-foreground text-sm mt-0.5">{events?.length ?? 0} total events</p>
+            <p className="text-muted-foreground text-sm mt-0.5">{visibleEvents.length} accessible events</p>
           </div>
           <div className="flex items-center gap-2">
             <EmailFailureBadge />
-            <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
+            {canCreateEvents && <Dialog open={setupOpen} onOpenChange={setSetupOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-2" data-testid="button-event-setup">
                   <SlidersHorizontal className="w-4 h-4" />
@@ -193,7 +196,7 @@ export default function AdminEventsFixed() {
                 </DialogHeader>
                 <AdminEventSetup eventType={eventType} />
               </DialogContent>
-            </Dialog>
+            </Dialog>}
           </div>
         </div>
 

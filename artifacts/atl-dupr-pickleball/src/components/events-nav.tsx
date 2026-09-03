@@ -1,4 +1,6 @@
 import { Link, useLocation } from "wouter";
+import { useAuth } from "@/lib/auth";
+import { hasUserRole } from "@/lib/user-roles";
 import {
   EventType,
   getEventsNavigationItems,
@@ -7,6 +9,8 @@ import {
 
 export function EventsNav({ eventType }: { eventType: EventType }) {
   const [location] = useLocation();
+  const { role } = useAuth();
+  const canCreate = hasUserRole(role, "globalEventManagers");
   const navigationItems = getEventsNavigationItems(eventType);
   const newItem = navigationItems.find((item) => item.match.type === "exact");
   if (!newItem) {
@@ -36,7 +40,7 @@ export function EventsNav({ eventType }: { eventType: EventType }) {
               </Link>
             );
           })}
-          <Link href={newItem.href}>
+          {canCreate && <Link href={newItem.href}>
             <span
               data-testid="events-nav-new-event"
               className={`flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium transition-colors ${
@@ -48,7 +52,7 @@ export function EventsNav({ eventType }: { eventType: EventType }) {
               <newItem.icon className="w-4 h-4" />
               {newItem.label}
             </span>
-          </Link>
+          </Link>}
         </nav>
       </div>
     </div>

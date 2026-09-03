@@ -19,12 +19,32 @@ export type UserRole = typeof UserRole[keyof typeof UserRole];
 
 export const UserRole = {
   app_admin: 'app_admin',
-  event_organizer: 'event_organizer',
-  club_member: 'club_member',
-  event_captain: 'event_captain',
   club_director: 'club_director',
+  club_member: 'club_member',
+} as const;
+
+export type EventAssignmentReferenceEventType = typeof EventAssignmentReferenceEventType[keyof typeof EventAssignmentReferenceEventType];
+
+
+export const EventAssignmentReferenceEventType = {
+  rotating: 'rotating',
+  fixed_partner: 'fixed_partner',
+} as const;
+
+export type EventAssignmentReferenceEventRole = typeof EventAssignmentReferenceEventRole[keyof typeof EventAssignmentReferenceEventRole];
+
+
+export const EventAssignmentReferenceEventRole = {
+  event_organizer: 'event_organizer',
+  event_captain: 'event_captain',
   court_leader: 'court_leader',
 } as const;
+
+export interface EventAssignmentReference {
+  eventId: number;
+  eventType: EventAssignmentReferenceEventType;
+  eventRole: EventAssignmentReferenceEventRole;
+}
 
 export interface User {
   id: number;
@@ -36,6 +56,7 @@ export interface User {
   duprId: string | null;
   /** @nullable */
   duprFullname: string | null;
+  eventAssignments?: EventAssignmentReference[];
 }
 
 export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
@@ -43,11 +64,8 @@ export type UserInputRole = typeof UserInputRole[keyof typeof UserInputRole];
 
 export const UserInputRole = {
   app_admin: 'app_admin',
-  event_organizer: 'event_organizer',
-  club_member: 'club_member',
-  event_captain: 'event_captain',
   club_director: 'club_director',
-  court_leader: 'court_leader',
+  club_member: 'club_member',
 } as const;
 
 export interface UserInput {
@@ -62,11 +80,8 @@ export type UserUpdateRole = typeof UserUpdateRole[keyof typeof UserUpdateRole];
 
 export const UserUpdateRole = {
   app_admin: 'app_admin',
-  event_organizer: 'event_organizer',
-  club_member: 'club_member',
-  event_captain: 'event_captain',
   club_director: 'club_director',
-  court_leader: 'court_leader',
+  club_member: 'club_member',
 } as const;
 
 export interface UserUpdate {
@@ -85,9 +100,9 @@ export type AssignableStaffRole = typeof AssignableStaffRole[keyof typeof Assign
 
 
 export const AssignableStaffRole = {
-  event_captain: 'event_captain',
+  app_admin: 'app_admin',
   club_director: 'club_director',
-  court_leader: 'court_leader',
+  club_member: 'club_member',
 } as const;
 
 export interface AssignableStaff {
@@ -98,9 +113,19 @@ export interface AssignableStaff {
   createdAt: string;
 }
 
+export type EventAssignmentInputEventRole = typeof EventAssignmentInputEventRole[keyof typeof EventAssignmentInputEventRole];
+
+
+export const EventAssignmentInputEventRole = {
+  event_organizer: 'event_organizer',
+  event_captain: 'event_captain',
+  court_leader: 'court_leader',
+} as const;
+
 export interface EventAssignmentInput {
   /** @minimum 1 */
   userId: number;
+  eventRole: EventAssignmentInputEventRole;
 }
 
 export type EventAssignmentEventType = typeof EventAssignmentEventType[keyof typeof EventAssignmentEventType];
@@ -111,19 +136,29 @@ export const EventAssignmentEventType = {
   fixed_partner: 'fixed_partner',
 } as const;
 
+export type EventAssignmentEventRole = typeof EventAssignmentEventRole[keyof typeof EventAssignmentEventRole];
+
+
+export const EventAssignmentEventRole = {
+  event_organizer: 'event_organizer',
+  event_captain: 'event_captain',
+  court_leader: 'court_leader',
+} as const;
+
 export type EventAssignmentUserRole = typeof EventAssignmentUserRole[keyof typeof EventAssignmentUserRole];
 
 
 export const EventAssignmentUserRole = {
-  event_captain: 'event_captain',
+  app_admin: 'app_admin',
   club_director: 'club_director',
-  court_leader: 'court_leader',
+  club_member: 'club_member',
 } as const;
 
 export interface EventAssignment {
   userId: number;
   eventId: number;
   eventType: EventAssignmentEventType;
+  eventRole: EventAssignmentEventRole;
   assignedAt: string;
   userName: string;
   userUsername: string;
@@ -256,6 +291,8 @@ export interface Event {
   createdAt: string;
   /** Whether the authenticated caller can use event management write controls */
   canWrite?: boolean;
+  /** Whether the authenticated caller can change event-role assignments */
+  canManageAssignments?: boolean;
 }
 
 export interface EventCloneInput {

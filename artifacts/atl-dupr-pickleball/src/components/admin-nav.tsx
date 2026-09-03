@@ -18,7 +18,7 @@ export function AdminNav() {
   const logout = useLogout();
   const [open, setOpen] = useState(false);
 
-  const links = getAdminNavigationItems(user?.role);
+  const links = getAdminNavigationItems(user?.role, (user?.eventAssignments?.length ?? 0) > 0);
 
   function handleLogout() {
     logout.mutate(undefined, {

@@ -51,4 +51,6 @@ export interface Event {
   createdAt: Date;
   /** Whether the authenticated caller can use event management write controls */
   canWrite?: boolean;
+  /** Whether the authenticated caller can change event-role assignments */
+  canManageAssignments?: boolean;
 }

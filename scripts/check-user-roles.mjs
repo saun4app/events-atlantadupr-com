@@ -6,7 +6,8 @@ const generatedPaths = [
   "lib/api-zod/src/generated/types/userRole.ts",
   "lib/api-zod/src/generated/types/userInputRole.ts",
   "lib/api-zod/src/generated/types/userUpdateRole.ts",
-  "lib/api-client-react/src/generated/api.schemas.ts",
+  "lib/api-zod/src/generated/types/eventAssignmentInputEventRole.ts",
+  "lib/api-zod/src/generated/types/eventAssignmentEventRole.ts",
 ];
 
 function sameValues(actual, expected) {
@@ -31,7 +32,8 @@ export async function checkUserRoles(options = {}) {
   const openApiText = options.openApiText ?? await readFile(openApiPath, "utf8");
   const generatedTexts = options.generatedTexts ??
     await Promise.all(generatedPaths.map((path) => readFile(path, "utf8")));
-  const roleIds = config.roles.map((role) => role.id);
+  const roleIds = config.accountRoles.map((role) => role.id);
+  const eventRoleIds = config.eventRoles.map((role) => role.id);
   const roleSet = new Set(roleIds);
   if (roleSet.size !== roleIds.length) throw new Error("user-roles.json contains duplicate role IDs");
 
@@ -40,15 +42,21 @@ export async function checkUserRoles(options = {}) {
     throw new Error("OpenAPI user-role enum is out of sync with app-config/user-roles.json");
   }
 
-  const generatedConstantNames = ["UserRole", "UserInputRole", "UserUpdateRole", "UserRole"];
-  generatedTexts.forEach((text, index) => {
+  const generatedConstantNames = ["UserRole", "UserInputRole", "UserUpdateRole", "EventAssignmentInputEventRole", "EventAssignmentEventRole"];
+  generatedTexts.slice(0, 3).forEach((text, index) => {
     const values = parseObjectValues(text, generatedConstantNames[index]);
     if (!sameValues(values, roleIds)) {
       throw new Error(`${generatedPaths[index]} is out of sync with app-config/user-roles.json`);
     }
   });
+  generatedTexts.slice(3).forEach((text, index) => {
+    const values = parseObjectValues(text, generatedConstantNames[index + 3]);
+    if (!sameValues(values, eventRoleIds)) {
+      throw new Error(`${generatedPaths[index + 3]} is out of sync with app-config/user-roles.json eventRoles`);
+    }
+  });
 
-  return { roleIds };
+  return { roleIds, eventRoleIds };
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {

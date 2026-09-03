@@ -1038,7 +1038,7 @@ export const getCreateEventUrl = (eventType: 'rotating' | 'fixed_partner',) => {
 }
 
 /**
- * @summary Create a new event (Admin/Organizer)
+ * @summary Create a new event (App Admin or Club Director)
  */
 export const createEvent = async (eventType: 'rotating' | 'fixed_partner',
     eventInput: EventInput, options?: RequestInit): Promise<Event[]> => {
@@ -1088,7 +1088,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CreateEventMutationError = ErrorType<unknown>
 
     /**
- * @summary Create a new event (Admin/Organizer)
+ * @summary Create a new event (App Admin or Club Director)
  */
 export const useCreateEvent = <TError = ErrorType<unknown>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';data: BodyType<EventInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1193,7 +1193,7 @@ export const getUpdateEventUrl = (eventType: 'rotating' | 'fixed_partner',
 }
 
 /**
- * @summary Update an event (Admin/Organizer)
+ * @summary Update an event (authorized event staff)
  */
 export const updateEvent = async (eventType: 'rotating' | 'fixed_partner',
     id: number,
@@ -1244,7 +1244,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type UpdateEventMutationError = ErrorType<void>
 
     /**
- * @summary Update an event (Admin/Organizer)
+ * @summary Update an event (authorized event staff)
  */
 export const useUpdateEvent = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof updateEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventUpdate>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1267,7 +1267,7 @@ export const getDeleteEventUrl = (eventType: 'rotating' | 'fixed_partner',
 }
 
 /**
- * @summary Delete an event (Admin/Organizer)
+ * @summary Delete an event (authorized event staff)
  */
 export const deleteEvent = async (eventType: 'rotating' | 'fixed_partner',
     id: number, options?: RequestInit): Promise<void> => {
@@ -1316,7 +1316,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type DeleteEventMutationError = ErrorType<void>
 
     /**
- * @summary Delete an event (Admin/Organizer)
+ * @summary Delete an event (authorized event staff)
  */
 export const useDeleteEvent = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof deleteEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1339,7 +1339,7 @@ export const getCloneEventUrl = (eventType: 'rotating' | 'fixed_partner',
 }
 
 /**
- * @summary Clone an event as a new draft (Admin/Organizer)
+ * @summary Clone an event as a new draft (authorized event staff)
  */
 export const cloneEvent = async (eventType: 'rotating' | 'fixed_partner',
     id: number,
@@ -1390,7 +1390,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type CloneEventMutationError = ErrorType<void>
 
     /**
- * @summary Clone an event as a new draft (Admin/Organizer)
+ * @summary Clone an event as a new draft (authorized event staff)
  */
 export const useCloneEvent = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof cloneEvent>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data?: BodyType<EventCloneInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1567,8 +1567,8 @@ export const getListEventAssignmentsUrl = (eventType: 'rotating' | 'fixed_partne
 }
 
 /**
- * Requires an authenticated admin or event organizer.
- * @summary List staff assigned to an event (Admin or organizer)
+ * Requires a global event manager or an organizer assignment for this event.
+ * @summary List staff assigned to an event (global manager or assigned organizer)
  */
 export const listEventAssignments = async (eventType: 'rotating' | 'fixed_partner',
     id: number, options?: RequestInit): Promise<EventAssignment[]> => {
@@ -1618,7 +1618,7 @@ export type ListEventAssignmentsQueryError = ErrorType<void>
 
 
 /**
- * @summary List staff assigned to an event (Admin or organizer)
+ * @summary List staff assigned to an event (global manager or assigned organizer)
  */
 
 export function useListEventAssignments<TData = Awaited<ReturnType<typeof listEventAssignments>>, TError = ErrorType<void>>(
@@ -1650,8 +1650,8 @@ export const getAssignEventStaffUrl = (eventType: 'rotating' | 'fixed_partner',
 }
 
 /**
- * Assigns staff within the selected event format. Repeating an existing assignment returns the existing assignment.
- * @summary Assign a captain or court leader to an event (Admin or organizer)
+ * Assigns or changes one user's role within the selected event. A user has at most one event role per event.
+ * @summary Assign an event role (global manager or assigned organizer)
  */
 export const assignEventStaff = async (eventType: 'rotating' | 'fixed_partner',
     id: number,
@@ -1702,7 +1702,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type AssignEventStaffMutationError = ErrorType<void>
 
     /**
- * @summary Assign a captain or court leader to an event (Admin or organizer)
+ * @summary Assign an event role (global manager or assigned organizer)
  */
 export const useAssignEventStaff = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof assignEventStaff>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;data: BodyType<EventAssignmentInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -1727,7 +1727,7 @@ export const getRemoveEventStaffAssignmentUrl = (eventType: 'rotating' | 'fixed_
 
 /**
  * Removes an assignment only from the selected event format.
- * @summary Remove staff assignment from an event (Admin or organizer)
+ * @summary Remove staff assignment from an event (global manager or assigned organizer)
  */
 export const removeEventStaffAssignment = async (eventType: 'rotating' | 'fixed_partner',
     id: number,
@@ -1777,7 +1777,7 @@ const {mutation: mutationOptions, request: requestOptions} = options ?
     export type RemoveEventStaffAssignmentMutationError = ErrorType<void>
 
     /**
- * @summary Remove staff assignment from an event (Admin or organizer)
+ * @summary Remove staff assignment from an event (global manager or assigned organizer)
  */
 export const useRemoveEventStaffAssignment = <TError = ErrorType<void>,
     TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof removeEventStaffAssignment>>, TError,{eventType: 'rotating' | 'fixed_partner';id: number;userId: number}, TContext>, request?: SecondParameter<typeof customFetch>}
@@ -3081,8 +3081,8 @@ export const getListAssignableStaffUrl = () => {
 }
 
 /**
- * Returns only users in the configured assignable-staff roles.
- * @summary List staff who can be assigned to events (Admin or organizer)
+ * Returns all persisted account users. The selected event role is supplied when creating the assignment.
+ * @summary List account users who can be assigned event roles
  */
 export const listAssignableStaff = async ( options?: RequestInit): Promise<AssignableStaff[]> => {
 
@@ -3129,7 +3129,7 @@ export type ListAssignableStaffQueryError = ErrorType<void>
 
 
 /**
- * @summary List staff who can be assigned to events (Admin or organizer)
+ * @summary List account users who can be assigned event roles
  */
 
 export function useListAssignableStaff<TData = Awaited<ReturnType<typeof listAssignableStaff>>, TError = ErrorType<void>>(

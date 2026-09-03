@@ -2,6 +2,7 @@ import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 import {
   getUserRole,
   getUserRoleIds,
+  getEventRoleIds,
   getVirtualUserRoleIds,
   loadUserRolesConfig,
   canonicalizeUserRole as canonicalizeConfiguredUserRole,
@@ -13,6 +14,9 @@ import {
 export const userRolesConfig: UserRolesConfig = loadUserRolesConfig(rawUserRolesConfig);
 export const USER_ROLE_IDS = Object.fromEntries(
   getUserRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
+) as Record<string, string>;
+export const EVENT_ROLE_IDS = Object.fromEntries(
+  getEventRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
 ) as Record<string, string>;
 export const VIRTUAL_USER_ROLE_IDS = Object.fromEntries(
   getVirtualUserRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
@@ -38,4 +42,8 @@ export function hasUserRole(
 
 export function isConfiguredUserRole(roleId: string): boolean {
   return getUserRoleIds(userRolesConfig).includes(roleId);
+}
+
+export function isConfiguredEventRole(roleId: string): boolean {
+  return getEventRoleIds(userRolesConfig).includes(roleId);
 }

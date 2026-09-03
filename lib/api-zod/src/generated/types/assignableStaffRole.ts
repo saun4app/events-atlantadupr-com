@@ -10,7 +10,7 @@ export type AssignableStaffRole = typeof AssignableStaffRole[keyof typeof Assign
 
 
 export const AssignableStaffRole = {
-  event_captain: 'event_captain',
+  app_admin: 'app_admin',
   club_director: 'club_director',
-  court_leader: 'court_leader',
+  club_member: 'club_member',
 } as const;
