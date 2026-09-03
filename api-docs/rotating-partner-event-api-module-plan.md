@@ -6,7 +6,7 @@ Define the rotating-partner event domain as an independently deployable module r
 The shared server contract is defined in:
 - `api-docs/dupr-event-api-proj-plan.md`
 - `api-docs/dupr-event-api-config.json`
-- `api-docs/dupr-event-api-data-modle.json`
+- `api-docs/dupr-event-api-data-model.json`
 - `api-docs/dupr-event-api-openapi.yaml`
 
 The module-specific persistence and policy sources are:
@@ -72,7 +72,7 @@ Validate the module configuration, data model, OpenAPI paths and operation IDs, 
 ## Relevant files
 - `api-docs/dupr-event-api-proj-plan.md`
 - `api-docs/dupr-event-api-config.json`
-- `api-docs/dupr-event-api-data-modle.json`
+- `api-docs/dupr-event-api-data-model.json`
 - `api-docs/dupr-event-api-openapi.yaml`
 - `api-docs/rotating-partner-event-api-module-config.json`
 - `api-docs/rotating-partner-event-api-module-data-modle.json`

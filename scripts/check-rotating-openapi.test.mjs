@@ -18,7 +18,7 @@ const [
   readFile("api-docs/rotating-partner-event-api-module-data-modle.json", "utf8").then(JSON.parse),
   readFile("api-docs/rotating-partner-event-api-module-config.json", "utf8").then(JSON.parse),
   readFile("api-docs/dupr-event-api-openapi.yaml", "utf8"),
-  readFile("api-docs/dupr-event-api-data-modle.json", "utf8").then(JSON.parse),
+  readFile("api-docs/dupr-event-api-data-model.json", "utf8").then(JSON.parse),
   readFile("api-docs/dupr-event-api-config.json", "utf8").then(JSON.parse),
 ]);
 

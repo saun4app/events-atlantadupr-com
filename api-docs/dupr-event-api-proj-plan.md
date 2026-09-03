@@ -64,7 +64,7 @@ The platform defines the common error envelope, request body limit, pagination d
 ### 4. Shared persistence conventions
 Use JSON documents where platform persistence is needed. Documents have opaque IDs, types, schema versions, module ownership, UTC timestamps, and payload data. Readers support current and documented older versions; writers emit the current version. Cross-module references use stable IDs only, never another module’s tables or documents.
 
-The shared document and platform persistence contract is defined in `dupr-event-api-data-modle.json`. Module documents extend the conventions in their own data-model contract and remain independently validated.
+The shared document and platform persistence contract is defined in `dupr-event-api-data-model.json`. Module documents extend the conventions in their own data-model contract and remain independently validated.
 
 ### 5. Operations and security
 Validate all runtime configuration before opening the listener. Provide liveness and readiness checks, dependency failure reporting, structured redacted logs, metrics for request/error/queue health, graceful shutdown, backup/restore guidance, retention rules, and audit records for staff mutations. The platform must fail closed rather than silently falling back to hardcoded security or deployment policy.

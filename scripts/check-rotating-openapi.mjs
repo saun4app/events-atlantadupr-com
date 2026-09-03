@@ -6,7 +6,7 @@ const OPENAPI_PATH = "api-docs/rotating-partner-event-api-module-openapi.yaml";
 const DATA_MODEL_PATH = "api-docs/rotating-partner-event-api-module-data-modle.json";
 const CONFIG_PATH = "api-docs/rotating-partner-event-api-module-config.json";
 const PLATFORM_OPENAPI_PATH = "api-docs/dupr-event-api-openapi.yaml";
-const PLATFORM_DATA_MODEL_PATH = "api-docs/dupr-event-api-data-modle.json";
+const PLATFORM_DATA_MODEL_PATH = "api-docs/dupr-event-api-data-model.json";
 const PLATFORM_CONFIG_PATH = "api-docs/dupr-event-api-config.json";
 
 function operationBlock(text, operationId) {
