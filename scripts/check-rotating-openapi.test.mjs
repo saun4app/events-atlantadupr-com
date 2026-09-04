@@ -180,6 +180,45 @@ test("accepts relative documentation and OpenAPI references", () => {
   assert.equal(result.referenceCount, 3);
 });
 
+test("rejects a missing Markdown link and identifies its referrer", () => {
+  assert.throws(
+    () =>
+      validateDocumentationReferences({
+        files: ["api-docs/plans/module-plan.md"],
+        fileContents: new Map([
+          [
+            "api-docs/plans/module-plan.md",
+            "[Data model](../missing-data-model.json#Document)",
+          ],
+        ]),
+      }),
+    /api-docs\/missing-data-model\.json.*api-docs\/plans\/module-plan\.md/,
+  );
+});
+
+test("accepts relative Markdown links and excludes external and code-formatted examples", () => {
+  const result = validateDocumentationReferences({
+    files: [
+      "api-docs/dupr-event-api-proj-plan.md",
+      "api-docs/contracts/data-model.json",
+    ],
+    fileContents: new Map([
+      [
+        "api-docs/dupr-event-api-proj-plan.md",
+        [
+          "[Data model](contracts/data-model.json)",
+          "[External](https://example.com/missing.json)",
+          "`[Inline example](missing-inline.json)`",
+          "```md",
+          "[Fenced example](missing-fenced.json)",
+          "```",
+        ].join("\n"),
+      ],
+    ]),
+  });
+  assert.equal(result.referenceCount, 1);
+});
+
 test("accepts the standalone rotating OpenAPI contract", async () => {
   const result = await validateRotatingOpenApi({
     openApiText,

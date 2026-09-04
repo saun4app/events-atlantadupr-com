@@ -217,8 +217,60 @@ function collectDocumentationReferences(text) {
   return references;
 }
 
+function maskMarkdownCode(text) {
+  const lines = text.split(/\r?\n/);
+  const maskedLines = [];
+  let fence = null;
+
+  for (const line of lines) {
+    const fenceMatch = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+    if (fence) {
+      if (
+        fenceMatch &&
+        fenceMatch[1][0] === fence.character &&
+        fenceMatch[1].length >= fence.length
+      ) {
+        fence = null;
+      }
+      maskedLines.push("");
+      continue;
+    }
+
+    if (fenceMatch) {
+      fence = {
+        character: fenceMatch[1][0],
+        length: fenceMatch[1].length,
+      };
+      maskedLines.push("");
+      continue;
+    }
+
+    maskedLines.push(
+      line.replace(/(`+)(.*?)\1/g, (match) => " ".repeat(match.length)),
+    );
+  }
+
+  return maskedLines.join("\n");
+}
+
+function collectMarkdownReferences(text) {
+  const references = [];
+  const markdownText = maskMarkdownCode(text);
+  const markdownLinkPattern =
+    /(?<!!)\[[^\]\n]*\]\(\s*(?:<([^>\n]*)>|([^\s)\n]+))(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?\s*\)/g;
+
+  for (const match of markdownText.matchAll(markdownLinkPattern)) {
+    references.push({
+      kind: "Markdown",
+      value: match[1] ?? match[2],
+    });
+  }
+
+  return references;
+}
+
 function resolveRepositoryReference(referrer, reference) {
-  const target = reference.split("#", 1)[0];
+  const target = reference.split(/[?#]/, 1)[0];
   if (
     !target ||
     target.startsWith("/") ||
@@ -248,7 +300,11 @@ export function validateDocumentationReferences({ files, fileContents }) {
       continue;
     }
 
-    for (const reference of collectDocumentationReferences(text)) {
+    const references = [
+      ...collectDocumentationReferences(text),
+      ...(referrer.endsWith(".md") ? collectMarkdownReferences(text) : []),
+    ];
+    for (const reference of references) {
       const targetPath = resolveRepositoryReference(referrer, reference.value);
       if (!targetPath) {
         continue;
