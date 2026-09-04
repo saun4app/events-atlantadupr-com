@@ -277,7 +277,7 @@ function collectMarkdownReferences(text) {
   }
 
   const markdownReferenceDefinitionPattern =
-    /^\s{0,3}\[(?!\^)([^\]\n]+)\]:\s*(?:<([^>\n]*)>|([^\s\n]+))/gm;
+    /^[ \t]{0,3}\[(?!\^)([^\]\n]+)\]:\s*(?:<([^>\n]*)>|([^\s\n]+))/gm;
   for (const match of markdownText.matchAll(
     markdownReferenceDefinitionPattern,
   )) {

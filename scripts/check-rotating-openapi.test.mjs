@@ -257,6 +257,31 @@ test("rejects duplicate Markdown reference definitions and identifies the label 
   );
 });
 
+test("rejects duplicate Markdown definitions that differ only by whitespace and identifies both locations", () => {
+  assert.throws(
+    () =>
+      validateDocumentationReferences({
+        files: [
+          "api-docs/plans/module-plan.md",
+          "api-docs/contracts/first.json",
+          "api-docs/contracts/second.json",
+        ],
+        fileContents: new Map([
+          [
+            "api-docs/plans/module-plan.md",
+            [
+              "[Data model][data model]",
+              "",
+              "[ data model ]: ../contracts/first.json",
+              "[data   model]: ../contracts/second.json",
+            ].join("\n"),
+          ],
+        ]),
+      }),
+    /Duplicate Markdown reference definition label "data   model".*api-docs\/plans\/module-plan\.md.*line 4 \(previous definition at line 3\)/,
+  );
+});
+
 test("accepts relative Markdown links and excludes external and code-formatted examples", () => {
   const result = validateDocumentationReferences({
     files: [
