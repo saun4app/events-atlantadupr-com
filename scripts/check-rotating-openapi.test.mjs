@@ -36,6 +36,15 @@ const staleModuleFilename = `rotating-partner-event-api-module-data-${"modle"}.j
 const staleModulePath = `api-docs/${staleModuleFilename}`;
 const incorrectModuleFilename = `rotating-partner-event-data-${"model"}.json`;
 
+function captureThrownError(callback) {
+  try {
+    callback();
+  } catch (error) {
+    return error;
+  }
+  assert.fail("Expected callback to throw");
+}
+
 test("accepts the shared API server contracts", async () => {
   const result = await validateSharedApiContracts({
     openApiText: platformOpenApiText,
@@ -233,7 +242,7 @@ test("rejects an undefined Markdown reference label and identifies its document"
 });
 
 test("rejects duplicate Markdown reference definitions and identifies the label and location", () => {
-  assert.throws(
+  const error = captureThrownError(
     () =>
       validateDocumentationReferences({
         files: [
@@ -253,12 +262,19 @@ test("rejects duplicate Markdown reference definitions and identifies the label 
           ],
         ]),
       }),
+  );
+  assert.match(
+    error.message,
     /Duplicate Markdown reference definition label "DATA-MODEL".*api-docs\/plans\/module-plan\.md.*line 4/,
+  );
+  assert.match(
+    error.message,
+    /normalized label "data-model" matches current label "DATA-MODEL" and previous label "data-model"/,
   );
 });
 
 test("rejects duplicate Markdown definitions that differ only by whitespace and identifies both locations", () => {
-  assert.throws(
+  const error = captureThrownError(
     () =>
       validateDocumentationReferences({
         files: [
@@ -278,8 +294,14 @@ test("rejects duplicate Markdown definitions that differ only by whitespace and 
           ],
         ]),
       }),
+  );
+  assert.match(
+    error.message,
     /Duplicate Markdown reference definition label "data   model".*api-docs\/plans\/module-plan\.md.*line 4 \(previous definition at line 3\)/,
   );
+  assert.match(error.message, /normalized label "data model"/);
+  assert.match(error.message, /current label "data···model"/);
+  assert.match(error.message, /previous label "·data·model·"/);
 });
 
 test("accepts relative Markdown links and excludes external and code-formatted examples", () => {

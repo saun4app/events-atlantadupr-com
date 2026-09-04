@@ -296,6 +296,23 @@ function normalizeMarkdownReferenceLabel(label) {
   return label.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
+function displayMarkdownReferenceLabel(label) {
+  return [...label]
+    .map((character) => {
+      if (character === " ") {
+        return "·";
+      }
+      if (character === "\t") {
+        return "⇥";
+      }
+      if (/\s/u.test(character)) {
+        return `\\u${character.codePointAt(0).toString(16).padStart(4, "0")}`;
+      }
+      return character;
+    })
+    .join("");
+}
+
 function resolveRepositoryReference(referrer, reference) {
   const target = reference.split(/[?#]/, 1)[0];
   if (
@@ -337,7 +354,7 @@ export function validateDocumentationReferences({ files, fileContents }) {
       const previousDefinition = definitionsByLabel.get(normalizedLabel);
       if (previousDefinition) {
         markdownReferenceErrors.push(
-          `Duplicate Markdown reference definition label "${definition.label}" in file "${referrer}" at line ${definition.line} (previous definition at line ${previousDefinition.line})`,
+          `Duplicate Markdown reference definition label "${definition.label}" in file "${referrer}" at line ${definition.line} (previous definition at line ${previousDefinition.line}); normalized label "${normalizedLabel}" matches current label "${displayMarkdownReferenceLabel(definition.label)}" and previous label "${displayMarkdownReferenceLabel(previousDefinition.label)}"`,
         );
       } else {
         definitionsByLabel.set(normalizedLabel, definition);
