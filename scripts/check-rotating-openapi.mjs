@@ -266,6 +266,17 @@ function collectMarkdownReferences(text) {
     });
   }
 
+  const markdownReferenceDefinitionPattern =
+    /^\s{0,3}\[(?!\^)[^\]\n]+\]:\s*(?:<([^>\n]*)>|([^\s\n]+))/gm;
+  for (const match of markdownText.matchAll(
+    markdownReferenceDefinitionPattern,
+  )) {
+    references.push({
+      kind: "Markdown",
+      value: match[1] ?? match[2],
+    });
+  }
+
   return references;
 }
 
@@ -366,7 +377,10 @@ function schemaBlock(text, schemaName) {
   }
   const rest = text.slice(start + marker.length);
   const nextMatch = rest.match(/\n    [A-Za-z][A-Za-z0-9_-]*:\n/);
-  return text.slice(start, nextMatch ? start + marker.length + nextMatch.index : text.length);
+  return text.slice(
+    start,
+    nextMatch ? start + marker.length + nextMatch.index : text.length,
+  );
 }
 
 function assertIncludes(text, fragment, message) {
@@ -382,7 +396,11 @@ export async function validateSharedApiContracts({
 }) {
   await format(openApiText, { parser: "yaml" });
 
-  assertIncludes(openApiText, "openapi: 3.1.0", "Shared OpenAPI version must be 3.1.0");
+  assertIncludes(
+    openApiText,
+    "openapi: 3.1.0",
+    "Shared OpenAPI version must be 3.1.0",
+  );
   assertIncludes(
     openApiText,
     "title: DUPR Event API Server",
@@ -430,32 +448,47 @@ export async function validateSharedApiContracts({
   }
 
   if (config.server.basePath !== "/api/v1") {
-    throw new Error("Shared API configuration must use /api/v1 as its base path");
+    throw new Error(
+      "Shared API configuration must use /api/v1 as its base path",
+    );
   }
   if (
     config.authentication.bearer.issuerEnv !== "OIDC_ISSUER_URL" ||
     config.authentication.bearer.audienceEnv !== "OIDC_AUDIENCE"
   ) {
-    throw new Error("Shared API configuration is missing the OIDC environment contract");
+    throw new Error(
+      "Shared API configuration is missing the OIDC environment contract",
+    );
   }
   if (config.authentication.organization.tenantIdEnv !== "TENANT_ID") {
-    throw new Error("Shared API configuration is missing the tenant environment contract");
+    throw new Error(
+      "Shared API configuration is missing the tenant environment contract",
+    );
   }
   if (
     config.http.allowedOriginsEnv !== "ALLOWED_ORIGINS" ||
     config.http.csrfHeader !== "X-CSRF-Token"
   ) {
-    throw new Error("Shared API configuration is missing the origin or CSRF contract");
+    throw new Error(
+      "Shared API configuration is missing the origin or CSRF contract",
+    );
   }
   if (!dataModel.documentEnvelope?.requiredFields?.includes("module")) {
-    throw new Error("Shared data model must define module-owned document envelopes");
+    throw new Error(
+      "Shared data model must define module-owned document envelopes",
+    );
   }
   const platformDocumentTypes = new Set(
     dataModel.platformDocuments?.map((document) => document.documentType),
   );
-  for (const documentType of ["platform_outbox_message", "platform_audit_record"]) {
+  for (const documentType of [
+    "platform_outbox_message",
+    "platform_audit_record",
+  ]) {
     if (!platformDocumentTypes.has(documentType)) {
-      throw new Error(`Shared data model is missing platform document type ${documentType}`);
+      throw new Error(
+        `Shared data model is missing platform document type ${documentType}`,
+      );
     }
   }
 
@@ -473,7 +506,11 @@ export async function validateRotatingOpenApi({
 }) {
   await format(openApiText, { parser: "yaml" });
 
-  assertIncludes(openApiText, "openapi: 3.1.0", "OpenAPI version must be 3.1.0");
+  assertIncludes(
+    openApiText,
+    "openapi: 3.1.0",
+    "OpenAPI version must be 3.1.0",
+  );
   assertIncludes(
     openApiText,
     "x-rotating-partner-config: ./rotating-partner-event-api-module-config.json",
@@ -490,7 +527,9 @@ export async function validateRotatingOpenApi({
     "The rotating module must point to the shared API platform contract",
   );
   if (!platformOpenApiText) {
-    throw new Error("The rotating module validator requires the shared API OpenAPI contract");
+    throw new Error(
+      "The rotating module validator requires the shared API OpenAPI contract",
+    );
   }
 
   for (const reference of [
@@ -517,8 +556,13 @@ export async function validateRotatingOpenApi({
     );
   }
 
-  if (openApiText.includes("fixed_partner") || openApiText.includes("frontend_event_create")) {
-    throw new Error("The standalone rotating contract contains a non-rotating rule");
+  if (
+    openApiText.includes("fixed_partner") ||
+    openApiText.includes("frontend_event_create")
+  ) {
+    throw new Error(
+      "The standalone rotating contract contains a non-rotating rule",
+    );
   }
 
   const declarations = new Set(
@@ -533,7 +577,9 @@ export async function validateRotatingOpenApi({
   ].map((match) => match[1]);
   const unresolvedRefs = localRefs.filter((name) => !declarations.has(name));
   if (unresolvedRefs.length > 0) {
-    throw new Error(`Unresolved local references: ${[...new Set(unresolvedRefs)].join(", ")}`);
+    throw new Error(
+      `Unresolved local references: ${[...new Set(unresolvedRefs)].join(", ")}`,
+    );
   }
 
   const operationIds = [
@@ -569,7 +615,9 @@ export async function validateRotatingOpenApi({
     }
   }
 
-  const templatedPaths = [...openApiText.matchAll(/^  (\/[^:]*\{([^}]+)\}[^:]*):$/gm)];
+  const templatedPaths = [
+    ...openApiText.matchAll(/^  (\/[^:]*\{([^}]+)\}[^:]*):$/gm),
+  ];
   const pathParameterRefs = {
     eventId: "#/components/parameters/EventId",
     registrationId: "#/components/parameters/RegistrationId",
@@ -580,10 +628,15 @@ export async function validateRotatingOpenApi({
     const marker = `  ${path}:`;
     const start = openApiText.indexOf(marker);
     const next = openApiText.indexOf("\n  /", start + marker.length);
-    const block = openApiText.slice(start, next === -1 ? openApiText.length : next);
+    const block = openApiText.slice(
+      start,
+      next === -1 ? openApiText.length : next,
+    );
     const expectedRef = pathParameterRefs[parameterName];
     if (!expectedRef || !block.includes(expectedRef)) {
-      throw new Error(`Path ${path} does not declare parameter ${parameterName}`);
+      throw new Error(
+        `Path ${path} does not declare parameter ${parameterName}`,
+      );
     }
   }
 
@@ -593,10 +646,14 @@ export async function validateRotatingOpenApi({
   ];
   for (const operationId of publicRegistrationOperations) {
     const block = operationBlock(openApiText, operationId);
-    assertIncludes(block, "security: []", `${operationId} must declare its public access`);
     assertIncludes(
       block,
-      '#/components/schemas/PublicRegistrationDocument',
+      "security: []",
+      `${operationId} must declare its public access`,
+    );
+    assertIncludes(
+      block,
+      "#/components/schemas/PublicRegistrationDocument",
       `${operationId} must return the redacted public registration document`,
     );
     if (block.includes('#/components/schemas/RegistrationDocument"')) {
@@ -604,7 +661,10 @@ export async function validateRotatingOpenApi({
     }
   }
 
-  const publicListBlock = operationBlock(openApiText, "listRotatingRegistrations");
+  const publicListBlock = operationBlock(
+    openApiText,
+    "listRotatingRegistrations",
+  );
   assertIncludes(
     publicListBlock,
     "security: []",
@@ -613,13 +673,18 @@ export async function validateRotatingOpenApi({
   const publicListSchema = schemaBlock(openApiText, "RegistrationListResponse");
   assertIncludes(
     publicListSchema,
-    '#/components/schemas/PublicRegistrationDocument',
+    "#/components/schemas/PublicRegistrationDocument",
     "The public roster list must contain redacted registration documents",
   );
 
-  const privateRegistrationBlock = operationBlock(openApiText, "getRotatingRegistration");
+  const privateRegistrationBlock = operationBlock(
+    openApiText,
+    "getRotatingRegistration",
+  );
   if (privateRegistrationBlock.includes("security: []")) {
-    throw new Error("Full registration documents cannot be fetched anonymously");
+    throw new Error(
+      "Full registration documents cannot be fetched anonymously",
+    );
   }
   assertIncludes(
     privateRegistrationBlock,
@@ -628,18 +693,23 @@ export async function validateRotatingOpenApi({
   );
   assertIncludes(
     privateRegistrationBlock,
-    '#/components/schemas/RegistrationDocument',
+    "#/components/schemas/RegistrationDocument",
     "Staff registration lookup must use the full registration schema",
   );
 
   const publicProfile = schemaBlock(openApiText, "PublicPlayerProfile");
   for (const privateField of ["email:", "phone:", "participantId:"]) {
     if (publicProfile.includes(privateField)) {
-      throw new Error(`PublicPlayerProfile exposes private field ${privateField.slice(0, -1)}`);
+      throw new Error(
+        `PublicPlayerProfile exposes private field ${privateField.slice(0, -1)}`,
+      );
     }
   }
 
-  const registrationInput = schemaBlock(openApiText, "RegistrationCreateRequest");
+  const registrationInput = schemaBlock(
+    openApiText,
+    "RegistrationCreateRequest",
+  );
   for (const fragment of [
     "oneOf:",
     "required: [email, code]",
@@ -654,12 +724,18 @@ export async function validateRotatingOpenApi({
       `RegistrationCreateRequest is missing exclusive identifier rule: ${fragment}`,
     );
   }
-  if (registrationInput.includes("type: [string, \"null\"]\n          format: email")) {
+  if (
+    registrationInput.includes(
+      'type: [string, "null"]\n          format: email',
+    )
+  ) {
     throw new Error("Registration email identifier cannot be null");
   }
 
   if (config.module.apiBasePath !== "/api/v1/rotating-partner-events") {
-    throw new Error("OpenAPI server base path does not match the backend configuration");
+    throw new Error(
+      "OpenAPI server base path does not match the backend configuration",
+    );
   }
   assertIncludes(
     openApiText,
@@ -667,7 +743,9 @@ export async function validateRotatingOpenApi({
     "OpenAPI server URL does not match the backend configuration",
   );
 
-  const documentTypes = new Set(dataModel.documentEnvelope.fields.documentType.enum);
+  const documentTypes = new Set(
+    dataModel.documentEnvelope.fields.documentType.enum,
+  );
   for (const documentType of [
     "rotating_event",
     "rotating_registration",
@@ -675,8 +753,13 @@ export async function validateRotatingOpenApi({
     "rotating_event_defaults",
     "event_assignment",
   ]) {
-    if (!documentTypes.has(documentType) || !openApiText.includes(`const: ${documentType}`)) {
-      throw new Error(`OpenAPI contract is missing document type ${documentType}`);
+    if (
+      !documentTypes.has(documentType) ||
+      !openApiText.includes(`const: ${documentType}`)
+    ) {
+      throw new Error(
+        `OpenAPI contract is missing document type ${documentType}`,
+      );
     }
   }
 
@@ -686,7 +769,10 @@ export async function validateRotatingOpenApi({
   const registrationStatuses = registrationModel.fields.find(
     (field) => field.path === "status",
   ).enum;
-  const registrationStatusSchema = schemaBlock(openApiText, "RegistrationStatus");
+  const registrationStatusSchema = schemaBlock(
+    openApiText,
+    "RegistrationStatus",
+  );
   for (const status of registrationStatuses) {
     assertIncludes(
       registrationStatusSchema,

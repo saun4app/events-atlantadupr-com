@@ -133,7 +133,10 @@ test("rejects a stale rotating module data-model reference and identifies its re
           "api-docs/rotating-partner-event-api-module-data-model.json",
         ],
         fileContents: new Map([
-          ["api-docs/rotating-partner-event-api-module-openapi.yaml", staleModuleFilename],
+          [
+            "api-docs/rotating-partner-event-api-module-openapi.yaml",
+            staleModuleFilename,
+          ],
         ]),
       }),
     new RegExp(
@@ -196,6 +199,26 @@ test("rejects a missing Markdown link and identifies its referrer", () => {
   );
 });
 
+test("rejects a missing Markdown reference definition and identifies its referrer", () => {
+  assert.throws(
+    () =>
+      validateDocumentationReferences({
+        files: ["api-docs/plans/module-plan.md"],
+        fileContents: new Map([
+          [
+            "api-docs/plans/module-plan.md",
+            [
+              "[Data model][data-model]",
+              "",
+              "[data-model]: ../missing-data-model.json#Document",
+            ].join("\n"),
+          ],
+        ]),
+      }),
+    /api-docs\/missing-data-model\.json.*api-docs\/plans\/module-plan\.md/,
+  );
+});
+
 test("accepts relative Markdown links and excludes external and code-formatted examples", () => {
   const result = validateDocumentationReferences({
     files: [
@@ -219,6 +242,33 @@ test("accepts relative Markdown links and excludes external and code-formatted e
   assert.equal(result.referenceCount, 1);
 });
 
+test("accepts relative Markdown reference definitions and excludes external and code-formatted examples", () => {
+  const result = validateDocumentationReferences({
+    files: [
+      "api-docs/dupr-event-api-proj-plan.md",
+      "api-docs/contracts/data-model.json",
+    ],
+    fileContents: new Map([
+      [
+        "api-docs/dupr-event-api-proj-plan.md",
+        [
+          "[Data model][data-model]",
+          "[External][external]",
+          "`[Inline example][inline]`",
+          "```md",
+          "[Fenced example][fenced]",
+          "[fenced]: missing-fenced.json",
+          "```",
+          "",
+          "[data-model]: contracts/data-model.json",
+          "[external]: https://example.com/missing.json",
+        ].join("\n"),
+      ],
+    ]),
+  });
+  assert.equal(result.referenceCount, 1);
+});
+
 test("accepts the standalone rotating OpenAPI contract", async () => {
   const result = await validateRotatingOpenApi({
     openApiText,
@@ -232,8 +282,8 @@ test("accepts the standalone rotating OpenAPI contract", async () => {
 
 test("rejects a full registration document on a public registration response", async () => {
   const unsafe = openApiText.replace(
-    '#/components/schemas/PublicRegistrationDocument',
-    '#/components/schemas/RegistrationDocument',
+    "#/components/schemas/PublicRegistrationDocument",
+    "#/components/schemas/RegistrationDocument",
   );
   await assert.rejects(
     validateRotatingOpenApi({
@@ -252,8 +302,8 @@ test("rejects a public roster schema containing full registration documents", as
   const unsafe = `${openApiText.slice(0, start)}${openApiText
     .slice(start)
     .replace(
-      '#/components/schemas/PublicRegistrationDocument',
-      '#/components/schemas/RegistrationDocument',
+      "#/components/schemas/PublicRegistrationDocument",
+      "#/components/schemas/RegistrationDocument",
     )}`;
   await assert.rejects(
     validateRotatingOpenApi({
