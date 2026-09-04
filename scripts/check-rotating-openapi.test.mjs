@@ -307,6 +307,34 @@ test("accepts relative Markdown reference definitions and excludes external and 
   assert.equal(result.referenceCount, 1);
 });
 
+test("accepts case-insensitive and collapsed Markdown reference links while excluding external and code-formatted examples", () => {
+  const result = validateDocumentationReferences({
+    files: [
+      "api-docs/dupr-event-api-proj-plan.md",
+      "api-docs/contracts/data-model.json",
+    ],
+    fileContents: new Map([
+      [
+        "api-docs/dupr-event-api-proj-plan.md",
+        [
+          "[Data model][DATA MODEL]",
+          "[Data model][]",
+          "[External][EXTERNAL]",
+          "`[Inline example][inline]`",
+          "```md",
+          "[Fenced example][fenced]",
+          "[fenced]: missing-fenced.json",
+          "```",
+          "",
+          "[data model]: contracts/data-model.json",
+          "[external]: https://example.com/missing.json",
+        ].join("\n"),
+      ],
+    ]),
+  });
+  assert.equal(result.referenceCount, 2);
+});
+
 test("accepts the standalone rotating OpenAPI contract", async () => {
   const result = await validateRotatingOpenApi({
     openApiText,
