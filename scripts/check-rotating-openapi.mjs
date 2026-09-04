@@ -255,6 +255,7 @@ function maskMarkdownCode(text) {
 
 function collectMarkdownReferences(text) {
   const references = [];
+  const definitions = [];
   const markdownText = maskMarkdownCode(text);
   const markdownLinkPattern =
     /(?<!!)\[[^\]\n]*\]\(\s*(?:<([^>\n]*)>|([^\s)\n]+))(?:\s+(?:"[^"\n]*"|'[^'\n]*'|\([^)\n]*\)))?\s*\)/g;
@@ -266,18 +267,33 @@ function collectMarkdownReferences(text) {
     });
   }
 
-  const markdownReferenceDefinitionPattern =
-    /^\s{0,3}\[(?!\^)[^\]\n]+\]:\s*(?:<([^>\n]*)>|([^\s\n]+))/gm;
-  for (const match of markdownText.matchAll(
-    markdownReferenceDefinitionPattern,
-  )) {
+  const markdownReferenceLinkPattern =
+    /(?<!!)\[([^\]\n]*)\]\[\s*([^\]\n]*?)\s*\]/g;
+  for (const match of markdownText.matchAll(markdownReferenceLinkPattern)) {
     references.push({
-      kind: "Markdown",
-      value: match[1] ?? match[2],
+      kind: "Markdown reference",
+      label: match[2] || match[1],
     });
   }
 
-  return references;
+  const markdownReferenceDefinitionPattern =
+    /^\s{0,3}\[(?!\^)([^\]\n]+)\]:\s*(?:<([^>\n]*)>|([^\s\n]+))/gm;
+  for (const match of markdownText.matchAll(
+    markdownReferenceDefinitionPattern,
+  )) {
+    const line = markdownText.slice(0, match.index).split("\n").length;
+    definitions.push({
+      label: match[1],
+      value: match[2] ?? match[3],
+      line,
+    });
+  }
+
+  return { references, definitions };
+}
+
+function normalizeMarkdownReferenceLabel(label) {
+  return label.trim().replace(/\s+/g, " ").toLowerCase();
 }
 
 function resolveRepositoryReference(referrer, reference) {
@@ -303,6 +319,7 @@ export function validateDocumentationReferences({ files, fileContents }) {
       ? fileContents
       : new Map(Object.entries(fileContents ?? {}));
   const unresolvedReferences = [];
+  const markdownReferenceErrors = [];
   let referenceCount = 0;
 
   for (const [rawReferrer, text] of contents.entries()) {
@@ -311,10 +328,23 @@ export function validateDocumentationReferences({ files, fileContents }) {
       continue;
     }
 
-    const references = [
-      ...collectDocumentationReferences(text),
-      ...(referrer.endsWith(".md") ? collectMarkdownReferences(text) : []),
-    ];
+    const markdownReferences = referrer.endsWith(".md")
+      ? collectMarkdownReferences(text)
+      : { references: [], definitions: [] };
+    const definitionsByLabel = new Map();
+    for (const definition of markdownReferences.definitions) {
+      const normalizedLabel = normalizeMarkdownReferenceLabel(definition.label);
+      const previousDefinition = definitionsByLabel.get(normalizedLabel);
+      if (previousDefinition) {
+        markdownReferenceErrors.push(
+          `Duplicate Markdown reference definition label "${definition.label}" in file "${referrer}" at line ${definition.line} (previous definition at line ${previousDefinition.line})`,
+        );
+      } else {
+        definitionsByLabel.set(normalizedLabel, definition);
+      }
+    }
+
+    const references = [...collectDocumentationReferences(text)];
     for (const reference of references) {
       const targetPath = resolveRepositoryReference(referrer, reference.value);
       if (!targetPath) {
@@ -330,16 +360,79 @@ export function validateDocumentationReferences({ files, fileContents }) {
         });
       }
     }
+
+    for (const definition of markdownReferences.definitions) {
+      const targetPath = resolveRepositoryReference(referrer, definition.value);
+      if (!targetPath) {
+        continue;
+      }
+      if (!presentFiles.has(targetPath)) {
+        unresolvedReferences.push({
+          kind: "Markdown",
+          targetPath,
+          referrer,
+          value: definition.value,
+        });
+      }
+    }
+
+    for (const reference of markdownReferences.references) {
+      if (reference.kind !== "Markdown reference") {
+        const targetPath = resolveRepositoryReference(
+          referrer,
+          reference.value,
+        );
+        if (!targetPath) {
+          continue;
+        }
+        referenceCount += 1;
+        if (!presentFiles.has(targetPath)) {
+          unresolvedReferences.push({
+            kind: reference.kind,
+            targetPath,
+            referrer,
+            value: reference.value,
+          });
+        }
+        continue;
+      }
+
+      const label = reference.label.trim();
+      const definition = definitionsByLabel.get(
+        normalizeMarkdownReferenceLabel(label),
+      );
+      if (!definition) {
+        markdownReferenceErrors.push(
+          `Undefined Markdown reference label "${label}" referenced by document "${referrer}"`,
+        );
+        continue;
+      }
+
+      const targetPath = resolveRepositoryReference(referrer, definition.value);
+      if (!targetPath) {
+        continue;
+      }
+      referenceCount += 1;
+      if (!presentFiles.has(targetPath)) {
+        unresolvedReferences.push({
+          kind: "Markdown",
+          targetPath,
+          referrer,
+          value: definition.value,
+        });
+      }
+    }
   }
 
-  if (unresolvedReferences.length > 0) {
+  if (markdownReferenceErrors.length > 0 || unresolvedReferences.length > 0) {
     throw new Error(
-      unresolvedReferences
-        .map(
+      [
+        ...markdownReferenceErrors,
+        ...unresolvedReferences.map(
           ({ kind, targetPath, referrer, value }) =>
             `Unresolved ${kind} reference target "${targetPath}" from file "${referrer}" (reference "${value}")`,
-        )
-        .join("; "),
+        ),
+      ].join("; "),
     );
   }
 

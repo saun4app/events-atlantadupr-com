@@ -219,6 +219,44 @@ test("rejects a missing Markdown reference definition and identifies its referre
   );
 });
 
+test("rejects an undefined Markdown reference label and identifies its document", () => {
+  assert.throws(
+    () =>
+      validateDocumentationReferences({
+        files: ["api-docs/plans/module-plan.md"],
+        fileContents: new Map([
+          ["api-docs/plans/module-plan.md", "[Data model][missing-data-model]"],
+        ]),
+      }),
+    /Undefined Markdown reference label "missing-data-model".*api-docs\/plans\/module-plan\.md/,
+  );
+});
+
+test("rejects duplicate Markdown reference definitions and identifies the label and location", () => {
+  assert.throws(
+    () =>
+      validateDocumentationReferences({
+        files: [
+          "api-docs/plans/module-plan.md",
+          "api-docs/contracts/first.json",
+          "api-docs/contracts/second.json",
+        ],
+        fileContents: new Map([
+          [
+            "api-docs/plans/module-plan.md",
+            [
+              "[Data model][data-model]",
+              "",
+              "[data-model]: ../contracts/first.json",
+              "[DATA-MODEL]: ../contracts/second.json",
+            ].join("\n"),
+          ],
+        ]),
+      }),
+    /Duplicate Markdown reference definition label "DATA-MODEL".*api-docs\/plans\/module-plan\.md.*line 4/,
+  );
+});
+
 test("accepts relative Markdown links and excludes external and code-formatted examples", () => {
   const result = validateDocumentationReferences({
     files: [
