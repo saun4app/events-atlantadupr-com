@@ -307,7 +307,7 @@ test("accepts relative Markdown reference definitions and excludes external and 
   assert.equal(result.referenceCount, 1);
 });
 
-test("accepts case-insensitive and collapsed Markdown reference links while excluding external and code-formatted examples", () => {
+test("accepts case-insensitive, collapsed, and surrounding Markdown reference labels while excluding external and code-formatted examples", () => {
   const result = validateDocumentationReferences({
     files: [
       "api-docs/dupr-event-api-proj-plan.md",
@@ -317,7 +317,7 @@ test("accepts case-insensitive and collapsed Markdown reference links while excl
       [
         "api-docs/dupr-event-api-proj-plan.md",
         [
-          "[Data model][DATA MODEL]",
+          "[Data model][  DATA   MODEL  ]",
           "[Data model][]",
           "[External][EXTERNAL]",
           "`[Inline example][inline]`",
@@ -326,7 +326,7 @@ test("accepts case-insensitive and collapsed Markdown reference links while excl
           "[fenced]: missing-fenced.json",
           "```",
           "",
-          "[data model]: contracts/data-model.json",
+          "[data   model]: contracts/data-model.json",
           "[external]: https://example.com/missing.json",
         ].join("\n"),
       ],
