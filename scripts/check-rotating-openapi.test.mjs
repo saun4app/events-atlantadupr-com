@@ -304,6 +304,37 @@ test("rejects duplicate Markdown definitions that differ only by whitespace and 
   assert.match(error.message, /previous label "·data·model·"/);
 });
 
+test("rejects duplicate Markdown definitions that differ through tabs and Unicode whitespace", () => {
+  const error = captureThrownError(() =>
+    validateDocumentationReferences({
+      files: [
+        "api-docs/plans/module-plan.md",
+        "api-docs/contracts/first.json",
+        "api-docs/contracts/second.json",
+      ],
+      fileContents: new Map([
+        [
+          "api-docs/plans/module-plan.md",
+          [
+            "[Data model][data model]",
+            "",
+            "[data\tmodel]: ../contracts/first.json",
+            "[data\u00a0model]: ../contracts/second.json",
+          ].join("\n"),
+        ],
+      ]),
+    }),
+  );
+  assert.ok(
+    error.message.includes(
+      'Duplicate Markdown reference definition label "data\u00a0model" in file "api-docs/plans/module-plan.md" at line 4 (previous definition at line 3)',
+    ),
+  );
+  assert.match(error.message, /normalized label "data model"/);
+  assert.match(error.message, /current label "data\\u00a0model"/);
+  assert.match(error.message, /previous label "data⇥model"/);
+});
+
 test("accepts relative Markdown links and excludes external and code-formatted examples", () => {
   const result = validateDocumentationReferences({
     files: [
