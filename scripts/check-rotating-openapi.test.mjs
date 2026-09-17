@@ -242,26 +242,25 @@ test("rejects an undefined Markdown reference label and identifies its document"
 });
 
 test("rejects duplicate Markdown reference definitions and identifies the label and location", () => {
-  const error = captureThrownError(
-    () =>
-      validateDocumentationReferences({
-        files: [
+  const error = captureThrownError(() =>
+    validateDocumentationReferences({
+      files: [
+        "api-docs/plans/module-plan.md",
+        "api-docs/contracts/first.json",
+        "api-docs/contracts/second.json",
+      ],
+      fileContents: new Map([
+        [
           "api-docs/plans/module-plan.md",
-          "api-docs/contracts/first.json",
-          "api-docs/contracts/second.json",
-        ],
-        fileContents: new Map([
           [
-            "api-docs/plans/module-plan.md",
-            [
-              "[Data model][data-model]",
-              "",
-              "[data-model]: ../contracts/first.json",
-              "[DATA-MODEL]: ../contracts/second.json",
-            ].join("\n"),
-          ],
-        ]),
-      }),
+            "[Data model][data-model]",
+            "",
+            "[data-model]: ../contracts/first.json",
+            "[DATA-MODEL]: ../contracts/second.json",
+          ].join("\n"),
+        ],
+      ]),
+    }),
   );
   assert.match(
     error.message,
@@ -274,26 +273,25 @@ test("rejects duplicate Markdown reference definitions and identifies the label 
 });
 
 test("rejects duplicate Markdown definitions that differ only by whitespace and identifies both locations", () => {
-  const error = captureThrownError(
-    () =>
-      validateDocumentationReferences({
-        files: [
+  const error = captureThrownError(() =>
+    validateDocumentationReferences({
+      files: [
+        "api-docs/plans/module-plan.md",
+        "api-docs/contracts/first.json",
+        "api-docs/contracts/second.json",
+      ],
+      fileContents: new Map([
+        [
           "api-docs/plans/module-plan.md",
-          "api-docs/contracts/first.json",
-          "api-docs/contracts/second.json",
-        ],
-        fileContents: new Map([
           [
-            "api-docs/plans/module-plan.md",
-            [
-              "[Data model][data model]",
-              "",
-              "[ data model ]: ../contracts/first.json",
-              "[data   model]: ../contracts/second.json",
-            ].join("\n"),
-          ],
-        ]),
-      }),
+            "[Data model][data model]",
+            "",
+            "[ data model ]: ../contracts/first.json",
+            "[data   model]: ../contracts/second.json",
+          ].join("\n"),
+        ],
+      ]),
+    }),
   );
   assert.match(
     error.message,
