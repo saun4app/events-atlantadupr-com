@@ -978,15 +978,14 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     }
   }
 
-  // Enforce the "Allow NR players" toggle for fixed-partner DUPR events.
-  // When NR is not allowed, reject non-rated players (primary or partner).
+  // Enforce the "Allow NR players" toggle for public DUPR registrations.
+  // When NR is not allowed, reject the registrant and, for fixed-partner
+  // events, reject a non-rated partner as well.
   // Staff adding participants from the admin console are exempt, consistent
   // with the self-rating exemption below.
   const rc = event.ratingConfig as { nrAllowed?: boolean } | null;
   const nrNotAllowed =
-    event.teamFormat === FIXED_PARTNER_FORMAT &&
-    NR_PARTNER_REQUIREMENT.condition.ratingType === event.ratingTypeRequired &&
-    NR_PARTNER_REQUIREMENT.condition.publicRequest === true &&
+    event.ratingTypeRequired === "dupr" &&
     !!rc &&
     typeof rc === "object" &&
     "nrAllowed" in rc &&
@@ -995,7 +994,12 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
     if (isNR(member?.doubles ?? null)) {
       return res.status(400).json({ error: "This event does not allow non-rated (NR) players. A DUPR doubles rating is required to register." });
     }
-    if (isNR(partnerMember?.doubles ?? null)) {
+    if (
+      event.teamFormat === FIXED_PARTNER_FORMAT &&
+      NR_PARTNER_REQUIREMENT.condition.ratingType === event.ratingTypeRequired &&
+      NR_PARTNER_REQUIREMENT.condition.publicRequest === true &&
+      isNR(partnerMember?.doubles ?? null)
+    ) {
       return res.status(400).json({ error: "This event does not allow non-rated (NR) players. Your partner needs a DUPR doubles rating to register." });
     }
   }

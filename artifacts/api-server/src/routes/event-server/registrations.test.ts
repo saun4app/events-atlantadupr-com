@@ -1,6 +1,7 @@
 import { describe, it, before, after, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import type { Server, AddressInfo } from "node:net";
+import crypto from "node:crypto";
 
 import { assertTestDatabase, db, pool } from "@workspace/db";
 import {
@@ -16,7 +17,6 @@ import {
 import { and, eq } from "drizzle-orm";
 
 import app from "../../app.js";
-import { issueCode } from "../../lib/verification.js";
 
 // These tests exercise the create-registration handler's de-duplication and
 // reactivation behavior end-to-end over HTTP. They drive the request through the
@@ -26,6 +26,8 @@ import { issueCode } from "../../lib/verification.js";
 // identical for staff and public callers.
 
 const STAFF_TOKEN = "test-staff-token-" + Math.random().toString(36).slice(2);
+const ORIGINAL_VERIFICATION_EMAIL_FROM = process.env.VERIFICATION_EMAIL_FROM;
+const TEST_VERIFICATION_EMAIL_FROM = "verification@test.local";
 
 let server: Server;
 let baseUrl: string;
@@ -226,13 +228,82 @@ async function registerPublic(
   email: string,
   body: Record<string, unknown> = {},
 ) {
-  const code = await issueCode(email);
-  assert.equal(typeof code, "string");
+  const code = "123456";
+  const clientIp = `198.51.100.${Math.floor(Math.random() * 200) + 1}`;
+  await plantVerificationCode(email, code);
+
+  const requestCodeResponse = await fetch(
+    `${baseUrl}/events/rotating/${eventId}/registrations/request-code`,
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": clientIp,
+      },
+      body: JSON.stringify({ email }),
+    },
+  );
+  const requestCodeBody = (await requestCodeResponse.json().catch(() => null)) as any;
+  assert.equal(requestCodeResponse.status, 200);
+  assert.equal(requestCodeBody.sent, true);
+
+  return submitPublicRegistration(eventId, email, code, body, clientIp);
+}
+
+async function plantVerificationCode(
+  email: string,
+  code: string,
+  overrides: Partial<typeof emailVerificationCodesTable.$inferInsert> = {},
+) {
+  const pepper =
+    process.env.SESSION_SECRET ??
+    (process.env.NODE_ENV === "production"
+      ? (() => {
+          throw new Error("SESSION_SECRET env var must be set in production");
+        })()
+      : "atl_dupr_dev_session_secret");
+  const codeHash = crypto
+    .createHash("sha256")
+    .update(`${code}:${pepper}`)
+    .digest("hex");
+  const now = new Date();
+  await db
+    .insert(emailVerificationCodesTable)
+    .values({
+      email: email.trim().toLowerCase(),
+      codeHash,
+      expiresAt: new Date(now.getTime() + 10 * 60_000),
+      attempts: 0,
+      lastSentAt: now,
+      ...overrides,
+    })
+    .onConflictDoUpdate({
+      target: emailVerificationCodesTable.email,
+      set: {
+        codeHash,
+        expiresAt: new Date(now.getTime() + 10 * 60_000),
+        attempts: 0,
+        lastSentAt: now,
+        ...overrides,
+      },
+    });
+}
+
+async function submitPublicRegistration(
+  eventId: number,
+  email: string,
+  code: string,
+  body: Record<string, unknown> = {},
+  clientIp = `203.0.113.${Math.floor(Math.random() * 200) + 1}`,
+) {
   const res = await fetch(
     `${baseUrl}/events/rotating/${eventId}/registrations`,
     {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        "x-forwarded-for": clientIp,
+      },
       body: JSON.stringify({ email, code, ...body }),
     },
   );
@@ -338,6 +409,7 @@ async function createFixedEvent(
 
 before(async () => {
   await assertTestDatabase();
+  process.env.VERIFICATION_EMAIL_FROM = TEST_VERIFICATION_EMAIL_FROM;
   const [staffUser] = await db
     .insert(usersTable)
     .values({
@@ -408,8 +480,89 @@ after(async () => {
     await db.delete(usersTable).where(eq(usersTable.id, userId));
   }
   await new Promise<void>((resolve) => server.close(() => resolve()));
+  if (ORIGINAL_VERIFICATION_EMAIL_FROM === undefined) {
+    delete process.env.VERIFICATION_EMAIL_FROM;
+  } else {
+    process.env.VERIFICATION_EMAIL_FROM = ORIGINAL_VERIFICATION_EMAIL_FROM;
+  }
   // Release the pooled DB connections so the test process can exit cleanly.
   await pool.end();
+});
+
+describe("public rotating email-verified registration", () => {
+  it("registers with a valid planted code and consumes it", async () => {
+    const event = await createEvent();
+    const player = await createMember();
+
+    const result = await registerPublic(event.id, player.email!);
+
+    assert.equal(result.status, 201);
+    assert.equal(result.body.status, "confirmed");
+    const rows = await memberRows(event.id, player.duprId);
+    assert.equal(rows.length, 1);
+    const [codeRow] = await db
+      .select()
+      .from(emailVerificationCodesTable)
+      .where(eq(emailVerificationCodesTable.email, player.email!.toLowerCase()));
+    assert.equal(codeRow, undefined);
+  });
+
+  it("rejects invalid and expired verification codes", async () => {
+    const event = await createEvent();
+    const invalidPlayer = await createMember();
+    const expiredPlayer = await createMember();
+
+    await plantVerificationCode(invalidPlayer.email!, "123456");
+    const invalid = await submitPublicRegistration(
+      event.id,
+      invalidPlayer.email!,
+      "654321",
+    );
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.body.error, /Invalid or expired verification code/);
+
+    await plantVerificationCode(expiredPlayer.email!, "123456", {
+      expiresAt: new Date(Date.now() - 1_000),
+    });
+    const expired = await submitPublicRegistration(
+      event.id,
+      expiredPlayer.email!,
+      "123456",
+    );
+    assert.equal(expired.status, 400);
+    assert.match(expired.body.error, /Invalid or expired verification code/);
+  });
+
+  it("requires a valid self-rating from an NR player", async () => {
+    const event = await createEvent();
+    const missingPlayer = await createMember({ doubles: "NR" });
+    const invalidPlayer = await createMember({ doubles: null });
+
+    const missing = await registerPublic(event.id, missingPlayer.email!);
+    assert.equal(missing.status, 400);
+    assert.match(missing.body.error, /Self-rating is required for NR/);
+
+    const invalid = await registerPublic(event.id, invalidPlayer.email!, {
+      selfRating: "5.01",
+    });
+    assert.equal(invalid.status, 400);
+    assert.match(invalid.body.error, /between 2\.0 and 5\.0/);
+  });
+
+  it("rejects an NR player when the event does not allow NR players", async () => {
+    const event = await createEvent({
+      ratingTypeRequired: "dupr",
+      ratingConfig: { min: 2, max: 5, nrAllowed: false },
+    });
+    const player = await createMember({ doubles: "NR" });
+
+    const result = await registerPublic(event.id, player.email!, {
+      selfRating: "3.50",
+    });
+
+    assert.equal(result.status, 400);
+    assert.match(result.body.error, /does not allow non-rated \(NR\) players/);
+  });
 });
 
 describe("public rotating self-rating registration validation", () => {
