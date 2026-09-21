@@ -15,6 +15,8 @@
  * script contains no INSERT, UPDATE, DELETE, DDL, or other write operation.
  */
 
+import { pathToFileURL } from "node:url";
+
 import { db, pool, sql } from "../lib/db/src/index.js";
 
 type ExpectedColumn = {
@@ -118,20 +120,28 @@ function isExpectedDefault(column: ExpectedColumn, actual: ActualColumn) {
   return actual.column_default === null;
 }
 
-async function main() {
-  const args = process.argv.slice(2).filter((arg) => arg !== "--");
-  if (args.some((arg) => arg !== "--check")) usage();
-  const check = args.includes("--check");
+type AuditOptions = {
+  check?: boolean;
+  transaction?: typeof db.transaction;
+  log?: (message: string) => void;
+  error?: (message: string) => void;
+};
 
+export async function auditProductionSchema({
+  check = false,
+  transaction = db.transaction.bind(db),
+  log = console.log,
+  error = console.error,
+}: AuditOptions = {}) {
   const issues: string[] = [];
   const warnings: string[] = [];
 
-  console.log("Production schema audit (read-only)");
-  console.log(
+  log("Production schema audit (read-only)");
+  log(
     "Target: DATABASE_URL supplied to this process; no production data will be changed.",
   );
 
-  await db.transaction(async (tx) => {
+  await transaction(async (tx) => {
     await tx.execute(sql`SET TRANSACTION READ ONLY`);
 
     const tableResult = await tx.execute(sql`
@@ -148,7 +158,7 @@ async function main() {
     const hasUsersTable = presentTables.has("app_users");
     const hasLegacyTable = presentTables.has("app_uses");
 
-    console.log(
+    log(
       `Tables: app_users=${hasUsersTable ? "present" : "MISSING"}, ` +
         `legacy app_uses=${hasLegacyTable ? "present" : "absent"}`,
     );
@@ -279,16 +289,16 @@ async function main() {
     const legacyUserCount = await countTable("app_uses");
 
     if (currentUserCount !== null) {
-      console.log(
+      log(
         `Preserved user count: ${currentUserCount} row(s) in public.app_users.`,
       );
     } else if (legacyUserCount !== null) {
-      console.log(
+      log(
         `Preserved user count: ${legacyUserCount} row(s) currently in ` +
           "legacy public.app_uses; app_users has not been created or renamed.",
       );
     } else {
-      console.log("Preserved user count: unavailable; no users table exists.");
+      log("Preserved user count: unavailable; no users table exists.");
     }
 
     if (
@@ -303,33 +313,45 @@ async function main() {
     }
 
     if (issues.length > 0) {
-      console.error("\nSchema issues:");
-      for (const issue of issues) console.error(`- ${issue}`);
+      error("\nSchema issues:");
+      for (const issue of issues) error(`- ${issue}`);
     }
 
     if (warnings.length > 0) {
-      console.error("\nWarnings:");
-      for (const warning of warnings) console.error(`- ${warning}`);
+      error("\nWarnings:");
+      for (const warning of warnings) error(`- ${warning}`);
     }
   });
 
   if (issues.length === 0 && warnings.length === 0) {
-    console.log("\nProduction schema check passed.");
+    log("\nProduction schema check passed.");
   } else if (!check) {
-    console.log(
+    log(
       "\nAudit completed with findings. Re-run with --check to fail the release gate.",
     );
   } else {
-    console.error(
+    error(
       "\nProduction schema check failed; resolve the findings before publishing.",
     );
-    process.exitCode = 1;
+    return 1;
   }
+
+  return 0;
 }
 
-main()
-  .catch((error) => {
-    console.error("Production schema audit failed:", error);
-    process.exitCode = 1;
-  })
-  .finally(() => pool.end());
+async function main() {
+  const args = process.argv.slice(2).filter((arg) => arg !== "--");
+  if (args.some((arg) => arg !== "--check")) usage();
+  process.exitCode = await auditProductionSchema({
+    check: args.includes("--check"),
+  });
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .catch((error) => {
+      console.error("Production schema audit failed:", error);
+      process.exitCode = 1;
+    })
+    .finally(() => pool.end());
+}

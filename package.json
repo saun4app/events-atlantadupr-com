@@ -22,7 +22,7 @@
     "test:site-nav": "node --test scripts/check-site-nav.test.mjs",
     "test:user-roles": "node --test scripts/check-user-roles.test.mjs",
     "test:event-assignment-audit": "node --test scripts/audit-event-assignments.test.mjs",
-    "test:production-schema-audit": "node --test scripts/audit-production-schema.test.mjs",
+    "test:production-schema-audit": "pnpm --filter @workspace/db exec tsx --test ../../scripts/audit-production-schema.test.mjs",
     "test:hosted-cleanup": "node --test scripts/verify-hosted-cleanup.test.mjs",
     "verify:hosted-cleanup": "node scripts/verify-hosted-cleanup.mjs",
     "test:e2e": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",

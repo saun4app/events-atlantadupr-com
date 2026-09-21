@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
+import { auditProductionSchema } from "./audit-production-schema.ts";
 
 const auditScript = await readFile(
   resolve(import.meta.dirname, "audit-production-schema.ts"),
@@ -49,9 +50,158 @@ test("uses a read-only transaction and contains no write queries", () => {
 });
 
 test("supports a release-gating check mode", () => {
-  assert.match(auditScript, /const check = args\.includes\("--check"\)/);
+  assert.match(auditScript, /check: args\.includes\("--check"\)/);
+  assert.match(auditScript, /Production schema check failed[\s\S]+?return 1/);
+});
+
+const healthyColumns = [
+  ["id", "integer", "int4", "NO", "nextval('app_users_id_seq'::regclass)"],
+  ["name", "text", "text", "NO", null],
+  ["username", "text", "text", "NO", null],
+  ["password_hash", "text", "text", "NO", null],
+  ["role", "text", "text", "NO", "'club_member'::text"],
+  ["dupr_id", "text", "text", "YES", null],
+  ["dupr_fullname", "text", "text", "YES", null],
+  ["created_at", "timestamp without time zone", "timestamp", "NO", "now()"],
+].map(([column_name, data_type, udt_name, is_nullable, column_default]) => ({
+  column_name,
+  data_type,
+  udt_name,
+  is_nullable,
+  column_default,
+}));
+
+function fixtureTransaction(responses) {
+  const calls = [];
+  return {
+    calls,
+    transaction: async (callback) =>
+      callback({
+        execute: async (query) => {
+          calls.push(query);
+          const response = responses.shift();
+          assert.ok(response, `unexpected query number ${calls.length}`);
+          return { rows: response };
+        },
+      }),
+  };
+}
+
+async function runFixture(responses, check = true) {
+  const output = [];
+  const fixture = fixtureTransaction(structuredClone(responses));
+  const exitCode = await auditProductionSchema({
+    check,
+    transaction: fixture.transaction,
+    log: (message) => output.push(message),
+    error: (message) => output.push(message),
+  });
+  return { exitCode, output: output.join("\n"), calls: fixture.calls };
+}
+
+test("passes a healthy app_users schema in check mode", async () => {
+  const result = await runFixture([
+    [],
+    [{ table_name: "app_users" }],
+    healthyColumns,
+    [],
+    [{ user_count: 12 }],
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  assert.match(result.output, /app_users=present, legacy app_uses=absent/);
+  assert.match(result.output, /Preserved user count: 12 row\(s\)/);
+  assert.match(result.output, /Production schema check passed/);
+  assert.equal(result.calls.length, 5);
+});
+
+test("fails check mode for the legacy rename-risk state", async () => {
+  const result = await runFixture([
+    [],
+    [{ table_name: "app_uses" }],
+    [],
+    [],
+    [{ user_count: 9 }],
+  ]);
+
+  assert.equal(result.exitCode, 1);
+  assert.match(result.output, /Missing expected table public\.app_users/);
+  assert.match(result.output, /destructive drop-and-create/);
   assert.match(
-    auditScript,
-    /Production schema check failed[\s\S]+?process\.exitCode = 1/,
+    result.output,
+    /legacy public\.app_uses; app_users has not been created/,
   );
+});
+
+test("reports missing columns and unexpected DUPR constraints", async () => {
+  const columns = healthyColumns.filter(
+    ({ column_name }) => column_name !== "dupr_fullname",
+  );
+  const result = await runFixture([
+    [],
+    [{ table_name: "app_users" }],
+    columns,
+    [
+      {
+        constraint_name: "app_users_dupr_id_key",
+        constraint_type: "UNIQUE",
+        definition: "UNIQUE (dupr_id)",
+        column_name: "dupr_id",
+      },
+    ],
+    [{ user_count: 4 }],
+  ]);
+
+  assert.equal(result.exitCode, 1);
+  assert.match(
+    result.output,
+    /Missing column public\.app_users\.dupr_fullname/,
+  );
+  assert.match(
+    result.output,
+    /Unexpected UNIQUE constraint app_users_dupr_id_key/,
+  );
+});
+
+test("warns when current and legacy user counts differ", async () => {
+  const result = await runFixture([
+    [],
+    [{ table_name: "app_users" }, { table_name: "app_uses" }],
+    healthyColumns,
+    [],
+    [{ user_count: 11 }],
+    [{ user_count: 14 }],
+  ]);
+
+  assert.equal(result.exitCode, 1);
+  assert.match(
+    result.output,
+    /app_users contains 11 row\(s\), while legacy app_uses contains 14/,
+  );
+});
+
+function queryText(value, seen = new Set()) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object" || seen.has(value)) return "";
+  seen.add(value);
+  if (Array.isArray(value)) {
+    return value.map((part) => queryText(part, seen)).join(" ");
+  }
+  return Object.values(value)
+    .map((part) => queryText(part, seen))
+    .join(" ");
+}
+
+test("executes the read-only guard before every audit query", async () => {
+  const result = await runFixture([
+    [],
+    [{ table_name: "app_users" }],
+    healthyColumns,
+    [],
+    [{ user_count: 1 }],
+  ]);
+
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.calls.length, 5);
+  assert.match(queryText(result.calls[0]), /SET TRANSACTION READ ONLY/);
 });
