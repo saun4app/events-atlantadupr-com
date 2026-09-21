@@ -5,6 +5,8 @@ import rawUserRolesConfig from "../app-config/user-roles.json";
 const userRolesConfig = rawUserRolesConfig;
 const ADMIN_ROLE = userRolesConfig.defaults.auditActorRole;
 const EVENT_MANAGER_ROLE = userRolesConfig.defaults.newUserRole;
+const EVENT_ORGANIZER_ROLE =
+  userRolesConfig.groups.eventManagers[0] ?? "event_organizer";
 const PARTICIPANT_ROLE = userRolesConfig.defaults.databaseRole;
 
 const ADMIN_USER = {
@@ -105,7 +107,14 @@ const ASSIGNABLE_STAFF = [
 async function mockAdminNavigationApi(
   page: Page,
   role: string,
-  options: { canWriteEvent?: boolean } = {},
+  options: {
+    canWriteEvent?: boolean;
+    eventAssignments?: Array<{
+      eventId: number;
+      eventType: string;
+      eventRole: string;
+    }>;
+  } = {},
 ) {
   const canWriteEvent = options.canWriteEvent ?? true;
   const assignments = new Map<string, number[]>();
@@ -117,6 +126,7 @@ async function mockAdminNavigationApi(
         json: {
           ...ADMIN_USER,
           role,
+          eventAssignments: options.eventAssignments,
         },
       });
       return;
@@ -251,10 +261,15 @@ async function expectAdminNavigation(
   page: Page,
   role: string,
   activeTestId: string,
+  hasEventAssignment = false,
 ) {
   const items = rawSiteNav.items;
   const visibleItems = items.filter((item) =>
-    userRolesConfig.groups[item.roleGroup].includes(role),
+    userRolesConfig.groups[item.roleGroup].includes(role) ||
+    (
+      item.testId === "manage-events" &&
+      hasEventAssignment
+    ),
   );
 
   for (const itemConfig of visibleItems) {
@@ -281,9 +296,12 @@ async function expectEventsNavigation(
   page: Page,
   eventType: "rotating" | "fixed_partner",
   activeTestId: string,
+  canCreate = true,
 ) {
   const eventsItem = rawSiteNav.items.find((item) => item.children);
-  const items = eventsItem?.children ?? [];
+  const items = (eventsItem?.children ?? []).filter(
+    (item) => canCreate || item.testId !== "new-event",
+  );
 
   for (const itemConfig of items) {
     const href =
@@ -296,6 +314,10 @@ async function expectEventsNavigation(
     await expect(item).toHaveClass(
       activeTestId === testId ? /bg-primary/ : /^((?!bg-primary).)*$/,
     );
+  }
+
+  if (!canCreate) {
+    await expect(page.getByTestId("events-nav-new-event")).toHaveCount(0);
   }
 }
 
@@ -545,6 +567,88 @@ test("event organizers see event navigation but not admin-only areas", async ({
   ).toHaveCount(
     userRolesConfig.groups.adminOnly.includes(EVENT_MANAGER_ROLE) ? 1 : 0,
   );
+});
+
+test("event organizers keep event access and navigation after refresh", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "desktop-chromium",
+    "The desktop organizer refresh coverage is covered by the desktop browser project",
+  );
+
+  const eventAssignments = [
+    {
+      eventId: ROTATING_EVENT.id,
+      eventType: "rotating",
+      eventRole: EVENT_ORGANIZER_ROLE,
+    },
+    {
+      eventId: FIXED_PARTNER_EVENT.id,
+      eventType: "fixed_partner",
+      eventRole: EVENT_ORGANIZER_ROLE,
+    },
+  ];
+
+  await mockAdminNavigationApi(page, PARTICIPANT_ROLE, {
+    eventAssignments,
+  });
+
+  const routes = [
+    {
+      path: "/admin/events/rotating",
+      heading: "Manage Events — Rotating Partners",
+      eventNav: ["rotating", "events-nav-rotating"] as const,
+    },
+    {
+      path: "/admin/events/fixed_partner",
+      heading: "Manage Events — Fixed-Partner",
+      eventNav: ["fixed_partner", "events-nav-fixed_partner"] as const,
+    },
+    {
+      path: `/admin/events/rotating/${ROTATING_EVENT.id}`,
+      heading: ROTATING_EVENT.name,
+      editButton: true,
+    },
+    {
+      path: `/admin/events/fixed_partner/${FIXED_PARTNER_EVENT.id}`,
+      heading: FIXED_PARTNER_EVENT.name,
+      editButton: true,
+    },
+  ] as const;
+
+  for (const route of routes) {
+    await page.goto(route.path);
+    await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+    await expect(
+      page.getByRole("heading", { name: route.heading }),
+    ).toBeVisible();
+
+    await page.reload();
+
+    await expect(page).toHaveURL(new RegExp(`${route.path}$`));
+    await expect(
+      page.getByRole("heading", { name: route.heading }),
+    ).toBeVisible();
+    await expectAdminNavigation(
+      page,
+      PARTICIPANT_ROLE,
+      "nav-manage-events",
+      true,
+    );
+    if ("eventNav" in route) {
+      await expectEventsNavigation(
+        page,
+        route.eventNav[0],
+        route.eventNav[1],
+        false,
+      );
+    }
+
+    if ("editButton" in route) {
+      await expect(page.getByTestId("button-edit-event")).toBeVisible();
+    }
+  }
 });
 
 test("event organizers can manage separate rotating and fixed-partner assignments", async ({
