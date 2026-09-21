@@ -1,5 +1,6 @@
 import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 import {
+  canonicalizeUserRole,
   getUserRole,
   getUserRoleIds,
   getEventRoleIds,
@@ -32,9 +33,10 @@ export function hasUserRole(
 }
 
 export function getUserRoleLabel(roleId: string): string {
-  return getUserRole(userRolesConfig, roleId)?.label ?? roleId;
+  const canonicalRoleId = canonicalizeUserRole(roleId);
+  return getUserRole(userRolesConfig, canonicalRoleId)?.label ?? roleId;
 }
 
 export function getUserRoleBadgeTone(roleId: string): string {
-  return getUserRole(userRolesConfig, roleId)?.badgeTone ?? "muted";
+  return getUserRole(userRolesConfig, canonicalizeUserRole(roleId))?.badgeTone ?? "muted";
 }
