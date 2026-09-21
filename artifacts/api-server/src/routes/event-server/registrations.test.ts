@@ -368,14 +368,18 @@ async function editRegistration(
   return { status: res.status, body: responseBody };
 }
 
-async function memberRows(eventId: number, memberDuprId: string) {
+async function memberRows(
+  eventId: number,
+  memberDuprId: string,
+  eventType: "rotating" | "fixed_partner" = "rotating",
+) {
   return db
     .select()
     .from(registrationsTable)
     .where(
       and(
         eq(registrationsTable.eventId, eventId),
-        eq(registrationsTable.eventType, "rotating"),
+        eq(registrationsTable.eventType, eventType),
         eq(registrationsTable.memberDuprId, memberDuprId),
       ),
     );
@@ -789,6 +793,153 @@ describe("create-registration: reactivation status depends on event settings", (
       "a rejected reactivation must leave the cancelled row unchanged",
     );
     assert.equal(rows[0].id, cancelled.id);
+  });
+});
+
+describe("create-registration: fixed-partner cancelled player re-registration", () => {
+  it("reactivates the same row and refreshes the partner snapshot", async () => {
+    const ev = await createFixedEvent();
+    const primary = await createMember();
+    const oldPartner = await createMember({ name: "Old Partner", doubles: "3.100" });
+    const newPartner = await createMember({ name: "New Partner", doubles: "3.900" });
+    const cancelled = await insertReg(
+      ev.id,
+      primary.duprId,
+      "cancelled",
+      {
+        partnerDuprId: oldPartner.duprId,
+        partnerSnapshot: {
+          partnerName: oldPartner.name,
+          partnerDoubles: oldPartner.doubles,
+          partnerSelfRating: oldPartner.selfRating,
+        },
+      },
+      "fixed_partner",
+    );
+
+    const { status, body } = await registerFixed(
+      ev.id,
+      primary.duprId,
+      newPartner.duprId,
+    );
+
+    assert.equal(status, 201);
+    assert.equal(body.id, cancelled.id);
+    assert.equal(body.status, "confirmed");
+    assert.equal(body.partnerDuprId, newPartner.duprId);
+    assert.deepEqual(body.partnerSnapshot, {
+      partnerName: "New Partner",
+      partnerDoubles: "3.900",
+      partnerSelfRating: null,
+    });
+
+    const rows = await memberRows(ev.id, primary.duprId, "fixed_partner");
+    assert.equal(rows.length, 1, "no duplicate team registration should be created");
+    assert.equal(rows[0].id, cancelled.id);
+    assert.equal(rows[0].status, "confirmed");
+    assert.equal(rows[0].cancelledAt, null);
+    assert.equal(rows[0].cancelledBy, null);
+    assert.equal(rows[0].partnerDuprId, newPartner.duprId);
+    assert.deepEqual(rows[0].partnerSnapshot, {
+      partnerName: "New Partner",
+      partnerDoubles: "3.900",
+      partnerSelfRating: null,
+    });
+  });
+
+  for (const activeStatus of ["confirmed", "waitlisted", "pending_approval"] as const) {
+    it(`blocks a player who already has an active ${activeStatus} team registration`, async () => {
+      const ev = await createFixedEvent();
+      const primary = await createMember();
+      const existingPartner = await createMember();
+      const requestedPartner = await createMember();
+      const active = await insertReg(
+        ev.id,
+        primary.duprId,
+        activeStatus,
+        { partnerDuprId: existingPartner.duprId },
+        "fixed_partner",
+      );
+
+      const { status } = await registerFixed(
+        ev.id,
+        primary.duprId,
+        requestedPartner.duprId,
+      );
+
+      assert.equal(status, 409);
+      const rows = await memberRows(ev.id, primary.duprId, "fixed_partner");
+      assert.equal(rows.length, 1);
+      assert.equal(rows[0].id, active.id);
+      assert.equal(rows[0].status, activeStatus);
+      assert.equal(rows[0].partnerDuprId, existingPartner.duprId);
+    });
+  }
+
+  it("reactivates as confirmed when team capacity is open", async () => {
+    const ev = await createFixedEvent({ maxTeams: 2, requireApproval: "none" });
+    const primary = await createMember();
+    const partner = await createMember();
+    const cancelled = await insertReg(
+      ev.id,
+      primary.duprId,
+      "cancelled",
+      {},
+      "fixed_partner",
+    );
+
+    const { status, body } = await registerFixed(ev.id, primary.duprId, partner.duprId);
+
+    assert.equal(status, 201);
+    assert.equal(body.id, cancelled.id);
+    assert.equal(body.status, "confirmed");
+  });
+
+  it("reactivates as waitlisted when team capacity is full", async () => {
+    const ev = await createFixedEvent({ maxTeams: 1, waitlistEnabled: true });
+    const fillerPrimary = await createMember();
+    const fillerPartner = await createMember();
+    await insertReg(
+      ev.id,
+      fillerPrimary.duprId,
+      "confirmed",
+      { partnerDuprId: fillerPartner.duprId },
+      "fixed_partner",
+    );
+    const primary = await createMember();
+    const partner = await createMember();
+    const cancelled = await insertReg(
+      ev.id,
+      primary.duprId,
+      "cancelled",
+      {},
+      "fixed_partner",
+    );
+
+    const { status, body } = await registerFixed(ev.id, primary.duprId, partner.duprId);
+
+    assert.equal(status, 201);
+    assert.equal(body.id, cancelled.id);
+    assert.equal(body.status, "waitlisted");
+  });
+
+  it("reactivates as pending approval when all teams require approval", async () => {
+    const ev = await createFixedEvent({ requireApproval: "all" });
+    const primary = await createMember();
+    const partner = await createMember();
+    const cancelled = await insertReg(
+      ev.id,
+      primary.duprId,
+      "cancelled",
+      {},
+      "fixed_partner",
+    );
+
+    const { status, body } = await registerFixed(ev.id, primary.duprId, partner.duprId);
+
+    assert.equal(status, 201);
+    assert.equal(body.id, cancelled.id);
+    assert.equal(body.status, "pending_approval");
   });
 });
 
