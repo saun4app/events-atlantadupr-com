@@ -223,12 +223,21 @@ function generateRecurringDates(
 
 export type EventAccess = { canWrite: boolean; canManageAssignments: boolean };
 
-export async function getEventAccess(eventId: number, eventType: EventFormat, req: Request): Promise<EventAccess> {
+export async function getEventAccess(
+  eventId: number,
+  eventType: EventFormat,
+  req: Request,
+): Promise<EventAccess> {
   const session = (req as any).session;
   if (!session?.userId) return { canWrite: false, canManageAssignments: false };
   const role: string = session.role ?? "";
   if (hasUserRole(role, "globalEventManagers")) {
     return { canWrite: true, canManageAssignments: true };
+  }
+  // Assignments are polymorphic and cannot have a database foreign key. Do
+  // not let a stale assignment authorize a request for a deleted event.
+  if (!(await getNormalizedEvent(eventType, eventId))) {
+    return { canWrite: false, canManageAssignments: false };
   }
   const [assignment] = await db
     .select({ eventRole: eventAssignmentsTable.eventRole })

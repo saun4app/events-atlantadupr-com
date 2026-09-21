@@ -75,6 +75,29 @@ async function createFixedEvent() {
   return event;
 }
 
+async function createEventWithId(eventType: EventType, id: number) {
+  const now = Date.now();
+  const values = {
+    id,
+    name: `Overlapping access test ${eventType} ${Math.random()
+      .toString(36)
+      .slice(2)}`,
+    description: AUTHORIZATION_TEST_FIXTURE_MARKER,
+    startDatetime: new Date(now + 86_400_000),
+    endDatetime: new Date(now + 90_000_000),
+    locationName: "Access Test Courts",
+    signupStartDatetime: new Date(now - 86_400_000),
+    signupEndDatetime: new Date(now + 86_400_000),
+    status: "upcoming" as const,
+  };
+  const [event] =
+    eventType === "rotating"
+      ? await db.insert(eventsRotatingTable).values(values).returning()
+      : await db.insert(eventsFixedTable).values(values).returning();
+  eventIds.push({ id: event.id, eventType });
+  return event;
+}
+
 async function createMember() {
   const duprId = `ACCESS-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
   const [member] = await db
@@ -962,6 +985,58 @@ describe("event assignment event existence", () => {
           ),
         );
       assert.deepEqual(assignments, []);
+    });
+  }
+
+  for (const eventType of ["rotating", "fixed_partner"] as const) {
+    it(`cleans ${eventType} assignments before an overlapping id can be reused`, async () => {
+      const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
+      const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+      const otherEventType =
+        eventType === "rotating" ? "fixed_partner" : "rotating";
+      const overlapId = 1_500_000_000 + Math.floor(Math.random() * 100_000);
+
+      const event = await createEventWithId(eventType, overlapId);
+      await createEventWithId(otherEventType, overlapId);
+      await db.insert(eventAssignmentsTable).values({
+        userId: assignee.id,
+        eventId: overlapId,
+        eventType,
+        eventRole: "event_captain",
+      });
+
+      const deleted = await request(
+        `/events/${eventType}/${event.id}`,
+        organizer.token,
+        {
+          method: "DELETE",
+        },
+      );
+      assert.equal(deleted.response.status, 204);
+
+      const staleAssignments = await db
+        .select()
+        .from(eventAssignmentsTable)
+        .where(
+          and(
+            eq(eventAssignmentsTable.eventId, overlapId),
+            eq(eventAssignmentsTable.eventType, eventType),
+            eq(eventAssignmentsTable.userId, assignee.id),
+          ),
+        );
+      assert.deepEqual(staleAssignments, []);
+
+      const replacement = await createEventWithId(eventType, overlapId);
+      const unauthorized = await request(
+        `/events/${eventType}/${replacement.id}`,
+        assignee.token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name: "must remain protected" }),
+        },
+      );
+      assert.equal(unauthorized.response.status, 403);
+      assert.equal(unauthorized.body.error, FORBIDDEN_ERROR);
     });
   }
 });

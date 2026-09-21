@@ -3,8 +3,9 @@
  * no longer exists.
  *
  * These tables cannot use a normal foreign key because event_id points at one
- * of two format-specific event tables. This script is the repeatable integrity
- * check for those polymorphic relationships.
+ * of two format-specific event tables. The durable event identity is the
+ * (event_type, event_id) pair. This script is the repeatable integrity check
+ * for those polymorphic relationships.
  *
  * By default this is read-only:
  *   pnpm run audit:event-assignments
@@ -19,7 +20,9 @@
  *   found, while this command only reads and reports the rows.
  *
  * Review the reported rows, then explicitly apply the same format-specific
- * orphan predicates in a single transaction:
+ * orphan predicates in a single transaction. The cleanup is what prevents an
+ * assignment from being reused if a future event receives the same numeric
+ * id:
  *   pnpm run audit:event-assignments -- --apply
  */
 
