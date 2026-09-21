@@ -96,6 +96,25 @@ const healthyColumns = [
   column_default,
 }));
 
+const healthyDependencies = [
+  {
+    dependency_type: "foreign key",
+    dependent_schema: "public",
+    dependent_name: "atl_dupr_signups",
+    dependent_column: "approved_by",
+    referenced_table: "app_users",
+    detail: "atl_dupr_signups_approved_by_app_users_id_fk",
+  },
+  {
+    dependency_type: "foreign key",
+    dependent_schema: "public",
+    dependent_name: "atl_dupr_event_roles",
+    dependent_column: "user_id",
+    referenced_table: "app_users",
+    detail: "atl_dupr_event_roles_user_id_app_users_id_fk",
+  },
+];
+
 function fixtureTransaction(responses) {
   const calls = [];
   return {
@@ -130,6 +149,7 @@ test("passes a healthy app_users schema in check mode", async () => {
     [{ table_name: "app_users" }],
     healthyColumns,
     [],
+    healthyDependencies,
     [{ user_count: 12 }],
   ]);
 
@@ -137,13 +157,14 @@ test("passes a healthy app_users schema in check mode", async () => {
   assert.match(result.output, /app_users=present, legacy app_uses=absent/);
   assert.match(result.output, /Preserved user count: 12 row\(s\)/);
   assert.match(result.output, /Production schema check passed/);
-  assert.equal(result.calls.length, 5);
+  assert.equal(result.calls.length, 6);
 });
 
 test("fails check mode for the legacy rename-risk state", async () => {
   const result = await runFixture([
     [],
     [{ table_name: "app_uses" }],
+    [],
     [],
     [],
     [{ user_count: 9 }],
@@ -174,6 +195,7 @@ test("reports missing columns and unexpected DUPR constraints", async () => {
         column_name: "dupr_id",
       },
     ],
+    [],
     [{ user_count: 4 }],
   ]);
 
@@ -194,6 +216,7 @@ test("warns when current and legacy user counts differ", async () => {
     [{ table_name: "app_users" }, { table_name: "app_uses" }],
     healthyColumns,
     [],
+    healthyDependencies,
     [{ user_count: 11 }],
     [{ user_count: 14 }],
   ]);
@@ -223,10 +246,11 @@ test("executes the read-only guard before every audit query", async () => {
     [{ table_name: "app_users" }],
     healthyColumns,
     [],
+    healthyDependencies,
     [{ user_count: 1 }],
   ]);
 
   assert.equal(result.exitCode, 0);
-  assert.equal(result.calls.length, 5);
+  assert.equal(result.calls.length, 6);
   assert.match(queryText(result.calls[0]), /SET TRANSACTION READ ONLY/);
 });
