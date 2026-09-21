@@ -43,6 +43,26 @@ type ConstraintRecord = {
   column_name: string;
 };
 
+type UsersTableDependency = {
+  dependency_type: "foreign key" | "view" | "routine";
+  dependent_schema: string;
+  dependent_name: string;
+  dependent_column: string | null;
+  referenced_table: "app_users" | "app_uses";
+  detail: string;
+};
+
+const expectedUsersTableForeignKeys = new Map([
+  [
+    "public.atl_dupr_signups.approved_by",
+    "atl_dupr_signups_approved_by_app_users_id_fk",
+  ],
+  [
+    "public.atl_dupr_event_roles.user_id",
+    "atl_dupr_event_roles_user_id_app_users_id_fk",
+  ],
+]);
+
 const expectedColumns: ExpectedColumn[] = [
   {
     name: "id",
@@ -268,6 +288,166 @@ export async function auditProductionSchema({
           `Unexpected ${constraint.constraint_type} constraint ` +
             `${constraint.constraint_name} on public.app_users.${constraint.column_name}: ` +
             `${constraint.definition}.`,
+        );
+      }
+    }
+
+    const dependencyResult = await tx.execute(sql`
+      WITH users_tables AS (
+        SELECT cls.oid, cls.relname
+        FROM pg_class cls
+        JOIN pg_namespace nsp ON nsp.oid = cls.relnamespace
+        WHERE nsp.nspname = 'public'
+          AND cls.relname IN ('app_users', 'app_uses')
+      ),
+      catalog_dependencies AS (
+        SELECT
+          'foreign key'::text AS dependency_type,
+          source_nsp.nspname::text AS dependent_schema,
+          source.relname::text AS dependent_name,
+          source_attr.attname::text AS dependent_column,
+          target.relname::text AS referenced_table,
+          con.conname::text AS detail
+        FROM pg_constraint con
+        JOIN users_tables target ON target.oid = con.confrelid
+        JOIN pg_class source ON source.oid = con.conrelid
+        JOIN pg_namespace source_nsp ON source_nsp.oid = source.relnamespace
+        JOIN LATERAL unnest(con.conkey) WITH ORDINALITY AS source_key(attnum, position)
+          ON true
+        JOIN LATERAL unnest(con.confkey) WITH ORDINALITY AS target_key(attnum, position)
+          ON target_key.position = source_key.position
+        JOIN pg_attribute source_attr
+          ON source_attr.attrelid = source.oid
+         AND source_attr.attnum = source_key.attnum
+        WHERE con.contype = 'f'
+
+        UNION
+
+        SELECT
+          CASE dependent.relkind
+            WHEN 'm' THEN 'view'
+            ELSE 'view'
+          END::text AS dependency_type,
+          dependent_nsp.nspname::text AS dependent_schema,
+          dependent.relname::text AS dependent_name,
+          NULL::text AS dependent_column,
+          target.relname::text AS referenced_table,
+          pg_get_viewdef(dependent.oid, true)::text AS detail
+        FROM pg_depend dep
+        JOIN users_tables target ON target.oid = dep.refobjid
+        JOIN pg_rewrite rewrite ON rewrite.oid = dep.objid
+        JOIN pg_class dependent ON dependent.oid = rewrite.ev_class
+        JOIN pg_namespace dependent_nsp ON dependent_nsp.oid = dependent.relnamespace
+        WHERE dep.classid = 'pg_rewrite'::regclass
+          AND dependent.oid <> target.oid
+          AND dependent.relkind IN ('v', 'm')
+
+        UNION
+
+        SELECT
+          'routine'::text AS dependency_type,
+          routine_nsp.nspname::text AS dependent_schema,
+          routine.proname::text AS dependent_name,
+          NULL::text AS dependent_column,
+          target.relname::text AS referenced_table,
+          pg_get_function_identity_arguments(routine.oid)::text AS detail
+        FROM pg_depend dep
+        JOIN users_tables target ON target.oid = dep.refobjid
+        JOIN pg_proc routine ON routine.oid = dep.objid
+        JOIN pg_namespace routine_nsp ON routine_nsp.oid = routine.pronamespace
+        WHERE dep.classid = 'pg_proc'::regclass
+      ),
+      stale_routine_text AS (
+        SELECT
+          'routine'::text AS dependency_type,
+          routine_nsp.nspname::text AS dependent_schema,
+          routine.proname::text AS dependent_name,
+          NULL::text AS dependent_column,
+          'app_uses'::text AS referenced_table,
+          pg_get_function_identity_arguments(routine.oid)::text AS detail
+        FROM pg_proc routine
+        JOIN pg_namespace routine_nsp ON routine_nsp.oid = routine.pronamespace
+        WHERE routine_nsp.nspname NOT IN ('pg_catalog', 'information_schema')
+          AND routine.prokind IN ('f', 'p', 'w')
+          AND pg_get_functiondef(routine.oid)
+            ~* '(^|[^a-zA-Z0-9_])app_uses([^a-zA-Z0-9_]|$)'
+      )
+      SELECT
+        dependency_type,
+        dependent_schema,
+        dependent_name,
+        dependent_column,
+        referenced_table,
+        detail
+      FROM catalog_dependencies
+      UNION
+      SELECT
+        dependency_type,
+        dependent_schema,
+        dependent_name,
+        dependent_column,
+        referenced_table,
+        detail
+      FROM stale_routine_text
+      ORDER BY referenced_table, dependency_type, dependent_schema, dependent_name
+    `);
+    const usersTableDependencies =
+      dependencyResult.rows as UsersTableDependency[];
+
+    console.log("\nUsers-table dependency inventory:");
+    if (usersTableDependencies.length === 0) {
+      console.log("- none");
+    } else {
+      for (const dependency of usersTableDependencies) {
+        const column = dependency.dependent_column
+          ? `.${dependency.dependent_column}`
+          : "";
+        console.log(
+          `- ${dependency.dependency_type}: ${dependency.dependent_schema}.` +
+            `${dependency.dependent_name}${column} -> public.` +
+            `${dependency.referenced_table} (${dependency.detail})`,
+        );
+      }
+    }
+
+    for (const dependency of usersTableDependencies) {
+      const location =
+        `${dependency.dependent_schema}.${dependency.dependent_name}` +
+        (dependency.dependent_column ? `.${dependency.dependent_column}` : "");
+
+      if (dependency.referenced_table === "app_uses") {
+        issues.push(
+          `Stale ${dependency.dependency_type} dependency ${location} still ` +
+            `references legacy public.app_uses (${dependency.detail}).`,
+        );
+        continue;
+      }
+
+      const expectedConstraint = expectedUsersTableForeignKeys.get(location);
+      const isExpectedForeignKey =
+        dependency.dependency_type === "foreign key" &&
+        expectedConstraint === dependency.detail;
+      if (!isExpectedForeignKey) {
+        issues.push(
+          `Unexpected ${dependency.dependency_type} dependency ${location} ` +
+            `references public.app_users (${dependency.detail}).`,
+        );
+      }
+    }
+
+    for (const [location, constraintName] of expectedUsersTableForeignKeys) {
+      const found = usersTableDependencies.some(
+        (dependency) =>
+          dependency.dependency_type === "foreign key" &&
+          dependency.referenced_table === "app_users" &&
+          `${dependency.dependent_schema}.${dependency.dependent_name}.${dependency.dependent_column}` ===
+            location &&
+          dependency.detail === constraintName,
+      );
+      if (!found) {
+        issues.push(
+          `Missing expected foreign key dependency ${location} -> ` +
+            `public.app_users (${constraintName}).`,
         );
       }
     }

@@ -35,6 +35,31 @@ test("reports DUPR constraints and the preserved user count", () => {
   assert.match(auditScript, /Preserved user count/);
 });
 
+test("inventories and validates users-table dependencies", () => {
+  assert.match(auditScript, /Users-table dependency inventory/);
+  assert.match(
+    auditScript,
+    /JOIN users_tables target ON target\.oid = con\.confrelid/,
+  );
+  assert.match(auditScript, /dep\.classid = 'pg_rewrite'::regclass/);
+  assert.match(auditScript, /dep\.classid = 'pg_proc'::regclass/);
+  assert.match(
+    auditScript,
+    /pg_get_functiondef\(routine\.oid\)[\s\S]+?app_uses/,
+  );
+  assert.match(auditScript, /atl_dupr_signups_approved_by_app_users_id_fk/);
+  assert.match(auditScript, /atl_dupr_event_roles_user_id_app_users_id_fk/);
+  assert.match(
+    auditScript,
+    /Stale [\s\S]* dependency [\s\S]*legacy public\.app_uses/,
+  );
+  assert.match(
+    auditScript,
+    /Unexpected [\s\S]* dependency [\s\S]*references public\.app_users/,
+  );
+  assert.match(auditScript, /Missing expected foreign key dependency/);
+});
+
 test("warns about rename-versus-destructive-create risk", () => {
   assert.match(auditScript, /destructive drop-and-create/);
   assert.match(auditScript, /legacy public\.app_uses exists/);
