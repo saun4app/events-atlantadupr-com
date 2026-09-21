@@ -19,3 +19,4 @@
 - [CI test reporter output](ci-test-reporter-output.md) — Node’s JUnit destination writes to a file and leaves stdout empty, so capture console output separately
 - [GitHub PR check verification](github-pr-check-verification.md) — hosted PR workflow tests need a seeded remote and authenticated GitHub write access
 - [Public event list error states](public-event-list-errors.md) — keep format-specific failure and in-flight retry states separate from loading and empty results
+- [Polymorphic event fixtures](polymorphic-event-fixtures.md) — cross-format test rows must reference real counterpart events to avoid dangling-ID collisions

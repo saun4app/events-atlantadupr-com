@@ -708,10 +708,11 @@ describe("event assignment management access", () => {
         const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
         const event = await createEvent(eventType);
         const otherEventType = eventType === "rotating" ? "fixed_partner" : "rotating";
+        const otherEvent = await createEvent(otherEventType);
 
         await db.insert(eventAssignmentsTable).values({
           userId: assignee.id,
-          eventId: event.id,
+          eventId: otherEvent.id,
           eventType: otherEventType,
           eventRole: "event_captain",
         });
@@ -751,7 +752,7 @@ describe("event assignment management access", () => {
           .from(eventAssignmentsTable)
           .where(
             and(
-              eq(eventAssignmentsTable.eventId, event.id),
+              eq(eventAssignmentsTable.eventId, otherEvent.id),
               eq(eventAssignmentsTable.eventType, otherEventType),
               eq(eventAssignmentsTable.userId, assignee.id),
             ),
