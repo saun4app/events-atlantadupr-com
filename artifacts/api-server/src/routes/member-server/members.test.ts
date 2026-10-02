@@ -1,7 +1,7 @@
 import { after, before, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import type { AddressInfo, Server } from "node:net";
-import { eq, inArray } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 import {
   assertTestDatabase,
@@ -305,6 +305,7 @@ describe("Manage Members CSV upsert", () => {
     assert.equal(storedById.get(ordinaryId)?.name, "Ordinary Member");
     assert.equal(storedById.get(ordinaryId)?.email, "ordinary@example.test");
   });
+
   it("imports whole-number reliability percentages from 0 to 100 and rejects invalid rows", async () => {
     const existingId = uniqueId("MEMBER-INVALID-RELIABILITY");
     const validId = uniqueId("MEMBER-RELIABILITY-BOUNDARIES");
@@ -390,10 +391,7 @@ describe("Manage Members CSV upsert", () => {
       .select()
       .from(membersTable)
       .where(inArray(membersTable.duprId, fixtureDuprIds));
-    const storedById = new Map(
-      storedMembers.map((member) => [member.duprId, member]),
-    );
-
+    const storedById = new Map(storedMembers.map((member) => [member.duprId, member]));
     assert.equal(storedById.get(existingId)?.name, "Existing member");
     assert.equal(storedById.get(existingId)?.doubles, "3.000");
     assert.equal(storedById.get(existingId)?.doublesReliability, 45);
@@ -403,5 +401,69 @@ describe("Manage Members CSV upsert", () => {
     for (const { id } of invalidRows) {
       assert.equal(storedById.has(id), false);
     }
+  });
+
+  it("rolls back every CSV row and returns an explicit error when a database write fails", async () => {
+    const existingId = uniqueId("MEMBER-ROLLBACK-EXISTING");
+    const failingId = uniqueId("MEMBER-ROLLBACK-FAIL");
+    fixtureDuprIds.push(existingId, failingId);
+
+    const existingMember = {
+      duprId: existingId,
+      name: "Original member name",
+      doubles: "3.100",
+      doublesReliability: 10,
+      singles: "2.100",
+      singlesReliability: 20,
+      selfRating: "2.500",
+      email: "original@example.test",
+      phone: "111-111-1111",
+    };
+    await db.insert(membersTable).values(existingMember);
+
+    const triggerSuffix = uniqueId("member_csv_rollback")
+      .replace(/[^a-zA-Z0-9_]/g, "_")
+      .toLowerCase();
+    const triggerName = `${triggerSuffix}_trigger`;
+    const functionName = `${triggerSuffix}_fn`;
+    await db.execute(sql.raw(`
+      CREATE FUNCTION "${functionName}"() RETURNS trigger
+      LANGUAGE plpgsql AS $$
+      BEGIN
+        IF NEW.dupr_id = '${failingId}' THEN
+          RAISE EXCEPTION 'forced member CSV import failure';
+        END IF;
+        RETURN NEW;
+      END;
+      $$;
+      CREATE TRIGGER "${triggerName}"
+      BEFORE INSERT OR UPDATE ON atl_dupr_member_list
+      FOR EACH ROW EXECUTE FUNCTION "${functionName}"();
+    `));
+
+    let response: Response;
+    try {
+      response = await requestCsv([
+        "dupr_id,name,doubles,doubles_reliability,singles,singles_reliability",
+        `${existingId},Changed member name,4.000,90,3.500,80`,
+        `${failingId},Database failure row,3.800,70,3.200,60`,
+      ].join("\n"));
+    } finally {
+      await db.execute(sql.raw(`
+        DROP TRIGGER IF EXISTS "${triggerName}" ON atl_dupr_member_list;
+        DROP FUNCTION IF EXISTS "${functionName}"();
+      `));
+    }
+
+    assert.equal(response.status, 500);
+    assert.deepEqual(await response.json(), {
+      error: "CSV import failed; no member changes were saved",
+    });
+
+    const storedMembers = await db
+      .select()
+      .from(membersTable)
+      .where(inArray(membersTable.duprId, [existingId, failingId]));
+    assert.deepEqual(storedMembers, [existingMember]);
   });
 });

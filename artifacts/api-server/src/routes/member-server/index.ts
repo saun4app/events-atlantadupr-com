@@ -130,57 +130,69 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
     rowsByDuprId.set(duprId, matchingRows);
   }
 
-  for (const { rowNumber, row, duprId, name } of rows) {
-    if (!duprId || !name) {
-      errors.push(`Row ${rowNumber}: Missing dupr_id or name`);
-      skipped++;
-      continue;
-    }
+  try {
+    await db.transaction(async (tx) => {
+      for (const { rowNumber, row, duprId, name } of rows) {
+        if (!duprId || !name) {
+          errors.push(`Row ${rowNumber}: Missing dupr_id or name`);
+          skipped++;
+          continue;
+        }
 
-    const matchingRows = rowsByDuprId.get(duprId) ?? [];
-    if (matchingRows.length > 1) {
-      const otherRows = matchingRows.filter((number) => number !== rowNumber);
-      errors.push(
-        `Row ${rowNumber}: Duplicate dupr_id "${duprId}" also appears on row${otherRows.length === 1 ? "" : "s"} ${otherRows.join(", ")}`,
-      );
-      skipped++;
-      continue;
-    }
+        const matchingRows = rowsByDuprId.get(duprId) ?? [];
+        if (matchingRows.length > 1) {
+          const otherRows = matchingRows.filter((number) => number !== rowNumber);
+          errors.push(
+            `Row ${rowNumber}: Duplicate dupr_id "${duprId}" also appears on row${otherRows.length === 1 ? "" : "s"} ${otherRows.join(", ")}`,
+          );
+          skipped++;
+          continue;
+        }
 
-    const dRelRaw = row["doubles_reliability"] || row["double_reliability"] || row["doublesreliability"] || row["doublereliability"];
-    const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
+        const dRelRaw = row["doubles_reliability"] || row["double_reliability"] || row["doublesreliability"] || row["doublereliability"];
+        const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
+        let doublesReliability: number | null;
+        let singlesReliability: number | null;
+        try {
+          doublesReliability = parseCsvReliability(dRelRaw ?? "", "doubles_reliability");
+          singlesReliability = parseCsvReliability(sRelRaw ?? "", "singles_reliability");
+        } catch (error) {
+          errors.push(`Row ${rowNumber}: ${error instanceof Error ? error.message : "Invalid reliability value"}`);
+          skipped++;
+          continue;
+        }
 
-    try {
-      const doublesReliability = parseCsvReliability(dRelRaw ?? "", "doubles_reliability");
-      const singlesReliability = parseCsvReliability(sRelRaw ?? "", "singles_reliability");
-
-      await db
-        .insert(membersTable)
-        .values({
-          duprId,
-          name,
-          doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
-          doublesReliability,
-          singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
-          singlesReliability,
-          selfRating: row["self_rating"] || row["selfrating"] || null,
-          email: row["email"] || null,
-          phone: row["phone"] || null,
-        })
-        .onConflictDoUpdate({
-          target: membersTable.duprId,
-          set: {
-            doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
+        const doubles = row["doubles"] || row["double_rating"] || row["doublerating"] || null;
+        const singles = row["singles"] || row["single_rating"] || row["singlerating"] || null;
+        await tx
+          .insert(membersTable)
+          .values({
+            duprId,
+            name,
+            doubles,
             doublesReliability,
-            singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
+            singles,
             singlesReliability,
-          },
-        });
-      imported++;
-    } catch (err: any) {
-      errors.push(`Row ${rowNumber}: ${err.message}`);
-      skipped++;
-    }
+            selfRating: row["self_rating"] || row["selfrating"] || null,
+            email: row["email"] || null,
+            phone: row["phone"] || null,
+          })
+          .onConflictDoUpdate({
+            target: membersTable.duprId,
+            set: {
+              doubles,
+              doublesReliability,
+              singles,
+              singlesReliability,
+            },
+          });
+        imported++;
+      }
+    });
+  } catch {
+    return res.status(500).json({
+      error: "CSV import failed; no member changes were saved",
+    });
   }
 
   return res.json({ imported, skipped, removed: 0, regSkipped: [], errors });
