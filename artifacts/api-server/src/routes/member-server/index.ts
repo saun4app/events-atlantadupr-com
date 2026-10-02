@@ -79,7 +79,6 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
 
   const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
   const errors: string[] = [];
-  const csvDuprIds: string[] = [];
   let imported = 0;
   let skipped = 0;
 
@@ -98,8 +97,6 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
       skipped++;
       continue;
     }
-
-    csvDuprIds.push(duprId);
 
     const dRelRaw = row["doubles_reliability"] || row["double_reliability"] || row["doublesreliability"] || row["doublereliability"];
     const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
@@ -121,14 +118,10 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
         .onConflictDoUpdate({
           target: membersTable.duprId,
           set: {
-            name,
             doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
             doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
             singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
             singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
-            selfRating: row["self_rating"] || row["selfrating"] || null,
-            email: row["email"] || null,
-            phone: row["phone"] || null,
           },
         });
       imported++;
@@ -138,22 +131,7 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
     }
   }
 
-  // Remove existing members that are not in the CSV. Registrations keep their
-  // own snapshots, so removing a member never affects existing registrations.
-  let removed = 0;
-  const regSkipped: string[] = [];
-  if (csvDuprIds.length > 0) {
-    const allMembers = await db.select().from(membersTable);
-    const csvIdSet = new Set(csvDuprIds);
-    for (const m of allMembers) {
-      if (!csvIdSet.has(m.duprId)) {
-        await db.delete(membersTable).where(eq(membersTable.duprId, m.duprId));
-        removed++;
-      }
-    }
-  }
-
-  return res.json({ imported, skipped, removed, regSkipped, errors });
+  return res.json({ imported, skipped, removed: 0, regSkipped: [], errors });
 });
 
 router.get("/:duprId", async (req, res) => {
