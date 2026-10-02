@@ -164,6 +164,62 @@ describe("Manage Members CSV upsert", () => {
     });
   });
 
+  it("skips every row for a duplicated DUPR ID before writing any of them", async () => {
+    const existingId = uniqueId("MEMBER-DUPLICATE-EXISTING");
+    const duplicateNewId = uniqueId("MEMBER-DUPLICATE-NEW");
+    const unrelatedId = uniqueId("MEMBER-DUPLICATE-UNRELATED");
+    fixtureDuprIds.push(existingId, duplicateNewId, unrelatedId);
+
+    const existingMember = {
+      duprId: existingId,
+      name: "Existing member",
+      doubles: "3.100",
+      doublesReliability: 10,
+      singles: "2.100",
+      singlesReliability: 20,
+      selfRating: "2.500",
+      email: "existing@example.test",
+      phone: "111-111-1111",
+    };
+    await db.insert(membersTable).values(existingMember);
+
+    const csv = [
+      "dupr_id,name,doubles,doubles_reliability,singles,singles_reliability",
+      `${existingId},First duplicate row,4.000,90,3.500,80`,
+      `${unrelatedId},Unrelated member,3.800,70,3.200,60`,
+      `${existingId},Second duplicate row,4.500,95,4.000,85`,
+      `${duplicateNewId},New duplicate row,3.900,75,3.400,65`,
+      `${duplicateNewId},Other new duplicate row,4.100,80,3.600,70`,
+    ].join("\n");
+    const response = await requestCsv(csv);
+    const result = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(result, {
+      imported: 1,
+      skipped: 4,
+      removed: 0,
+      regSkipped: [],
+      errors: [
+        `Row 2: Duplicate dupr_id "${existingId}" also appears on row 4`,
+        `Row 4: Duplicate dupr_id "${existingId}" also appears on row 2`,
+        `Row 5: Duplicate dupr_id "${duplicateNewId}" also appears on row 6`,
+        `Row 6: Duplicate dupr_id "${duplicateNewId}" also appears on row 5`,
+      ],
+    });
+
+    const storedMembers = await db
+      .select()
+      .from(membersTable)
+      .where(inArray(membersTable.duprId, fixtureDuprIds));
+    const storedById = new Map(
+      storedMembers.map((member) => [member.duprId, member]),
+    );
+    assert.deepEqual(storedById.get(existingId), existingMember);
+    assert.equal(storedById.has(duplicateNewId), false);
+    assert.equal(storedById.get(unrelatedId)?.name, "Unrelated member");
+  });
+
   it("rejects malformed quoting without inserting or updating any member rows", async () => {
     const newId = uniqueId("MEMBER-MALFORMED-NEW");
     const existingId = uniqueId("MEMBER-MALFORMED-EXISTING");

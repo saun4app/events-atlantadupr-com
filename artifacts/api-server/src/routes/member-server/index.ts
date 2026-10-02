@@ -108,18 +108,41 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
   let imported = 0;
   let skipped = 0;
 
-  for (let i = 1; i < records.length; i++) {
-    const cols = records[i].map((c) => c.trim());
+  const rows = records.slice(1).map((record, index) => {
+    const cols = record.map((c) => c.trim());
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => {
       row[h] = cols[idx] ?? "";
     });
 
-    const duprId = row["dupr_id"] || row["duprid"] || row["dupr id"];
-    const name = row["name"] || row["player_name"] || row["playername"];
+    return {
+      rowNumber: index + 2,
+      row,
+      duprId: row["dupr_id"] || row["duprid"] || row["dupr id"],
+      name: row["name"] || row["player_name"] || row["playername"],
+    };
+  });
+  const rowsByDuprId = new Map<string, number[]>();
+  for (const { duprId, rowNumber } of rows) {
+    if (!duprId) continue;
+    const matchingRows = rowsByDuprId.get(duprId) ?? [];
+    matchingRows.push(rowNumber);
+    rowsByDuprId.set(duprId, matchingRows);
+  }
 
+  for (const { rowNumber, row, duprId, name } of rows) {
     if (!duprId || !name) {
-      errors.push(`Row ${i + 1}: Missing dupr_id or name`);
+      errors.push(`Row ${rowNumber}: Missing dupr_id or name`);
+      skipped++;
+      continue;
+    }
+
+    const matchingRows = rowsByDuprId.get(duprId) ?? [];
+    if (matchingRows.length > 1) {
+      const otherRows = matchingRows.filter((number) => number !== rowNumber);
+      errors.push(
+        `Row ${rowNumber}: Duplicate dupr_id "${duprId}" also appears on row${otherRows.length === 1 ? "" : "s"} ${otherRows.join(", ")}`,
+      );
       skipped++;
       continue;
     }
@@ -155,7 +178,7 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
         });
       imported++;
     } catch (err: any) {
-      errors.push(`Row ${i + 1}: ${err.message}`);
+      errors.push(`Row ${rowNumber}: ${err.message}`);
       skipped++;
     }
   }
