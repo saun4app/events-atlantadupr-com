@@ -4,6 +4,7 @@ import { membersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
 import { USER_ROLE_IDS } from "../../lib/user-roles.js";
+import { parseCsvRecords } from "./csv.js";
 
 const router = Router();
 
@@ -72,18 +73,28 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
     return res.status(400).json({ error: "CSV content required" });
   }
 
-  const lines = csvText.split("\n").map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 2) {
+  let records: string[][];
+  try {
+    records = parseCsvRecords(csvText.replace(/^\uFEFF/, "")).filter((row) =>
+      row.some((field) => field.trim() !== ""),
+    );
+  } catch (error) {
+    return res.status(400).json({
+      error: error instanceof Error ? error.message : "Invalid CSV content",
+    });
+  }
+
+  if (records.length < 2) {
     return res.status(400).json({ error: "CSV must have a header row and at least one data row" });
   }
 
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const headers = records[0].map((h) => h.trim().toLowerCase());
   const errors: string[] = [];
   let imported = 0;
   let skipped = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",").map((c) => c.trim());
+  for (let i = 1; i < records.length; i++) {
+    const cols = records[i].map((c) => c.trim());
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => {
       row[h] = cols[idx] ?? "";

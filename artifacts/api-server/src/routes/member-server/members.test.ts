@@ -161,4 +161,48 @@ describe("Manage Members CSV upsert", () => {
       phone: "333-333-3333",
     });
   });
+
+  it("parses quoted commas, escaped quotes, multiline fields, and ordinary rows", async () => {
+    const commaId = uniqueId("MEMBER-COMMA");
+    const quotedId = uniqueId("MEMBER-QUOTED");
+    const multilineId = uniqueId("MEMBER-MULTILINE");
+    const ordinaryId = uniqueId("MEMBER-ORDINARY");
+    fixtureDuprIds.push(commaId, quotedId, multilineId, ordinaryId);
+
+    const csv = [
+      "dupr_id,name,doubles,doubles_reliability,singles,singles_reliability,self_rating,email,phone",
+      `${commaId},"Doe, Jane",3.900,75,3.400,65,3.800,"jane,doe@example.test","(404) 555, 0101"`,
+      `${quotedId},"The ""Ace"", Jane",3.700,70,3.200,60,3.600,"ace""quoted""@example.test","555 ""Ace"""`,
+      `${multilineId},"Line one\r\nline two",3.600,65,3.100,55,3.500,multi@example.test,444-444-4444`,
+      `${ordinaryId},Ordinary Member,3.500,60,3.000,50,3.400,ordinary@example.test,333-333-3333`,
+    ].join("\r\n");
+
+    const response = await requestCsv(csv);
+    const result = await response.json();
+
+    assert.equal(response.status, 200);
+    assert.deepEqual(result, {
+      imported: 4,
+      skipped: 0,
+      removed: 0,
+      regSkipped: [],
+      errors: [],
+    });
+
+    const storedMembers = await db
+      .select()
+      .from(membersTable)
+      .where(inArray(membersTable.duprId, fixtureDuprIds));
+    const storedById = new Map(storedMembers.map((member) => [member.duprId, member]));
+
+    assert.equal(storedById.get(commaId)?.name, "Doe, Jane");
+    assert.equal(storedById.get(commaId)?.email, "jane,doe@example.test");
+    assert.equal(storedById.get(commaId)?.phone, "(404) 555, 0101");
+    assert.equal(storedById.get(quotedId)?.name, 'The "Ace", Jane');
+    assert.equal(storedById.get(quotedId)?.email, 'ace"quoted"@example.test');
+    assert.equal(storedById.get(quotedId)?.phone, '555 "Ace"');
+    assert.equal(storedById.get(multilineId)?.name, "Line one\r\nline two");
+    assert.equal(storedById.get(ordinaryId)?.name, "Ordinary Member");
+    assert.equal(storedById.get(ordinaryId)?.email, "ordinary@example.test");
+  });
 });
