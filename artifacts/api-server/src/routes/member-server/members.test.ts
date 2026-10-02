@@ -126,7 +126,9 @@ describe("Manage Members CSV upsert", () => {
       .select()
       .from(membersTable)
       .where(inArray(membersTable.duprId, fixtureDuprIds));
-    const storedById = new Map(storedMembers.map((member) => [member.duprId, member]));
+    const storedById = new Map(
+      storedMembers.map((member) => [member.duprId, member]),
+    );
     assert.deepEqual(storedById.get(existingId), {
       duprId: existingId,
       name: "Existing member name",
@@ -162,6 +164,46 @@ describe("Manage Members CSV upsert", () => {
     });
   });
 
+  it("rejects malformed quoting without inserting or updating any member rows", async () => {
+    const newId = uniqueId("MEMBER-MALFORMED-NEW");
+    const existingId = uniqueId("MEMBER-MALFORMED-EXISTING");
+    fixtureDuprIds.push(newId, existingId);
+
+    const existingMember = {
+      duprId: existingId,
+      name: "Existing member",
+      doubles: "3.100",
+      doublesReliability: 10,
+      singles: "2.100",
+      singlesReliability: 20,
+      selfRating: "2.500",
+      email: "existing@example.test",
+      phone: "111-111-1111",
+    };
+    await db.insert(membersTable).values(existingMember);
+
+    const csv = [
+      "dupr_id,name,doubles,doubles_reliability,singles,singles_reliability,self_rating,email,phone",
+      `${newId},New member,3.800,70,3.200,60,3.600,new@example.test,333-333-3333`,
+      `${existingId},Changed name,4.000,90,3.500,80,4.500,changed@example.test,999-999-9999`,
+      `${uniqueId("MEMBER-MALFORMED-ROW")},"Unterminated member`,
+    ].join("\n");
+
+    const response = await requestCsv(csv);
+    const result = await response.json();
+
+    assert.equal(response.status, 400);
+    assert.deepEqual(result, {
+      error: "CSV contains an unterminated quoted field",
+    });
+
+    const storedMembers = await db
+      .select()
+      .from(membersTable)
+      .where(inArray(membersTable.duprId, [newId, existingId]));
+    assert.deepEqual(storedMembers, [existingMember]);
+  });
+
   it("parses quoted commas, escaped quotes, multiline fields, and ordinary rows", async () => {
     const commaId = uniqueId("MEMBER-COMMA");
     const quotedId = uniqueId("MEMBER-QUOTED");
@@ -193,7 +235,9 @@ describe("Manage Members CSV upsert", () => {
       .select()
       .from(membersTable)
       .where(inArray(membersTable.duprId, fixtureDuprIds));
-    const storedById = new Map(storedMembers.map((member) => [member.duprId, member]));
+    const storedById = new Map(
+      storedMembers.map((member) => [member.duprId, member]),
+    );
 
     assert.equal(storedById.get(commaId)?.name, "Doe, Jane");
     assert.equal(storedById.get(commaId)?.email, "jane,doe@example.test");
@@ -205,18 +249,46 @@ describe("Manage Members CSV upsert", () => {
     assert.equal(storedById.get(ordinaryId)?.name, "Ordinary Member");
     assert.equal(storedById.get(ordinaryId)?.email, "ordinary@example.test");
   });
-
   it("imports whole-number reliability percentages from 0 to 100 and rejects invalid rows", async () => {
     const existingId = uniqueId("MEMBER-INVALID-RELIABILITY");
     const validId = uniqueId("MEMBER-RELIABILITY-BOUNDARIES");
     const invalidRows = [
-      { id: uniqueId("MEMBER-RELIABILITY-PREFIX"), doubles: "70players", singles: "50", field: "doubles_reliability" },
-      { id: uniqueId("MEMBER-RELIABILITY-DECIMAL"), doubles: "50", singles: "80.5", field: "singles_reliability" },
-      { id: uniqueId("MEMBER-RELIABILITY-TOO-HIGH"), doubles: "101", singles: "50", field: "doubles_reliability" },
-      { id: uniqueId("MEMBER-RELIABILITY-NEGATIVE"), doubles: "-1", singles: "50", field: "doubles_reliability" },
-      { id: uniqueId("MEMBER-RELIABILITY-SINGLES-HIGH"), doubles: "50", singles: "101", field: "singles_reliability" },
+      {
+        id: uniqueId("MEMBER-RELIABILITY-PREFIX"),
+        doubles: "70players",
+        singles: "50",
+        field: "doubles_reliability",
+      },
+      {
+        id: uniqueId("MEMBER-RELIABILITY-DECIMAL"),
+        doubles: "50",
+        singles: "80.5",
+        field: "singles_reliability",
+      },
+      {
+        id: uniqueId("MEMBER-RELIABILITY-TOO-HIGH"),
+        doubles: "101",
+        singles: "50",
+        field: "doubles_reliability",
+      },
+      {
+        id: uniqueId("MEMBER-RELIABILITY-NEGATIVE"),
+        doubles: "-1",
+        singles: "50",
+        field: "doubles_reliability",
+      },
+      {
+        id: uniqueId("MEMBER-RELIABILITY-SINGLES-HIGH"),
+        doubles: "50",
+        singles: "101",
+        field: "singles_reliability",
+      },
     ];
-    fixtureDuprIds.push(existingId, validId, ...invalidRows.map(({ id }) => id));
+    fixtureDuprIds.push(
+      existingId,
+      validId,
+      ...invalidRows.map(({ id }) => id),
+    );
 
     await db.insert(membersTable).values({
       duprId: existingId,
@@ -233,11 +305,18 @@ describe("Manage Members CSV upsert", () => {
     const csv = [
       "dupr_id,name,doubles,doubles_reliability,singles,singles_reliability",
       `${existingId},Changed name,4.000,70players,3.500,50`,
-      ...invalidRows.map(({ id, doubles, singles }) => `${id},Invalid member,3.000,${doubles},2.500,${singles}`),
+      ...invalidRows.map(
+        ({ id, doubles, singles }) =>
+          `${id},Invalid member,3.000,${doubles},2.500,${singles}`,
+      ),
       `${validId},Boundary member,3.000,0,2.500,100`,
     ].join("\n");
     const response = await requestCsv(csv);
-    const result = await response.json() as { imported: number; skipped: number; errors: string[] };
+    const result = (await response.json()) as {
+      imported: number;
+      skipped: number;
+      errors: string[];
+    };
 
     assert.equal(response.status, 200);
     assert.equal(result.imported, 1);
@@ -245,14 +324,19 @@ describe("Manage Members CSV upsert", () => {
     assert.equal(result.errors.length, invalidRows.length + 1);
     assert.match(result.errors[0], /^Row 2: Invalid doubles_reliability/);
     invalidRows.forEach(({ field }, index) => {
-      assert.match(result.errors[index + 1], new RegExp(`^Row ${index + 3}: Invalid ${field}`));
+      assert.match(
+        result.errors[index + 1],
+        new RegExp(`^Row ${index + 3}: Invalid ${field}`),
+      );
     });
 
     const storedMembers = await db
       .select()
       .from(membersTable)
       .where(inArray(membersTable.duprId, fixtureDuprIds));
-    const storedById = new Map(storedMembers.map((member) => [member.duprId, member]));
+    const storedById = new Map(
+      storedMembers.map((member) => [member.duprId, member]),
+    );
 
     assert.equal(storedById.get(existingId)?.name, "Existing member");
     assert.equal(storedById.get(existingId)?.doubles, "3.000");
