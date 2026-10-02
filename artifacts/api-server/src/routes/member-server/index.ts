@@ -8,6 +8,21 @@ import { parseCsvRecords } from "./csv.js";
 
 const router = Router();
 
+function parseCsvReliability(value: string, fieldName: string): number | null {
+  if (!value) return null;
+
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`Invalid ${fieldName}: must be a whole number from 0 to 100`);
+  }
+
+  const reliability = Number(value);
+  if (reliability > 100) {
+    throw new Error(`Invalid ${fieldName}: must be a whole number from 0 to 100`);
+  }
+
+  return reliability;
+}
+
 router.get("/", async (req, res) => {
   const { search, sortBy, sortDir } = req.query as Record<string, string>;
 
@@ -113,15 +128,18 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
     const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
 
     try {
+      const doublesReliability = parseCsvReliability(dRelRaw ?? "", "doubles_reliability");
+      const singlesReliability = parseCsvReliability(sRelRaw ?? "", "singles_reliability");
+
       await db
         .insert(membersTable)
         .values({
           duprId,
           name,
           doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
-          doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
+          doublesReliability,
           singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
-          singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
+          singlesReliability,
           selfRating: row["self_rating"] || row["selfrating"] || null,
           email: row["email"] || null,
           phone: row["phone"] || null,
@@ -130,9 +148,9 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
           target: membersTable.duprId,
           set: {
             doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
-            doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
+            doublesReliability,
             singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
-            singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
+            singlesReliability,
           },
         });
       imported++;
@@ -143,12 +161,6 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
   }
 
   return res.json({ imported, skipped, removed: 0, regSkipped: [], errors });
-});
-
-router.get("/:duprId", async (req, res) => {
-  const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, req.params.duprId));
-  if (!member) return res.status(404).json({ error: "Member not found" });
-  return res.json(member);
 });
 
 router.patch("/:duprId", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {

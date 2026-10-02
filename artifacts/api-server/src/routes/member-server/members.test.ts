@@ -205,4 +205,63 @@ describe("Manage Members CSV upsert", () => {
     assert.equal(storedById.get(ordinaryId)?.name, "Ordinary Member");
     assert.equal(storedById.get(ordinaryId)?.email, "ordinary@example.test");
   });
+
+  it("imports whole-number reliability percentages from 0 to 100 and rejects invalid rows", async () => {
+    const existingId = uniqueId("MEMBER-INVALID-RELIABILITY");
+    const validId = uniqueId("MEMBER-RELIABILITY-BOUNDARIES");
+    const invalidRows = [
+      { id: uniqueId("MEMBER-RELIABILITY-PREFIX"), doubles: "70players", singles: "50", field: "doubles_reliability" },
+      { id: uniqueId("MEMBER-RELIABILITY-DECIMAL"), doubles: "50", singles: "80.5", field: "singles_reliability" },
+      { id: uniqueId("MEMBER-RELIABILITY-TOO-HIGH"), doubles: "101", singles: "50", field: "doubles_reliability" },
+      { id: uniqueId("MEMBER-RELIABILITY-NEGATIVE"), doubles: "-1", singles: "50", field: "doubles_reliability" },
+      { id: uniqueId("MEMBER-RELIABILITY-SINGLES-HIGH"), doubles: "50", singles: "101", field: "singles_reliability" },
+    ];
+    fixtureDuprIds.push(existingId, validId, ...invalidRows.map(({ id }) => id));
+
+    await db.insert(membersTable).values({
+      duprId: existingId,
+      name: "Existing member",
+      doubles: "3.000",
+      doublesReliability: 45,
+      singles: "2.500",
+      singlesReliability: 55,
+      selfRating: null,
+      email: null,
+      phone: null,
+    });
+
+    const csv = [
+      "dupr_id,name,doubles,doubles_reliability,singles,singles_reliability",
+      `${existingId},Changed name,4.000,70players,3.500,50`,
+      ...invalidRows.map(({ id, doubles, singles }) => `${id},Invalid member,3.000,${doubles},2.500,${singles}`),
+      `${validId},Boundary member,3.000,0,2.500,100`,
+    ].join("\n");
+    const response = await requestCsv(csv);
+    const result = await response.json() as { imported: number; skipped: number; errors: string[] };
+
+    assert.equal(response.status, 200);
+    assert.equal(result.imported, 1);
+    assert.equal(result.skipped, invalidRows.length + 1);
+    assert.equal(result.errors.length, invalidRows.length + 1);
+    assert.match(result.errors[0], /^Row 2: Invalid doubles_reliability/);
+    invalidRows.forEach(({ field }, index) => {
+      assert.match(result.errors[index + 1], new RegExp(`^Row ${index + 3}: Invalid ${field}`));
+    });
+
+    const storedMembers = await db
+      .select()
+      .from(membersTable)
+      .where(inArray(membersTable.duprId, fixtureDuprIds));
+    const storedById = new Map(storedMembers.map((member) => [member.duprId, member]));
+
+    assert.equal(storedById.get(existingId)?.name, "Existing member");
+    assert.equal(storedById.get(existingId)?.doubles, "3.000");
+    assert.equal(storedById.get(existingId)?.doublesReliability, 45);
+    assert.equal(storedById.get(existingId)?.singlesReliability, 55);
+    assert.equal(storedById.get(validId)?.doublesReliability, 0);
+    assert.equal(storedById.get(validId)?.singlesReliability, 100);
+    for (const { id } of invalidRows) {
+      assert.equal(storedById.has(id), false);
+    }
+  });
 });
