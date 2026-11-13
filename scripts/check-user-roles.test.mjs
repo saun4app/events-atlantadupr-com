@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import path from "node:path";
 import test from "node:test";
 import { checkUserRoles } from "./check-user-roles.mjs";
 
@@ -43,6 +45,36 @@ test("rejects an outdated browser mock role with its file and line", async () =>
     checkUserRoles({ browserMockTexts }),
     /e2e\/admin-user-roles\.spec\.ts:2 uses unknown account role "removed_admin"/,
   );
+});
+
+test("discovers nested browser mocks and reports their relative path and line", async () => {
+  const temporaryDirectory = await mkdtemp(
+    path.join("e2e", "fixtures", ".check-user-roles-"),
+  );
+  const mockPath = path.join(
+    temporaryDirectory,
+    "nested",
+    "deep",
+    "stale-role.spec.ts",
+  );
+
+  try {
+    await mkdir(path.dirname(mockPath), { recursive: true });
+    await writeFile(mockPath, 'const user = {\n  role: "removed_nested_role",\n};');
+
+    await assert.rejects(
+      checkUserRoles(),
+      (error) => {
+        assert.equal(
+          error.message,
+          `${mockPath}:2 uses unknown account role "removed_nested_role"`,
+        );
+        return true;
+      },
+    );
+  } finally {
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
 });
 
 test("allows current event roles and explicitly marked legacy account roles", async () => {
