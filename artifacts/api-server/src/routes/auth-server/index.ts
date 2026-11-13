@@ -81,7 +81,7 @@ router.post("/login", async (req, res) => {
   };
 
   const token = createSessionToken();
-  await setSession(token, (req as any).session);
+  const sessionExpiresAt = await setSession(token, (req as any).session);
   const previousTokens = new Set<string>([
     req.signedCookies?.sid,
     req.headers.authorization?.replace(/^Bearer\s+/i, ""),
@@ -102,6 +102,7 @@ router.post("/login", async (req, res) => {
     duprId: user.duprId,
     duprFullname: user.duprFullname,
     token,
+    sessionExpiresAt,
     eventAssignments,
   });
 });
@@ -134,6 +135,7 @@ router.get("/me", async (req, res) => {
     createdAt: new Date().toISOString(),
     duprId: session.duprId ?? null,
     duprFullname: session.duprFullname ?? null,
+    sessionExpiresAt: session.sessionExpiresAt,
     eventAssignments,
   });
 });

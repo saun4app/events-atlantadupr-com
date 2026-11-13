@@ -121,6 +121,7 @@ async function mockAdminNavigationApi(
   role: string,
   options: {
     canWriteEvent?: boolean;
+    sessionExpiresAt?: string;
     eventAssignments?: Array<{
       eventId: number;
       eventType: string;
@@ -139,6 +140,9 @@ async function mockAdminNavigationApi(
           ...ADMIN_USER,
           role,
           eventAssignments: options.eventAssignments,
+          ...(options.sessionExpiresAt
+            ? { sessionExpiresAt: options.sessionExpiresAt }
+            : {}),
         },
       });
       return;
@@ -486,6 +490,22 @@ test("admin can navigate every admin area and event format", async ({
   await expect(
     page.getByRole("button", { name: "Delete Event", exact: true }),
   ).toBeVisible();
+});
+
+test("warns before session expiry and keeps the warning after reload", async ({
+  page,
+}) => {
+  const sessionExpiresAt = new Date(Date.now() + 10 * 60_000).toISOString();
+  await mockAdminNavigationApi(page, ADMIN_ROLE, { sessionExpiresAt });
+  await page.goto("/admin/events/rotating");
+
+  const warning = page.getByTestId("status-session-expiring");
+  await expect(warning).toBeVisible();
+  await expect(warning).toContainText("Save your work");
+  await expect(warning).not.toContainText("sensitive-session-token");
+
+  await page.reload();
+  await expect(page.getByTestId("status-session-expiring")).toBeVisible();
 });
 
 test("admin pages keep their route and active navigation after refresh", async ({

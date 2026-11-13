@@ -32,6 +32,7 @@ export const LoginResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable(),
+  "sessionExpiresAt": zod.coerce.date().optional(),
   "eventAssignments": zod.array(zod.object({
   "eventId": zod.int(),
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -57,6 +58,7 @@ export const GetMeResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable(),
+  "sessionExpiresAt": zod.coerce.date().optional(),
   "eventAssignments": zod.array(zod.object({
   "eventId": zod.int(),
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -1095,6 +1097,7 @@ export const ListUsersResponseItem = zod.object({
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable(),
+  "sessionExpiresAt": zod.coerce.date().optional(),
   "eventAssignments": zod.array(zod.object({
   "eventId": zod.int(),
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -1122,6 +1125,7 @@ export const CreateUserResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable(),
+  "sessionExpiresAt": zod.coerce.date().optional(),
   "eventAssignments": zod.array(zod.object({
   "eventId": zod.int(),
   "eventType": zod.enum(['rotating', 'fixed_partner']),
@@ -1168,6 +1172,7 @@ export const UpdateUserResponse = zod.object({
   "createdAt": zod.coerce.date(),
   "duprId": zod.string().nullable(),
   "duprFullname": zod.string().nullable(),
+  "sessionExpiresAt": zod.coerce.date().optional(),
   "eventAssignments": zod.array(zod.object({
   "eventId": zod.int(),
   "eventType": zod.enum(['rotating', 'fixed_partner']),

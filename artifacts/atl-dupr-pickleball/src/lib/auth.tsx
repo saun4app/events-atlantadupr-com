@@ -14,6 +14,7 @@ interface User {
   username: string;
   role: string;
   createdAt: string;
+  sessionExpiresAt?: string | Date;
   eventAssignments?: Array<{
     eventId: number;
     eventType: string;

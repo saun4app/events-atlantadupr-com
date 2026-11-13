@@ -1,9 +1,10 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { useLogout } from "@workspace/api-client-react";
-import { LogOut, Menu, X } from "lucide-react";
+import { useLogout, getGetMeQueryKey } from "@workspace/api-client-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   getAdminNavigationItems,
   isNavigationItemActive,
@@ -13,18 +14,37 @@ import {
 export function AdminNav() {
   const { user, setAuthToken } = useAuth();
   const [location] = useLocation();
+  const queryClient = useQueryClient();
   const logout = useLogout();
   const [open, setOpen] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
+  const warningWindowMs = 15 * 60 * 1000;
 
   const links = getAdminNavigationItems(
     user?.role,
     (user?.eventAssignments?.length ?? 0) > 0,
   );
+  const expiresAtMs = user?.sessionExpiresAt
+    ? new Date(user.sessionExpiresAt).getTime()
+    : null;
+  const remainingMs = expiresAtMs === null ? null : expiresAtMs - now;
+  const shouldWarnSessionExpiry =
+    remainingMs !== null && remainingMs > 0 && remainingMs <= warningWindowMs;
+  const remainingMinutes = shouldWarnSessionExpiry
+    ? Math.ceil(remainingMs / 60_000)
+    : null;
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => setNow(Date.now()), 30_000);
+    return () => window.clearInterval(intervalId);
+  }, []);
 
   function handleLogout() {
     logout.mutate(undefined, {
       onSuccess: () => {
+        localStorage.removeItem("authToken");
         setAuthToken(null);
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
       },
     });
   }
@@ -92,6 +112,23 @@ export function AdminNav() {
           </div>
         </div>
       </div>
+
+      {shouldWarnSessionExpiry && remainingMinutes !== null && (
+        <div
+          role="status"
+          aria-live="polite"
+          data-testid="status-session-expiring"
+          className="border-t border-amber-200 bg-amber-50 px-4 py-2 text-amber-950"
+        >
+          <div className="mx-auto flex max-w-7xl items-center gap-2 text-sm">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-700" aria-hidden="true" />
+            <p>
+              Your session expires in {remainingMinutes}{" "}
+              {remainingMinutes === 1 ? "minute" : "minutes"}. Save your work, then sign in again to continue.
+            </p>
+          </div>
+        </div>
+      )}
 
       {open && (
         <div className="md:hidden border-t border-border bg-white px-4 py-2 space-y-1">

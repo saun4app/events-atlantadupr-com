@@ -47,20 +47,29 @@ async function login() {
     body: JSON.stringify({ username, password }),
   });
   assert.equal(response.status, 200);
-  const body = await response.json() as { token: string };
-  return { response, token: body.token };
+  const body = await response.json() as { token: string; sessionExpiresAt: string };
+  return { response, token: body.token, sessionExpiresAt: body.sessionExpiresAt };
 }
 
 test("login persists a strong bearer token and matching signed HttpOnly cookie", async () => {
-  const { response, token } = await login();
+  const { response, token, sessionExpiresAt } = await login();
   assert.match(token, /^[A-Za-z0-9_-]{43}$/);
+  const expiresAtMs = Date.parse(sessionExpiresAt);
+  assert.ok(expiresAtMs > Date.now());
+  assert.ok(expiresAtMs <= Date.now() + SESSION_MAX_AGE_MS + 1_000);
   const cookie = response.headers.get("set-cookie") ?? "";
   assert.match(cookie, /HttpOnly/i);
   assert.match(cookie, /SameSite=Lax|SameSite=None/i);
   assert.ok(decodeURIComponent(cookie).includes(`s:${token}.`));
   const me = await fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
   assert.equal(me.status, 200);
-  assert.equal((await me.json() as { id: number }).id, userId);
+  const meBody = await me.json() as { id: number; sessionExpiresAt: string; token?: string };
+  assert.equal(meBody.id, userId);
+  assert.equal(meBody.sessionExpiresAt, sessionExpiresAt);
+  assert.equal("token" in meBody, false);
+
+  const reloadedMe = await fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
+  assert.equal((await reloadedMe.json() as { sessionExpiresAt: string }).sessionExpiresAt, sessionExpiresAt);
 });
 
 test("Replit preview sessions keep cross-site iframe cookie settings", () => {

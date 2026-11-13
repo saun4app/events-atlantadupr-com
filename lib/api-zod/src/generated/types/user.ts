@@ -18,5 +18,6 @@ export interface User {
   duprId: string | null;
   /** @nullable */
   duprFullname: string | null;
+  sessionExpiresAt?: Date;
   eventAssignments?: EventAssignmentReference[];
 }

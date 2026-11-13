@@ -1066,6 +1066,9 @@ components:
           type: ["string", "null"]
         duprFullname:
           type: ["string", "null"]
+        sessionExpiresAt:
+          type: string
+          format: date-time
         eventAssignments:
           type: array
           items:
