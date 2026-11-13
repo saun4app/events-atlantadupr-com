@@ -6,6 +6,7 @@ This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlant
 
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run test:api` — run API integration tests; set `TEST_DATABASE_URL` to an isolated PostgreSQL database first (or pair it with a dedicated non-public `TEST_DATABASE_SCHEMA`)
+- `pnpm run test:api:isolated` — provision a disposable local PostgreSQL cluster, initialize its schema, run API tests, and remove the cluster; requires PostgreSQL tools on PATH and never uses existing application data
 - `pnpm --filter @workspace/atl-dupr-pickleball run dev` — run the web frontend (port 20563)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages
@@ -43,6 +44,12 @@ This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlant
 - Frontend is a React + Vite SPA with static build in production
 - API routes live under `/api/` path
 - Auth uses sessions with role-based access control
+
+## Security configuration
+
+- Production browser origins are restricted to the published custom and Replit domains. Additional trusted origins can be explicitly configured with comma-separated `CORS_ALLOWED_ORIGINS`; do not use wildcards.
+- Session cookies are HttpOnly and Secure in production. Development iframe previews use SameSite=None with Secure; local HTTP tests use SameSite=Lax. Server-side sessions expire after seven days.
+- Demo seeding refuses production and requires `ALLOW_DESTRUCTIVE_SEED=true` in development because it deletes existing development data. Demo users receive random, unreported passwords, not fixed default credentials.
 
 ## Product
 

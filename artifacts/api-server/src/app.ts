@@ -4,8 +4,9 @@ import pinoHttp from "pino-http";
 import cookieParser from "cookie-parser";
 import router from "./routes/index.js";
 import { logger } from "./lib/logger.js";
-import { getSession, setSession, deleteSession } from "./lib/session.js";
+import { getSession } from "./lib/session.js";
 import { canonicalizeUserRole, siteVisitorRole } from "./lib/user-roles.js";
+import { allowedOrigins, sessionCookieOptions } from "./lib/security.js";
 
 const SESSION_SECRET = process.env.SESSION_SECRET ?? (
   process.env.NODE_ENV === "production"
@@ -29,18 +30,27 @@ app.use(
   }),
 );
 
-app.use(cors({ origin: true, credentials: true }));
-app.use(express.json({ limit: "10mb" }));
-app.use(express.text({ type: "text/plain", limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.disable("x-powered-by");
+const origins = allowedOrigins();
+app.use((req, res, next) => {
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  const origin = req.get("origin");
+  if (origin && !origins.has(origin)) {
+    res.status(403).json({ error: "Origin not allowed" });
+    return;
+  }
+  next();
+});
+app.use(cors({ origin: (origin, callback) => callback(null, !origin || origins.has(origin)), credentials: true }));
+app.use(express.json({ limit: "10mb", inflate: false }));
+app.use(express.text({ type: "text/plain", limit: "10mb", inflate: false }));
+app.use(express.urlencoded({ extended: true, limit: "10mb", inflate: false, parameterLimit: 1000 }));
 app.use(cookieParser(SESSION_SECRET));
 
-app.use(async (req, _res, next) => {
+app.use(async (req, res, next) => {
   const sid = req.signedCookies?.sid;
   const token = req.headers.authorization?.replace(/^Bearer\s+/i, "");
-  if (req.url.startsWith("/api/auth")) {
-    logger.info({ sid: sid ? "present" : "missing", bearer: token ? "present" : "missing", url: req.url }, "auth debug");
-  }
   const storedSession = (await getSession(sid)) ?? (await getSession(token)) ?? null;
   const session = storedSession
     ? {
@@ -52,31 +62,9 @@ app.use(async (req, _res, next) => {
     : null;
   (req as any).session = session;
   (req as any).userRole = session?.role ?? siteVisitorRole;
-  next();
-});
-
-app.use((req, res, next) => {
-  const originalJson = res.json.bind(res);
-  res.json = function (body) {
-    const session = (req as any).session;
-    const existingSid = req.signedCookies?.sid;
-
-    if (session) {
-      const sid = existingSid ?? (Math.random().toString(36).slice(2) + Date.now().toString(36));
-      setSession(sid, session).catch(() => {});
-      res.cookie("sid", sid, {
-        signed: true,
-        httpOnly: true,
-        sameSite: "lax",
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
-    } else if (existingSid && session === null) {
-      deleteSession(existingSid).catch(() => {});
-      res.clearCookie("sid");
-    }
-
-    return originalJson(body);
-  };
+  if (sid && !storedSession) {
+    res.clearCookie("sid", sessionCookieOptions());
+  }
   next();
 });
 

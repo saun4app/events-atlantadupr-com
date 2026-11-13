@@ -21,3 +21,4 @@
 - [Public event list error states](public-event-list-errors.md) — keep format-specific failure and in-flight retry states separate from loading and empty results
 - [Polymorphic event fixtures](polymorphic-event-fixtures.md) — cross-format test rows must reference real counterpart events to avoid dangling-ID collisions
 - [Telemetry timestamps](telemetry-timestamps.md) — use explicit ISO timestamps if the tool runtime rejects JavaScript clock methods.
+- [Validator upgrades](validator-upgrades.md) — force composite declarations to rebuild after major upgrades; catalog-based Query versions may need explicit codegen configuration.

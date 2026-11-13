@@ -11,6 +11,7 @@ import {
   rateLimitErrorResponse,
 } from "../../lib/rate-limit.js";
 import { canonicalizeUserRole } from "../../lib/user-roles.js";
+import { createSessionToken, sessionCookieOptions, SESSION_MAX_AGE_MS } from "../../lib/security.js";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ const LOGIN_CONFIG = {
 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
+  if (typeof username !== "string" || typeof password !== "string" || !username.trim() || !password || username.length > 256 || password.length > 1024) {
     return res.status(400).json({ error: "Username and password required" });
   }
 
@@ -79,8 +80,14 @@ router.post("/login", async (req, res) => {
     duprFullname: user.duprFullname,
   };
 
-  const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+  const token = createSessionToken();
   await setSession(token, (req as any).session);
+  const previousTokens = new Set<string>([
+    req.signedCookies?.sid,
+    req.headers.authorization?.replace(/^Bearer\s+/i, ""),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0));
+  for (const previousToken of previousTokens) await deleteSession(previousToken);
+  res.cookie("sid", token, { ...sessionCookieOptions(), maxAge: SESSION_MAX_AGE_MS });
 
   const eventAssignments = await db.select({
     eventId: eventAssignmentsTable.eventId, eventType: eventAssignmentsTable.eventType,
@@ -100,12 +107,13 @@ router.post("/login", async (req, res) => {
 });
 
 router.post("/logout", async (req, res) => {
-  const sid = req.signedCookies?.sid;
-  if (sid) {
-    await deleteSession(sid);
-  }
+  const tokens = new Set<string>([
+    req.signedCookies?.sid,
+    req.headers.authorization?.replace(/^Bearer\s+/i, ""),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0));
+  for (const token of tokens) await deleteSession(token);
   (req as any).session = null;
-  res.clearCookie("sid");
+  res.clearCookie("sid", sessionCookieOptions());
   return res.status(204).send();
 });
 
