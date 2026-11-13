@@ -120,3 +120,60 @@ test("CI runs both browser projects against an isolated database", async () => {
     /if: failure\(\) && steps\.redact-browser-test-logs\.outcome == 'success'[\s\S]*?name: playwright-failure-diagnostics/,
   );
 });
+
+test("CI runs Firefox independently with redacted failure diagnostics", async () => {
+  const workflow = await readFile(
+    join(repositoryRoot, ".github/workflows/api-tests.yml"),
+    "utf8",
+  );
+
+  assert.match(
+    workflow,
+    /browser-tests-firefox:[\s\S]*?POSTGRES_DB: e2e_firefox_test/,
+  );
+  assert.match(
+    workflow,
+    /browser-tests-firefox:[\s\S]*?pnpm exec playwright install --with-deps firefox/,
+  );
+  assert.match(
+    workflow,
+    /browser-tests-firefox:[\s\S]*?pnpm run test:e2e:firefox/,
+  );
+  assert.match(
+    workflow,
+    /browser-tests-firefox:[\s\S]*?PLAYWRIGHT_OUTPUT_DIR: \$\{\{ github\.workspace \}\}\/test-results\/playwright-firefox/,
+  );
+  assert.match(
+    workflow,
+    /if: failure\(\) && steps\.redact-firefox-test-logs\.outcome == 'success'[\s\S]*?name: firefox-playwright-failure-diagnostics/,
+  );
+});
+
+test("Firefox uses its own Playwright project and test command", async () => {
+  const config = await readFile(
+    join(repositoryRoot, "playwright.config.ts"),
+    "utf8",
+  );
+  const packageJson = JSON.parse(
+    await readFile(join(repositoryRoot, "package.json"), "utf8"),
+  );
+  const chromiumProject = config.match(
+    /name: "desktop-chromium",([\s\S]*?)\n    \},/,
+  );
+  const firefoxProject = config.match(
+    /name: "desktop-firefox",([\s\S]*?)\n    \},/,
+  );
+  const sharedUse = config.match(/use: \{([\s\S]*?)\n  \},\n  webServer/);
+
+  assert.ok(chromiumProject, "Chromium project should be configured");
+  assert.ok(firefoxProject, "Firefox project should be configured");
+  assert.ok(sharedUse, "Shared browser defaults should be configured");
+  assert.match(chromiumProject[1], /launchOptions/);
+  assert.match(firefoxProject[1], /devices\["Desktop Firefox"\]/);
+  assert.doesNotMatch(firefoxProject[1], /launchOptions/);
+  assert.doesNotMatch(sharedUse[1], /launchOptions/);
+  assert.equal(
+    packageJson.scripts["test:e2e:firefox"],
+    "NODE_ENV=test playwright test --project=desktop-firefox",
+  );
+});

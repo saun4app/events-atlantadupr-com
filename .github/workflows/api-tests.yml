@@ -88,6 +88,81 @@ jobs:
           if-no-files-found: ignore
           retention-days: 14
 
+  browser-tests-firefox:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: e2e_firefox_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d e2e_firefox_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Prepare Firefox browser test diagnostics
+        run: mkdir -p test-results/logs
+
+      - name: Initialize isolated Firefox test database
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/e2e_firefox_test
+        run: |
+          set -o pipefail
+          pnpm run test:api:setup 2>&1 | tee test-results/logs/database-setup.log
+
+      - name: Install Firefox
+        run: pnpm exec playwright install --with-deps firefox
+
+      - name: Run Firefox Playwright tests
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/e2e_firefox_test
+          PLAYWRIGHT_OUTPUT_DIR: ${{ github.workspace }}/test-results/playwright-firefox
+        run: |
+          set -o pipefail
+          pnpm run test:e2e:firefox 2>&1 | tee test-results/logs/playwright-firefox.log
+
+      - name: Capture Firefox test database logs
+        if: always()
+        run: docker logs "${{ job.services.postgres.id }}" > test-results/logs/postgres.log 2>&1 || true
+
+      - name: Redact sensitive values from Firefox test logs
+        id: redact-firefox-test-logs
+        if: always()
+        run: pnpm run redact:ci-diagnostics test-results/logs
+
+      - name: Upload Firefox failure diagnostics
+        if: failure() && steps.redact-firefox-test-logs.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefox-playwright-failure-diagnostics
+          path: test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+
   api-tests:
     runs-on: ubuntu-latest
     services:

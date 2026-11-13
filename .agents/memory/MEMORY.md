@@ -24,3 +24,4 @@
 - [Telemetry timestamps](telemetry-timestamps.md) — use explicit ISO timestamps if the tool runtime rejects JavaScript clock methods.
 - [Validator upgrades](validator-upgrades.md) — force composite declarations to rebuild after major upgrades; catalog-based Query versions may need explicit codegen configuration.
 - [Event registration authorization](event-registration-authorization.md) — authenticated users without event write access must not fall through to public self-registration.
+- [Playwright Firefox in Nix](playwright-firefox-nix.md) — local Firefox needs Ubuntu runtime libraries unavailable in this Nix image; CI installs them with Playwright's `--with-deps`.

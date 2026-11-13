@@ -23,9 +23,6 @@ export default defineConfig({
     baseURL,
     trace: "on-first-retry",
     screenshot: "only-on-failure",
-    ...(chromiumExecutablePath
-      ? { launchOptions: { executablePath: chromiumExecutablePath } }
-      : {}),
   },
   webServer: [
     {
@@ -47,11 +44,25 @@ export default defineConfig({
   projects: [
     {
       name: "desktop-chromium",
-      use: { ...devices["Desktop Chrome"] },
+      use: {
+        ...devices["Desktop Chrome"],
+        ...(chromiumExecutablePath
+          ? { launchOptions: { executablePath: chromiumExecutablePath } }
+          : {}),
+      },
     },
     {
       name: "mobile-chromium",
-      use: { ...devices["Pixel 5"] },
+      use: {
+        ...devices["Pixel 5"],
+        ...(chromiumExecutablePath
+          ? { launchOptions: { executablePath: chromiumExecutablePath } }
+          : {}),
+      },
+    },
+    {
+      name: "desktop-firefox",
+      use: { ...devices["Desktop Firefox"] },
     },
   ],
 });
