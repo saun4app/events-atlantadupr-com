@@ -109,7 +109,7 @@ test("CI runs both browser projects against an isolated database", async () => {
   );
   assert.match(
     workflow,
-    /pnpm run test:e2e -- --project=desktop-chromium --project=mobile-chromium/,
+    /pnpm run test:e2e --project=desktop-chromium --project=mobile-chromium/,
   );
   assert.match(
     workflow,

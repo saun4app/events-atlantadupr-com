@@ -49,6 +49,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Validate CI diagnostic safeguards
+        run: pnpm run test:ci-diagnostics
+
       - name: Prepare browser test diagnostics
         run: mkdir -p test-results/logs
 
@@ -68,7 +71,7 @@ jobs:
           PLAYWRIGHT_OUTPUT_DIR: ${{ github.workspace }}/test-results/playwright
         run: |
           set -o pipefail
-          pnpm run test:e2e -- --project=desktop-chromium --project=mobile-chromium 2>&1 | tee test-results/logs/playwright.log
+          pnpm run test:e2e --project=desktop-chromium --project=mobile-chromium 2>&1 | tee test-results/logs/playwright.log
 
       - name: Capture browser test database logs
         if: always()
