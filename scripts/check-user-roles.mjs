@@ -9,6 +9,12 @@ const generatedPaths = [
   "lib/api-zod/src/generated/types/eventAssignmentInputEventRole.ts",
   "lib/api-zod/src/generated/types/eventAssignmentEventRole.ts",
 ];
+const fixturePaths = [
+  "e2e/fixtures/clone-event.ts",
+  "e2e/fixtures/fixed-partner.ts",
+  "e2e/fixtures/rotating-partner.ts",
+  "e2e/event-limit-validation.spec.ts",
+];
 
 function sameValues(actual, expected) {
   return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
@@ -32,6 +38,8 @@ export async function checkUserRoles(options = {}) {
   const openApiText = options.openApiText ?? await readFile(openApiPath, "utf8");
   const generatedTexts = options.generatedTexts ??
     await Promise.all(generatedPaths.map((path) => readFile(path, "utf8")));
+  const fixtureTexts = options.fixtureTexts ??
+    await Promise.all(fixturePaths.map((path) => readFile(path, "utf8")));
   const roleIds = config.accountRoles.map((role) => role.id);
   const eventRoleIds = config.eventRoles.map((role) => role.id);
   const roleSet = new Set(roleIds);
@@ -53,6 +61,18 @@ export async function checkUserRoles(options = {}) {
     const values = parseObjectValues(text, generatedConstantNames[index + 3]);
     if (!sameValues(values, eventRoleIds)) {
       throw new Error(`${generatedPaths[index + 3]} is out of sync with app-config/user-roles.json eventRoles`);
+    }
+  });
+
+  fixtureTexts.forEach((text, index) => {
+    for (const match of text.matchAll(/\brole\s*:\s*["']([^"']+)["']/g)) {
+      const role = match[1];
+      if (roleSet.has(role)) continue;
+
+      const line = text.slice(0, match.index).split("\n").length;
+      throw new Error(
+        `${fixturePaths[index]}:${line} uses unknown account role "${role}"`,
+      );
     }
   });
 

@@ -32,3 +32,17 @@ test("rejects a contract with a reordered or missing user role", async () => {
     /out of sync|Could not find generated/,
   );
 });
+
+test("rejects an outdated browser fixture role with its file and line", async () => {
+  const fixtureTexts = [
+    'const user = {\n  role: "removed_admin",\n};',
+    "",
+    "",
+    "",
+  ];
+
+  await assert.rejects(
+    checkUserRoles({ fixtureTexts }),
+    /e2e\/fixtures\/clone-event\.ts:2 uses unknown account role "removed_admin"/,
+  );
+});
