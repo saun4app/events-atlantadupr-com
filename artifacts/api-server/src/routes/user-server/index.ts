@@ -2,8 +2,8 @@ import { Router } from "express";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { requireRole, hashPassword } from "../../lib/auth.js";
-import { canonicalizeUserRole, USER_ROLE_GROUPS, USER_ROLE_IDS, hasUserRole, isConfiguredUserRole } from "../../lib/user-roles.js";
+import { requireAuth, requireRole, hashPassword } from "../../lib/auth.js";
+import { canonicalizeUserRole, USER_ROLE_IDS, isConfiguredUserRole } from "../../lib/user-roles.js";
 import { DeleteUserParams, UpdateUserBody, UpdateUserParams, UpdateUserResponse } from "@workspace/api-zod";
 
 const router = Router();
@@ -25,9 +25,11 @@ router.get("/", requireRole(USER_ROLE_IDS.app_admin), async (_req, res) => {
   return res.json(users.map(toPublicUser));
 });
 
-router.get("/assignable-staff", requireRole(...USER_ROLE_GROUPS.eventManagers), async (_req, res) => {
+// An event role can be assigned to any persisted account user. The assignment
+// route itself verifies that the caller manages the selected event.
+router.get("/assignable-staff", requireAuth, async (_req, res) => {
   const users = await db.select().from(usersTable);
-  return res.json(users.filter((user) => hasUserRole(user.role, "assignableStaff")).map(toPublicUser));
+  return res.json(users.map(toPublicUser));
 });
 
 router.post("/", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {

@@ -10,7 +10,7 @@ const router = Router();
 router.get(
   "/email-failures",
   requireAuth,
-  requireRole(...USER_ROLE_GROUPS.eventManagers),
+  requireRole(...USER_ROLE_GROUPS.globalEventManagers),
   async (_req: Request, res: Response) => {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
     const failures = await db

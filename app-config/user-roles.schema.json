@@ -5,7 +5,9 @@
   "additionalProperties": false,
   "required": [
     "version",
-    "roles",
+    "accountRoles",
+    "eventRoles",
+    "virtualRoles",
     "defaults",
     "groups"
   ],
@@ -16,7 +18,21 @@
     "version": {
       "const": 1
     },
-    "roles": {
+    "accountRoles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "eventRoles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/role"
+      }
+    },
+    "virtualRoles": {
       "type": "array",
       "minItems": 1,
       "items": {
@@ -32,6 +48,7 @@
       "required": [
         "adminOnly",
         "adminPanel",
+        "globalEventManagers",
         "eventManagers",
         "eventWriters",
         "assignableStaff"
@@ -41,6 +58,9 @@
           "$ref": "#/$defs/roleList"
         },
         "adminPanel": {
+          "$ref": "#/$defs/roleList"
+        },
+        "globalEventManagers": {
           "$ref": "#/$defs/roleList"
         },
         "eventManagers": {

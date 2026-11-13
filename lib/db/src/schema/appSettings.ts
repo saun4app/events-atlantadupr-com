@@ -96,6 +96,7 @@ export const appSettingsTable = pgTable("app_settings", {
   guidelinesAndRules: text("guidelines_and_rules").notNull().default(""),
   homeTitle: text("home_title").notNull().default("Upcoming Events"),
   homeSubtitle: text("home_subtitle").notNull().default("Atlanta DUPR Pickleball — competitive round robins for serious players"),
+  combinePublicEventLists: boolean("combine_public_event_lists").notNull().default(true),
 });
 
 export type AppSettings = typeof appSettingsTable.$inferSelect;

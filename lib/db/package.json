@@ -14,18 +14,18 @@
     "seed": "node --import tsx/esm src/seed.ts"
   },
   "dependencies": {
-    "@workspace/user-roles-config": "workspace:*",
     "@types/bcryptjs": "^3.0.0",
+    "@workspace/user-roles-config": "workspace:*",
     "bcryptjs": "^3.0.3",
     "drizzle-orm": "catalog:",
     "drizzle-zod": "^0.8.3",
-    "pg": "^8.20.0",
+    "pg": "^8.23.1",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
-    "@types/pg": "^8.20.0",
-    "drizzle-kit": "^0.31.10",
+    "@types/pg": "^8.23.1",
+    "drizzle-kit": "^0.31.11",
     "tsx": "catalog:"
   }
 }

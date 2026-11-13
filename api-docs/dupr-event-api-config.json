@@ -1,0 +1,86 @@
+{
+  "specification": {
+    "name": "dupr-event-api-server-config",
+    "version": 1,
+    "status": "initial",
+    "purpose": "Shared runtime and platform requirements for a modular DUPR event API server"
+  },
+  "server": {
+    "apiVersion": "v1",
+    "basePath": "/api/v1",
+    "compositionRoot": "src/app.ts",
+    "moduleRegistration": "Only the composition root imports and registers API modules.",
+    "invalidConfigBehavior": "Fail closed before opening the HTTP listener or reject all affected requests with a configuration error.",
+    "hardcodedSecurityRequirementsAllowed": false
+  },
+  "authentication": {
+    "bearer": {
+      "type": "oidc_jwt",
+      "issuerEnv": "OIDC_ISSUER_URL",
+      "audienceEnv": "OIDC_AUDIENCE",
+      "requiredClaims": ["sub", "org_id", "roles"]
+    },
+    "sessionCookie": {
+      "type": "signed",
+      "name": "connect.sid",
+      "secretEnv": "SESSION_SECRET",
+      "httpOnly": true,
+      "secureOutsideDevelopment": true,
+      "sameSite": "lax",
+      "stateChangingRequestsRequireCsrf": true
+    },
+    "organization": {
+      "singleOrganizationByDefault": true,
+      "tenantIdEnv": "TENANT_ID",
+      "mismatchStatus": 403,
+      "doNotRevealResourceExistence": true
+    }
+  },
+  "http": {
+    "allowedOriginsEnv": "ALLOWED_ORIGINS",
+    "wildcardOriginsWithCredentialsAllowed": false,
+    "jsonBodyLimitBytes": 1048576,
+    "requestIdHeader": "X-Request-Id",
+    "csrfHeader": "X-CSRF-Token",
+    "rateLimitHeaders": ["Retry-After"],
+    "defaultPage": 1,
+    "defaultPageSize": 25,
+    "maximumPageSize": 100,
+    "concurrencyHeader": "If-Match",
+    "idempotencyHeader": "Idempotency-Key",
+    "errorMediaType": "application/json"
+  },
+  "platformServices": {
+    "required": [
+      "auth",
+      "database",
+      "email",
+      "clock",
+      "logger",
+      "metrics",
+      "config"
+    ],
+    "emailProvider": "platform_adapter",
+    "outbox": {
+      "delivery": "at_least_once",
+      "claiming": "FOR UPDATE SKIP LOCKED",
+      "maxAttempts": 5,
+      "retryStrategy": "exponential_backoff",
+      "idempotencyRequired": true
+    }
+  },
+  "operations": {
+    "healthEndpoints": ["/health/live", "/health/ready"],
+    "timestamps": "RFC3339 UTC",
+    "redactSecretsAndPiiFromLogs": true,
+    "auditStaffMutations": true,
+    "gracefulShutdownRequired": true,
+    "backupAndRetentionPolicyRequired": true
+  },
+  "invariants": [
+    "Platform code never imports a domain module.",
+    "A domain module receives platform interfaces, not raw environment variables, an Express application, or a database pool.",
+    "A domain module cannot read or write another module's documents directly.",
+    "Shared authentication, tenancy, transport, and operational policy is defined here and is not duplicated in module configuration."
+  ]
+}

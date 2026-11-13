@@ -1,0 +1,1808 @@
+openapi: 3.1.0
+info:
+  title: Api
+  version: 0.1.0
+  description: Atlanta DUPR Pickleball Events API
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: auth
+    description: Authentication operations
+  - name: members
+    description: DUPR member list operations
+  - name: events
+    description: Event operations
+  - name: registrations
+    description: Registration and roster operations
+  - name: event-assignments
+    description: Staff event-assignment operations
+  - name: users
+    description: User management operations
+  - name: settings
+    description: App settings operations
+
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Log in with username and password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Log out the current session
+      responses:
+        "204":
+          description: Logged out
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get the currently authenticated user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Not authenticated
+
+  /members:
+    get:
+      operationId: listMembers
+      tags: [members]
+      summary: List all DUPR members
+      parameters:
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search by name or DUPR ID
+        - in: query
+          name: sortBy
+          schema:
+            type: string
+            enum: [name, doubles, singles, doublesReliability, singlesReliability]
+          description: Field to sort by
+        - in: query
+          name: sortDir
+          schema:
+            type: string
+            enum: [asc, desc]
+          description: Sort direction
+      responses:
+        "200":
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Member"
+    post:
+      operationId: createMember
+      tags: [members]
+      summary: Add a new member (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberInput"
+      responses:
+        "201":
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+    delete:
+      operationId: clearAllMembers
+      tags: [members]
+      summary: Delete all members (Admin only)
+      responses:
+        "204":
+          description: All members deleted
+
+  /members/csv:
+    post:
+      operationId: uploadMembersCsv
+      tags: [members]
+      summary: Upload members via CSV (Admin only)
+      requestBody:
+        required: true
+        content:
+          text/plain:
+            schema:
+              type: string
+              description: CSV file contents
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CsvUploadResult"
+
+  /members/{duprId}:
+    get:
+      operationId: getMember
+      tags: [members]
+      summary: Get a member by DUPR ID
+      parameters:
+        - in: path
+          name: duprId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "404":
+          description: Member not found
+    patch:
+      operationId: updateMember
+      tags: [members]
+      summary: Update a member (Admin only)
+      parameters:
+        - in: path
+          name: duprId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemberUpdate"
+      responses:
+        "200":
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Member"
+        "404":
+          description: Member not found
+    delete:
+      operationId: deleteMember
+      tags: [members]
+      summary: Delete a member (Admin only)
+      parameters:
+        - in: path
+          name: duprId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Member deleted
+        "404":
+          description: Member not found
+
+  /events/summary:
+    get:
+      operationId: getEventsSummary
+      tags: [events]
+      summary: Get high-level event statistics
+      responses:
+        "200":
+          description: Event summary stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventsSummary"
+
+  /events/{eventType}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List events of a format
+      responses:
+        "200":
+          description: List of events
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+    post:
+      operationId: createEvent
+      tags: [events]
+      summary: Create a new event (App Admin or Club Director)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventInput"
+      responses:
+        "201":
+          description: Event(s) created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Event"
+
+  /events/{eventType}/{id}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get event details
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Event not found
+    patch:
+      operationId: updateEvent
+      tags: [events]
+      summary: Update an event (authorized event staff)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventUpdate"
+      responses:
+        "200":
+          description: Event updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Event not found
+    delete:
+      operationId: deleteEvent
+      tags: [events]
+      summary: Delete an event (authorized event staff)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Event deleted
+        "404":
+          description: Event not found
+
+  /events/{eventType}/{id}/clone:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: cloneEvent
+      tags: [events]
+      summary: Clone an event as a new draft (authorized event staff)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventCloneInput"
+      responses:
+        "201":
+          description: Cloned event created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+        "404":
+          description: Source event not found
+
+  /events/{eventType}/{id}/close:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: closeEvent
+      tags: [events]
+      summary: Close registration for an event (end it)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Event closed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Event"
+
+  /events/{eventType}/{id}/roster-summary:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: getEventRosterSummary
+      tags: [events]
+      summary: Get confirmed/waitlisted/pending counts for an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Roster summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterSummary"
+
+  /events/{eventType}/{id}/assignments:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+    get:
+      operationId: listEventAssignments
+      tags: [event-assignments]
+      summary: List staff assigned to an event (global manager or assigned organizer)
+      description: Requires a global event manager or an organizer assignment for this event.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Event assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EventAssignment"
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+        "404":
+          description: Unknown event format
+    post:
+      operationId: assignEventStaff
+      tags: [event-assignments]
+      summary: Assign an event role (global manager or assigned organizer)
+      description: Assigns or changes one user's role within the selected event. A user has at most one event role per event.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventAssignmentInput"
+      responses:
+        "201":
+          description: Assignment created or already existed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventAssignment"
+        "400":
+          description: Missing or non-assignable user ID
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+        "404":
+          description: Unknown event format or user not found
+
+  /events/{eventType}/{id}/assignments/{userId}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: integer
+      - in: path
+        name: userId
+        required: true
+        schema:
+          type: integer
+    delete:
+      operationId: removeEventStaffAssignment
+      tags: [event-assignments]
+      summary: Remove staff assignment from an event (global manager or assigned organizer)
+      description: Removes an assignment only from the selected event format.
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Assignment removed
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+        "404":
+          description: Unknown event format or assignment not found
+
+  /events/{eventType}/{id}/registrations:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: listRegistrations
+      tags: [registrations]
+      summary: List all registrations for an event
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of roster entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/RosterEntry"
+    post:
+      operationId: createRegistration
+      tags: [registrations]
+      summary: Register for an event using DUPR ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationInput"
+      responses:
+        "201":
+          description: Registration submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+        "400":
+          description: Signup window closed, already registered, or member not found
+        "404":
+          description: Event not found
+
+  /events/{eventType}/{id}/registrations/request-code:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: requestRegistrationCode
+      tags: [registrations]
+      summary: Request an email verification code for public self-registration
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestCodeInput"
+      responses:
+        "200":
+          description: Code request accepted (always succeeds to avoid revealing membership)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RequestCodeResult"
+        "404":
+          description: Event not found
+
+  /events/{eventType}/{id}/registrations/{regId}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: getRegistration
+      tags: [registrations]
+      summary: Get a single registration
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: regId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+        "404":
+          description: Not found
+    patch:
+      operationId: updateRegistration
+      tags: [registrations]
+      summary: Update a registration (Admin/Organizer)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: regId
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegistrationUpdate"
+      responses:
+        "200":
+          description: Registration updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+        "404":
+          description: Not found
+    delete:
+      operationId: deleteRegistration
+      tags: [registrations]
+      summary: Remove a registration (Admin/Organizer)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: regId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Registration removed
+        "404":
+          description: Not found
+
+  /events/{eventType}/{id}/broadcast:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: broadcastEmail
+      tags: [registrations]
+      summary: Broadcast email to all confirmed participants
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BroadcastEmailInput"
+      responses:
+        "200":
+          description: Email sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BroadcastEmailResult"
+        "400":
+          description: Missing subject/body or no recipients
+        "404":
+          description: Event not found
+
+  /events/{eventType}/{id}/registrations/{regId}/approve:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: approveRegistration
+      tags: [registrations]
+      summary: Approve a pending registration
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: regId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+
+  /events/{eventType}/{id}/registrations/{regId}/reject:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: rejectRegistration
+      tags: [registrations]
+      summary: Reject a pending registration
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: regId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Registration rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+
+  /events/{eventType}/{id}/registrations/{regId}/promote:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: promoteFromWaitlist
+      tags: [registrations]
+      summary: Promote a waitlisted registration to confirmed
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+        - in: path
+          name: regId
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Promoted to confirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+
+  /events/{eventType}/{id}/registrations/cancel:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    post:
+      operationId: cancelRegistration
+      tags: [registrations]
+      summary: Cancel a registration by participant (self-cancel)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CancelRegistrationInput"
+      responses:
+        "200":
+          description: Registration cancelled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RosterEntry"
+        "400":
+          description: Invalid or expired verification code
+        "404":
+          description: Registration or event not found
+
+  /settings:
+    get:
+      operationId: getSettings
+      tags: [settings]
+      summary: Get app-level settings
+      responses:
+        "200":
+          description: Current settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+    put:
+      operationId: updateSettings
+      tags: [settings]
+      summary: Update app-level settings (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppSettingsInput"
+      responses:
+        "200":
+          description: Settings updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppSettings"
+
+  /event-defaults/{eventType}:
+    parameters:
+      - in: path
+        name: eventType
+        required: true
+        schema:
+          type: string
+          enum: [rotating, fixed_partner]
+    get:
+      operationId: getEventDefaults
+      tags: [settings]
+      summary: Get per-format event-creation defaults
+      responses:
+        "200":
+          description: Current per-format event defaults
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDefaults"
+    put:
+      operationId: updateEventDefaults
+      tags: [settings]
+      summary: Update per-format event-creation defaults (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventDefaultsInput"
+      responses:
+        "200":
+          description: Event defaults updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDefaults"
+
+  /users:
+    get:
+      operationId: listUsers
+      tags: [users]
+      summary: List all users (Admin only)
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+    post:
+      operationId: createUser
+      tags: [users]
+      summary: Create a new user (Admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserInput"
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/assignable-staff:
+    get:
+      operationId: listAssignableStaff
+      tags: [users]
+      summary: List account users who can be assigned event roles
+      description: Returns all persisted account users. The selected event role is supplied when creating the assignment.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Assignable event staff
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AssignableStaff"
+        "401":
+          description: Authentication required
+        "403":
+          description: Authenticated user lacks event-management permissions
+
+  /users/{id}:
+    patch:
+      operationId: updateUser
+      tags: [users]
+      summary: Update a user (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserUpdate"
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "404":
+          description: User not found
+    delete:
+      operationId: deleteUser
+      tags: [users]
+      summary: Delete a user (Admin only)
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: User deleted
+        "404":
+          description: User not found
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+
+    LoginInput:
+      type: object
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+
+    User:
+      type: object
+      required: [id, name, username, role, createdAt, duprId, duprFullname]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [app_admin, club_director, club_member]
+        createdAt:
+          type: string
+          format: date-time
+        duprId:
+          type: ["string", "null"]
+        duprFullname:
+          type: ["string", "null"]
+        sessionExpiresAt:
+          type: string
+          format: date-time
+        eventAssignments:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventAssignmentReference"
+
+    EventAssignmentReference:
+      type: object
+      required: [eventId, eventType, eventRole]
+      properties:
+        eventId:
+          type: integer
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        eventRole:
+          type: string
+          enum: [event_organizer, event_captain, court_leader]
+
+    UserInput:
+      type: object
+      required: [name, username, password, role]
+      properties:
+        name:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [app_admin, club_director, club_member]
+
+    UserUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        username:
+          type: string
+        password:
+          type: ["string", "null"]
+        role:
+          type: string
+          enum: [app_admin, club_director, club_member]
+        duprId:
+          type: ["string", "null"]
+        duprFullname:
+          type: ["string", "null"]
+
+    AssignableStaff:
+      type: object
+      required: [id, name, username, role, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum: [app_admin, club_director, club_member]
+        createdAt:
+          type: string
+          format: date-time
+
+    EventAssignmentInput:
+      type: object
+      required: [userId, eventRole]
+      properties:
+        userId:
+          type: integer
+          minimum: 1
+        eventRole:
+          type: string
+          enum: [event_organizer, event_captain, court_leader]
+
+    EventAssignment:
+      type: object
+      required: [userId, eventId, eventType, eventRole, assignedAt, userName, userUsername, userRole]
+      properties:
+        userId:
+          type: integer
+        eventId:
+          type: integer
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        eventRole:
+          type: string
+          enum: [event_organizer, event_captain, court_leader]
+        assignedAt:
+          type: string
+          format: date-time
+        userName:
+          type: string
+        userUsername:
+          type: string
+        userRole:
+          type: string
+          enum: [app_admin, club_director, club_member]
+
+    Member:
+      type: object
+      required: [duprId, name]
+      properties:
+        duprId:
+          type: string
+        name:
+          type: string
+        doubles:
+          type: ["string", "null"]
+        doublesReliability:
+          type: ["integer", "null"]
+        singles:
+          type: ["string", "null"]
+        singlesReliability:
+          type: ["integer", "null"]
+        selfRating:
+          type: ["string", "null"]
+
+    MemberInput:
+      type: object
+      required: [duprId, name]
+      properties:
+        duprId:
+          type: string
+        name:
+          type: string
+        doubles:
+          type: ["string", "null"]
+        doublesReliability:
+          type: ["integer", "null"]
+        singles:
+          type: ["string", "null"]
+        singlesReliability:
+          type: ["integer", "null"]
+        selfRating:
+          type: ["string", "null"]
+
+    MemberUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        doubles:
+          type: ["string", "null"]
+        doublesReliability:
+          type: ["integer", "null"]
+        singles:
+          type: ["string", "null"]
+        singlesReliability:
+          type: ["integer", "null"]
+        selfRating:
+          type: ["string", "null"]
+
+    CsvUploadResult:
+      type: object
+      required: [imported, skipped, removed, regSkipped, errors]
+      properties:
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        removed:
+          type: integer
+        regSkipped:
+          type: array
+          items:
+            type: string
+        errors:
+          type: array
+          items:
+            type: string
+
+    Event:
+      type: object
+      required: [id, name, startDatetime, endDatetime, locationName, locationAddress, teamFormat, ratingTypeRequired, minParticipants, maxParticipants, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime, showSignupEnd, status, courtFeeEnabled, memberFee, nonMemberFee, createdAt]
+      properties:
+        id:
+          type: integer
+        seriesId:
+          type: ["string", "null"]
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        eventDescription:
+          type: ["string", "null"]
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        locationName:
+          type: string
+        locationAddress:
+          type: string
+        teamFormat:
+          type: string
+          enum: [fixed_partner, rotating]
+        ratingTypeRequired:
+          type: string
+        minParticipants:
+          type: integer
+        maxParticipants:
+          type: integer
+        minTeams:
+          type: ["integer", "null"]
+        maxTeams:
+          type: ["integer", "null"]
+        confirmedCount:
+          type: ["integer", "null"]
+        confirmedTeams:
+          type: ["integer", "null"]
+        waitlistEnabled:
+          type: boolean
+        requireApproval:
+          type: string
+          enum: [none, all, nr_only, enforce_rating]
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+        showSignupEnd:
+          type: boolean
+        status:
+          type: string
+          enum: [upcoming, closed, ended, cancelled]
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+        nonMemberFee:
+          type: number
+        contactEmail:
+          type: ["string", "null"]
+        ratingConfig:
+          type: ["object", "null"]
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+        canWrite:
+          type: boolean
+          description: Whether the authenticated caller can use event management write controls
+        canManageAssignments:
+          type: boolean
+          description: Whether the authenticated caller can change event-role assignments
+
+    EventCloneInput:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Override name for the cloned event (default appends " (Copy)")
+
+    RecurrenceInput:
+      type: object
+      properties:
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        occurrences:
+          type: integer
+          minimum: 2
+          maximum: 52
+        dates:
+          type: array
+          items:
+            type: string
+            format: date-time
+          description: Explicit ISO datetimes for additional occurrences (after the start event)
+
+    EventInput:
+      type: object
+      description: >-
+        Format-agnostic event creation payload. The event format is determined
+        by the path parameter (eventType). Provide minParticipants/maxParticipants
+        for rotating events, or minTeams/maxTeams for fixed_partner events.
+      required: [name, startDatetime, endDatetime, locationName, locationAddress, ratingTypeRequired, waitlistEnabled, requireApproval, signupStartDatetime, signupEndDatetime]
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        eventDescription:
+          type: ["string", "null"]
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        locationName:
+          type: string
+        locationAddress:
+          type: string
+        ratingTypeRequired:
+          type: string
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+        minTeams:
+          type: integer
+          minimum: 1
+        maxTeams:
+          type: integer
+          minimum: 1
+        waitlistEnabled:
+          type: boolean
+        requireApproval:
+          type: string
+          enum: [none, all, nr_only, enforce_rating]
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+        showSignupEnd:
+          type: boolean
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+        nonMemberFee:
+          type: number
+        contactEmail:
+          type: ["string", "null"]
+        ratingConfig:
+          type: ["object", "null"]
+          additionalProperties: true
+        recurrence:
+          $ref: "#/components/schemas/RecurrenceInput"
+
+    EventUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        eventDescription:
+          type: ["string", "null"]
+        startDatetime:
+          type: string
+          format: date-time
+        endDatetime:
+          type: string
+          format: date-time
+        locationName:
+          type: string
+        locationAddress:
+          type: string
+        ratingTypeRequired:
+          type: string
+        minParticipants:
+          type: integer
+          minimum: 1
+        maxParticipants:
+          type: integer
+          minimum: 1
+        minTeams:
+          type: integer
+          minimum: 1
+        maxTeams:
+          type: integer
+          minimum: 1
+        waitlistEnabled:
+          type: boolean
+        requireApproval:
+          type: string
+          enum: [none, all, nr_only, enforce_rating]
+        signupStartDatetime:
+          type: string
+          format: date-time
+        signupEndDatetime:
+          type: string
+          format: date-time
+        showSignupEnd:
+          type: boolean
+        status:
+          type: string
+          enum: [upcoming, closed, ended, cancelled]
+        courtFeeEnabled:
+          type: boolean
+        memberFee:
+          type: number
+        nonMemberFee:
+          type: number
+        contactEmail:
+          type: ["string", "null"]
+        ratingConfig:
+          type: ["object", "null"]
+          additionalProperties: true
+
+    EventsSummary:
+      type: object
+      required: [totalUpcoming, openForSignup, totalEvents]
+      properties:
+        totalUpcoming:
+          type: integer
+        openForSignup:
+          type: integer
+        totalEvents:
+          type: integer
+
+    RosterSummary:
+      type: object
+      required: [confirmed, waitlisted, pendingApproval, total, maxParticipants]
+      properties:
+        confirmed:
+          type: integer
+        waitlisted:
+          type: integer
+        pendingApproval:
+          type: integer
+        total:
+          type: integer
+        maxParticipants:
+          type: integer
+        maxTeams:
+          type: ["integer", "null"]
+        confirmedTeams:
+          type: ["integer", "null"]
+        waitlistedTeams:
+          type: ["integer", "null"]
+        pendingTeams:
+          type: ["integer", "null"]
+
+    RosterEntry:
+      type: object
+      required: [id, eventId, eventType, memberDuprId, status, registeredAt]
+      properties:
+        id:
+          type: integer
+        eventId:
+          type: integer
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        memberDuprId:
+          type: string
+        partnerDuprId:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled, no_show]
+        registeredAt:
+          type: string
+          format: date-time
+        approvedAt:
+          type: ["string", "null"]
+        approvedBy:
+          type: ["integer", "null"]
+        cancelledAt:
+          type: ["string", "null"]
+        cancelledBy:
+          type: ["string", "null"]
+        playerName:
+          type: string
+        doubleRating:
+          type: ["string", "null"]
+        singleRating:
+          type: ["string", "null"]
+        selfRating:
+          type: ["string", "null"]
+        partnerName:
+          type: ["string", "null"]
+        partnerDoubleRating:
+          type: ["string", "null"]
+        partnerSelfRating:
+          type: ["string", "null"]
+        teamRating:
+          type: ["string", "null"]
+
+    RegistrationInput:
+      type: object
+      properties:
+        email:
+          type: string
+        memberDuprId:
+          type: string
+        partnerDuprId:
+          type: ["string", "null"]
+        partnerEmail:
+          type: ["string", "null"]
+        code:
+          type: ["string", "null"]
+          description: 6-digit email verification code (required for public self-registration)
+        selfRating:
+          type: ["string", "null"]
+          description: Self-assessed rating (2.0-5.0) for NR (non-rated) players
+        bypassRatingRequirements:
+          type: boolean
+          description: Staff-only confirmation to bypass event rating-range and fixed-partner gap checks
+
+    RequestCodeInput:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+        partnerEmail:
+          type: string
+          description: Optional partner email for fixed-partner events, used to preflight the partner's NR status
+
+    RequestCodeResult:
+      type: object
+      required: [sent]
+      properties:
+        sent:
+          type: boolean
+        cooldownSeconds:
+          type: integer
+          description: Seconds the client should wait before requesting another code
+        selfRatingRequired:
+          type: boolean
+          description: Whether the member is NR (non-rated) and must provide a self-rating
+        partnerSelfRatingRequired:
+          type: boolean
+          description: Whether the provided partner is NR (non-rated); used to warn before submission on NR-restricted fixed-partner events
+
+    CancelRegistrationInput:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+        code:
+          type: string
+          description: 6-digit email verification code
+
+    BroadcastEmailInput:
+      type: object
+      required: [subject, body]
+      properties:
+        subject:
+          type: string
+        body:
+          type: string
+        registrationIds:
+          type: array
+          items:
+            type: integer
+          description: Optional list of specific registration IDs to target. If omitted, all confirmed participants are targeted.
+
+    BroadcastEmailResult:
+      type: object
+      required: [sent, recipients]
+      properties:
+        sent:
+          type: boolean
+        recipients:
+          type: integer
+
+    RegistrationUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [confirmed, waitlisted, pending_approval, rejected, cancelled, no_show]
+        memberDuprId:
+          type: ["string", "null"]
+          description: Replace the primary player by DUPR ID. The new member must exist and not already be registered for this event.
+        memberEmail:
+          type: ["string", "null"]
+          description: Replace the primary player by email. The new member must exist and not already be registered for this event.
+        partnerDuprId:
+          type: ["string", "null"]
+        partnerEmail:
+          type: ["string", "null"]
+          description: Replace the partner by email. Resolved to the member's DUPR ID.
+        assignedRating:
+          type: ["number", "null"]
+        selfRating:
+          type: ["string", "null"]
+          description: Self-assessed rating (2.0-5.0) for NR (non-rated) players. Updates the member's self-rating.
+        isNew:
+          type: boolean
+        eventRole:
+          type: ["string", "null"]
+
+    ContactPerson:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+
+    RatingRequirement:
+      type: object
+      required: [key, label]
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+
+    DefaultLocation:
+      type: object
+      required: [id, name, address]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        address:
+          type: string
+        memberFee:
+          type: number
+          description: Default court fee for members (dollars)
+        nonMemberFee:
+          type: number
+          description: Default court fee for non-members (dollars)
+        courtFeeEnabled:
+          type: boolean
+
+    AppSettings:
+      type: object
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, contactPersons, defaultLocations, maintenanceMode, defaultEventNames, defaultEventDurationHours, defaultRatingRequirements, combinePublicEventLists]
+      properties:
+        defaultTimezone:
+          type: string
+        rotatingPartnersDescription:
+          type: string
+        fixedPartnerDescription:
+          type: string
+        contactPersons:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactPerson"
+        defaultLocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefaultLocation"
+        maintenanceMode:
+          type: boolean
+        defaultEventNames:
+          type: array
+          items:
+            type: string
+          description: Preset event names available for selection when creating events
+        defaultEventDurationHours:
+          type: integer
+          description: Default event duration in hours (used to auto-calculate end time)
+        defaultRatingRequirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingRequirement"
+          description: Admin-defined list of rating requirement options
+        guidelinesAndRules:
+          type: string
+          description: Default guidelines and rules content for new events
+        homeTitle:
+          type: string
+          description: Page title displayed on the home page
+        homeSubtitle:
+          type: string
+          description: Subtitle displayed on the home page
+        combinePublicEventLists:
+          type: boolean
+          description: Whether the public home page combines rotating and fixed-partner event lists
+
+    AppSettingsInput:
+      type: object
+      properties:
+        defaultTimezone:
+          type: string
+        rotatingPartnersDescription:
+          type: string
+        fixedPartnerDescription:
+          type: string
+        contactPersons:
+          type: array
+          items:
+            $ref: "#/components/schemas/ContactPerson"
+        defaultLocations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DefaultLocation"
+        maintenanceMode:
+          type: boolean
+        defaultEventNames:
+          type: array
+          items:
+            type: string
+        defaultEventDurationHours:
+          type: integer
+        defaultRatingRequirements:
+          type: array
+          items:
+            $ref: "#/components/schemas/RatingRequirement"
+        guidelinesAndRules:
+          type: string
+          description: Default guidelines and rules content for new events
+        homeTitle:
+          type: string
+          description: Page title displayed on the home page
+        homeSubtitle:
+          type: string
+          description: Subtitle displayed on the home page
+        combinePublicEventLists:
+          type: boolean
+          description: Whether the public home page combines rotating and fixed-partner event lists
+
+    EventDefaults:
+      type: object
+      required: [eventType, minCapacity, maxCapacity]
+      properties:
+        eventType:
+          type: string
+          enum: [rotating, fixed_partner]
+        minCapacity:
+          type: integer
+          description: Default minimum capacity (participants for rotating, teams for fixed_partner)
+        maxCapacity:
+          type: integer
+          description: Default maximum capacity (participants for rotating, teams for fixed_partner)
+
+    EventDefaultsInput:
+      type: object
+      properties:
+        minCapacity:
+          type: integer
+        maxCapacity:
+          type: integer

@@ -117,6 +117,9 @@ function validateSettingsInput(body: unknown): string | null {
   if (b.maintenanceMode !== undefined && typeof b.maintenanceMode !== "boolean") {
     return "maintenanceMode must be a boolean";
   }
+  if (b.combinePublicEventLists !== undefined && typeof b.combinePublicEventLists !== "boolean") {
+    return "combinePublicEventLists must be a boolean";
+  }
   if (b.defaultEventDurationHours !== undefined) {
     if (typeof b.defaultEventDurationHours !== "number" || !Number.isInteger(b.defaultEventDurationHours) || b.defaultEventDurationHours < 1) {
       return "defaultEventDurationHours must be an integer >= 1";
@@ -221,6 +224,7 @@ router.put("/", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
     guidelinesAndRules,
     homeTitle,
     homeSubtitle,
+    combinePublicEventLists,
   } = req.body as Record<string, unknown>;
 
   const updates: Record<string, unknown> = {};
@@ -262,6 +266,7 @@ router.put("/", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
   if (guidelinesAndRules !== undefined) updates.guidelinesAndRules = guidelinesAndRules;
   if (homeTitle !== undefined) updates.homeTitle = homeTitle;
   if (homeSubtitle !== undefined) updates.homeSubtitle = homeSubtitle;
+  if (combinePublicEventLists !== undefined) updates.combinePublicEventLists = combinePublicEventLists;
 
   const [updated] = await db
     .insert(appSettingsTable)
