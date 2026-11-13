@@ -42,6 +42,7 @@ test("admin sign-in persists through reload and logout blocks App Settings", asy
   page,
   context,
 }) => {
+  let secondPage: Awaited<ReturnType<typeof context.newPage>> | undefined;
   const account = JSON.parse(
     runAccountFixture({ action: "create" }),
   ) as TestAccount;
@@ -74,21 +75,48 @@ test("admin sign-in persists through reload and logout blocks App Settings", asy
       page.getByRole("heading", { name: "App Settings" }),
     ).toBeVisible();
 
+    secondPage = await context.newPage();
+    await secondPage.goto("/admin/settings");
+    await expect(
+      secondPage.getByRole("heading", { name: "App Settings" }),
+    ).toBeVisible();
+
     const logoutResponsePromise = page.waitForResponse(
       (response) =>
         new URL(response.url()).pathname === "/api/auth/logout" &&
         response.request().method() === "POST",
     );
+    const secondTabUnauthorizedPromise = secondPage.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/auth/me" &&
+        response.status() === 401,
+    );
     await page.getByTestId("button-logout").click();
     const logoutResponse = await logoutResponsePromise;
     expect(logoutResponse.status()).toBe(204);
 
-    await page.goto("/admin/settings");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(secondPage).toHaveURL(/\/login$/);
+    const reloadedTabUnauthorizedPromise = secondPage.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/auth/me" &&
+        response.status() === 401,
+    );
+    await secondPage.reload();
+    expect((await reloadedTabUnauthorizedPromise).status()).toBe(401);
+
+    const protectedRouteUnauthorizedPromise = secondPage.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/auth/me" &&
+        response.status() === 401,
+    );
+    await secondPage.goto("/admin/settings");
+    expect((await protectedRouteUnauthorizedPromise).status()).toBe(401);
+    await expect(secondPage).toHaveURL(/\/login$/);
     await expect(
-      page.getByRole("heading", { name: "Admin Sign In" }),
+      secondPage.getByRole("heading", { name: "Admin Sign In" }),
     ).toBeVisible();
   } finally {
+    await secondPage?.close();
     const cleanup = JSON.parse(
       runAccountFixture({
         action: "cleanup",

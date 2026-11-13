@@ -1,7 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/lib/auth";
-import { useLogout, getGetMeQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useLogout } from "@workspace/api-client-react";
 import { LogOut, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
@@ -14,19 +13,19 @@ import {
 export function AdminNav() {
   const { user, setAuthToken } = useAuth();
   const [location] = useLocation();
-  const queryClient = useQueryClient();
   const logout = useLogout();
   const [open, setOpen] = useState(false);
 
-  const links = getAdminNavigationItems(user?.role, (user?.eventAssignments?.length ?? 0) > 0);
+  const links = getAdminNavigationItems(
+    user?.role,
+    (user?.eventAssignments?.length ?? 0) > 0,
+  );
 
   function handleLogout() {
     logout.mutate(undefined, {
       onSuccess: () => {
-        localStorage.removeItem("authToken");
         setAuthToken(null);
-        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
-      }
+      },
     });
   }
 
@@ -36,10 +35,14 @@ export function AdminNav() {
         <div className="flex items-center justify-between h-16">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center">
-              <img src="/logo-transparent.png" alt="Atlanta DUPR Pickleball" className="h-12 w-auto" />
+              <img
+                src="/logo-transparent.png"
+                alt="Atlanta DUPR Pickleball"
+                className="h-12 w-auto"
+              />
             </Link>
             <nav className="hidden md:flex items-center gap-1">
-              {links.map(l => {
+              {links.map((l) => {
                 const active = isNavigationItemActive(l, location);
                 return (
                   <Link key={l.href} href={l.href}>
@@ -62,7 +65,10 @@ export function AdminNav() {
 
           <div className="flex items-center gap-2">
             <span className="hidden sm:block text-xs text-muted-foreground">
-              {user?.name} <span className="uppercase font-medium text-primary">({user?.role?.replace("_", " ")})</span>
+              {user?.name}{" "}
+              <span className="uppercase font-medium text-primary">
+                ({user?.role?.replace("_", " ")})
+              </span>
             </span>
             <Button
               data-testid="button-logout"
@@ -78,7 +84,7 @@ export function AdminNav() {
               variant="ghost"
               size="sm"
               className="md:hidden"
-              onClick={() => setOpen(o => !o)}
+              onClick={() => setOpen((o) => !o)}
               aria-label="Toggle menu"
             >
               {open ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -89,7 +95,7 @@ export function AdminNav() {
 
       {open && (
         <div className="md:hidden border-t border-border bg-white px-4 py-2 space-y-1">
-          {links.map(l => {
+          {links.map((l) => {
             const active = isNavigationItemActive(l, location);
             return (
               <Link key={l.href} href={l.href} onClick={() => setOpen(false)}>
@@ -109,7 +115,10 @@ export function AdminNav() {
           })}
           <div className="pt-2 pb-1 border-t border-border mt-2">
             <span className="block text-xs text-muted-foreground px-3 pb-2">
-              {user?.name} <span className="uppercase font-medium text-primary">({user?.role?.replace("_", " ")})</span>
+              {user?.name}{" "}
+              <span className="uppercase font-medium text-primary">
+                ({user?.role?.replace("_", " ")})
+              </span>
             </span>
           </div>
         </div>

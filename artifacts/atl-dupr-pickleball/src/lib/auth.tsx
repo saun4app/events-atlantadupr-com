@@ -2,7 +2,11 @@ import { createContext, useContext, useState, useEffect } from "react";
 import { useGetMe } from "@workspace/api-client-react";
 import { getGetMeQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { USER_ROLE_IDS, VIRTUAL_USER_ROLE_IDS, hasUserRole } from "./user-roles";
+import {
+  USER_ROLE_IDS,
+  VIRTUAL_USER_ROLE_IDS,
+  hasUserRole,
+} from "./user-roles";
 
 interface User {
   id: number;
@@ -10,7 +14,11 @@ interface User {
   username: string;
   role: string;
   createdAt: string;
-  eventAssignments?: Array<{ eventId: number; eventType: string; eventRole: string }>;
+  eventAssignments?: Array<{
+    eventId: number;
+    eventType: string;
+    eventRole: string;
+  }>;
 }
 
 interface AuthContextType {
@@ -50,16 +58,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     },
   });
 
+  useEffect(() => {
+    function handleStorageChange(event: StorageEvent) {
+      if (event.storageArea !== localStorage || event.key !== "authToken")
+        return;
+
+      setAuthTokenState(event.newValue);
+      if (event.newValue === null) {
+        queryClient.clear();
+      } else {
+        queryClient.invalidateQueries({ queryKey: getGetMeQueryKey() });
+      }
+    }
+
+    window.addEventListener("storage", handleStorageChange);
+    return () => window.removeEventListener("storage", handleStorageChange);
+  }, [queryClient]);
+
   const setAuthToken = (token: string | null) => {
     if (token) {
       localStorage.setItem("authToken", token);
     } else {
       localStorage.removeItem("authToken");
+      queryClient.clear();
     }
     setAuthTokenState(token);
-    if (!token) {
-      queryClient.removeQueries({ queryKey: getGetMeQueryKey() });
-    }
   };
 
   const validUser = user ?? null;
