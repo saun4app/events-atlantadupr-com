@@ -25,4 +25,6 @@ export interface AppSettingsInput {
   homeTitle?: string;
   /** Subtitle displayed on the home page */
   homeSubtitle?: string;
+  /** Whether the public home page combines rotating and fixed-partner event lists */
+  combinePublicEventLists?: boolean;
 }

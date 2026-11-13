@@ -1696,7 +1696,7 @@ components:
 
     AppSettings:
       type: object
-      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, contactPersons, defaultLocations, maintenanceMode, defaultEventNames, defaultEventDurationHours, defaultRatingRequirements]
+      required: [defaultTimezone, rotatingPartnersDescription, fixedPartnerDescription, contactPersons, defaultLocations, maintenanceMode, defaultEventNames, defaultEventDurationHours, defaultRatingRequirements, combinePublicEventLists]
       properties:
         defaultTimezone:
           type: string
@@ -1736,6 +1736,9 @@ components:
         homeSubtitle:
           type: string
           description: Subtitle displayed on the home page
+        combinePublicEventLists:
+          type: boolean
+          description: Whether the public home page combines rotating and fixed-partner event lists
 
     AppSettingsInput:
       type: object
@@ -1775,6 +1778,9 @@ components:
         homeSubtitle:
           type: string
           description: Subtitle displayed on the home page
+        combinePublicEventLists:
+          type: boolean
+          description: Whether the public home page combines rotating and fixed-partner event lists
 
     EventDefaults:
       type: object

@@ -56,6 +56,7 @@ export default function AdminSettings() {
     joinInstructions: "",
     homeTitle: "",
     homeSubtitle: "",
+    combinePublicEventLists: true,
   });
   const [dirty, setDirty] = useState(false);
   const lastSyncedSettings = useRef<typeof settings | null>(null);
@@ -70,6 +71,7 @@ export default function AdminSettings() {
         joinInstructions: (settings as any).joinInstructions ?? "",
         homeTitle: (settings as any).homeTitle ?? "",
         homeSubtitle: (settings as any).homeSubtitle ?? "",
+        combinePublicEventLists: settings.combinePublicEventLists !== false,
       });
     }
   }, [settings]);
@@ -189,6 +191,22 @@ export default function AdminSettings() {
                   onChange={e => update("homeSubtitle", e.target.value, true)}
                   placeholder="Atlanta DUPR Pickleball — competitive round robins for serious players"
                   data-testid="input-home-subtitle"
+                />
+              </div>
+              <div className="flex items-start justify-between gap-4 border-t border-border pt-4">
+                <div className="space-y-1">
+                  <Label htmlFor="combine-public-event-lists" className="text-sm font-medium">
+                    Combine public event lists
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Show rotating and fixed-partner events together on the public home page. Turn off to show separate lists.
+                  </p>
+                </div>
+                <Switch
+                  id="combine-public-event-lists"
+                  data-testid="toggle-combine-public-event-lists"
+                  checked={form.combinePublicEventLists}
+                  onCheckedChange={v => update("combinePublicEventLists", v, true)}
                 />
               </div>
             </section>

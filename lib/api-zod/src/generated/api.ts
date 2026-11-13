@@ -852,7 +852,8 @@ export const GetSettingsResponse = zod.object({
 })).describe('Admin-defined list of rating requirement options'),
   "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
   "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
-  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
+  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page'),
+  "combinePublicEventLists": zod.boolean().describe('Whether the public home page combines rotating and fixed-partner event lists')
 })
 
 
@@ -884,7 +885,8 @@ export const UpdateSettingsBody = zod.object({
 })).optional(),
   "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
   "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
-  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
+  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page'),
+  "combinePublicEventLists": zod.boolean().optional().describe('Whether the public home page combines rotating and fixed-partner event lists')
 })
 
 export const UpdateSettingsResponse = zod.object({
@@ -912,7 +914,8 @@ export const UpdateSettingsResponse = zod.object({
 })).describe('Admin-defined list of rating requirement options'),
   "guidelinesAndRules": zod.string().optional().describe('Default guidelines and rules content for new events'),
   "homeTitle": zod.string().optional().describe('Page title displayed on the home page'),
-  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page')
+  "homeSubtitle": zod.string().optional().describe('Subtitle displayed on the home page'),
+  "combinePublicEventLists": zod.boolean().describe('Whether the public home page combines rotating and fixed-partner event lists')
 })
 
 

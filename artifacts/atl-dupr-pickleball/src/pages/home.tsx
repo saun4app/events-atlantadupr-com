@@ -5,7 +5,6 @@ import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryK
 import { PublicNav } from "@/components/public-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign, Shuffle, Link2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
@@ -78,7 +77,6 @@ function isUpcoming(e: any): boolean {
 
 export default function Home() {
   const [tab, setTab] = useState<EventType>("rotating");
-  const [listMode, setListMode] = useState<"combined" | "separate">("combined");
   const [retryingFormats, setRetryingFormats] = useState<Record<EventType, boolean>>({
     rotating: false,
     fixed_partner: false,
@@ -110,16 +108,17 @@ export default function Home() {
     query: { queryKey: getGetEventsSummaryQueryKey() }
   });
   const { data: settings } = useGetSettings();
+  const combinedView = settings?.combinePublicEventLists !== false;
 
-  const selectedFormats: EventType[] = listMode === "combined"
+  const selectedFormats: EventType[] = combinedView
     ? ["rotating", "fixed_partner"]
     : [tab];
   const combinedEvents = [...(rotatingEvents ?? []), ...(fixedEvents ?? [])]
     .filter(isUpcoming)
     .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime());
   const selectedEvents = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
-  const events = listMode === "combined" ? combinedEvents : selectedEvents;
-  const isLoading = listMode === "combined"
+  const events = combinedView ? combinedEvents : selectedEvents;
+  const isLoading = combinedView
     ? rotLoading || fixedLoading
     : tab === "rotating" ? rotLoading : fixedLoading;
   const getFormatStatus = (eventType: EventType) => eventType === "rotating"
@@ -177,51 +176,30 @@ export default function Home() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <Switch
-              id="public-event-list-mode"
-              data-testid="toggle-public-event-list-mode"
-              checked={listMode === "combined"}
-              onCheckedChange={(checked) => setListMode(checked ? "combined" : "separate")}
-              aria-label="Combine rotating and fixed-partner events"
-            />
-            <div>
-              <label htmlFor="public-event-list-mode" className="text-sm font-medium cursor-pointer">
-                Combine event lists
-              </label>
-              <p className="text-xs text-muted-foreground">
-                {listMode === "combined"
-                  ? "Rotating and fixed-partner events are shown together."
-                  : "Choose an event format to view its events."}
-              </p>
-            </div>
+        {!combinedView && (
+          <div className="flex items-center gap-1 mb-6 border-b border-border">
+            {formatTabs.map(t => {
+              const active = tab === t.value;
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.value}
+                  type="button"
+                  data-testid={`tab-${t.value}`}
+                  onClick={() => setTab(t.value)}
+                  className={`flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                    active
+                      ? "border-primary text-primary"
+                      : "border-transparent text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  {t.label}
+                </button>
+              );
+            })}
           </div>
-          {listMode === "separate" && (
-            <div className="flex items-center gap-1 border-b border-border">
-              {formatTabs.map(t => {
-                const active = tab === t.value;
-                const Icon = t.icon;
-                return (
-                  <button
-                    key={t.value}
-                    type="button"
-                    data-testid={`tab-${t.value}`}
-                    onClick={() => setTab(t.value)}
-                    className={`flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
-                      active
-                        ? "border-primary text-primary"
-                        : "border-transparent text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    {t.label}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        )}
         {errorFormats.length > 0 && (
           <div className="space-y-3 mb-4">
             {errorFormats.map((eventType) => {
@@ -260,7 +238,7 @@ export default function Home() {
               <Skeleton key={i} className="h-36 w-full rounded-lg" />
             ))}
           </div>
-        ) : events.length > 0 && (listMode === "combined" || errorFormats.length === 0) ? (
+        ) : events.length > 0 && (combinedView || errorFormats.length === 0) ? (
           <div className="space-y-4">
             {events.map(ev => <EventCard key={`${ev.teamFormat}-${ev.id}`} event={ev} />)}
           </div>
