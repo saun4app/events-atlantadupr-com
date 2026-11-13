@@ -1,4 +1,5 @@
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
+import path from "node:path";
 
 const configPath = "app-config/user-roles.json";
 const openApiPath = "lib/api-spec/openapi.yaml";
@@ -9,12 +10,7 @@ const generatedPaths = [
   "lib/api-zod/src/generated/types/eventAssignmentInputEventRole.ts",
   "lib/api-zod/src/generated/types/eventAssignmentEventRole.ts",
 ];
-const fixturePaths = [
-  "e2e/fixtures/clone-event.ts",
-  "e2e/fixtures/fixed-partner.ts",
-  "e2e/fixtures/rotating-partner.ts",
-  "e2e/event-limit-validation.spec.ts",
-];
+const browserMockExtensions = new Set([".js", ".mjs", ".ts", ".tsx"]);
 
 function sameValues(actual, expected) {
   return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
@@ -33,13 +29,36 @@ function parseOpenApiRoleEnums(text, expectedIds) {
     .find((values) => values.length === expectedIds.length && values.every((value) => expectedSet.has(value)));
 }
 
+async function findBrowserMockPaths(directory = "e2e") {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const paths = await Promise.all(entries.map(async (entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return findBrowserMockPaths(entryPath);
+    return browserMockExtensions.has(path.extname(entry.name)) ? [entryPath] : [];
+  }));
+  return paths.flat().sort();
+}
+
+function isExplicitlyMarkedLegacyRole(text, matchIndex, role) {
+  const lineStart = text.lastIndexOf("\n", matchIndex - 1) + 1;
+  const previousLineEnd = lineStart - 1;
+  if (previousLineEnd < 0) return false;
+  const previousLineStart = text.lastIndexOf("\n", previousLineEnd - 1) + 1;
+  const previousLine = text.slice(previousLineStart, previousLineEnd);
+  const marker = previousLine.match(/^\s*\/\/\s*legacy-account-role:\s*([A-Za-z0-9_-]+)\s+—\s+.+$/);
+  return marker?.[1] === role;
+}
+
 export async function checkUserRoles(options = {}) {
   const config = options.config ?? JSON.parse(await readFile(configPath, "utf8"));
   const openApiText = options.openApiText ?? await readFile(openApiPath, "utf8");
   const generatedTexts = options.generatedTexts ??
     await Promise.all(generatedPaths.map((path) => readFile(path, "utf8")));
-  const fixtureTexts = options.fixtureTexts ??
-    await Promise.all(fixturePaths.map((path) => readFile(path, "utf8")));
+  const browserMockPaths = options.browserMockTexts
+    ? options.browserMockTexts.map(({ path }) => path)
+    : await findBrowserMockPaths();
+  const browserMockTexts = options.browserMockTexts ??
+    await Promise.all(browserMockPaths.map(async (path) => ({ path, text: await readFile(path, "utf8") })));
   const roleIds = config.accountRoles.map((role) => role.id);
   const eventRoleIds = config.eventRoles.map((role) => role.id);
   const roleSet = new Set(roleIds);
@@ -64,14 +83,16 @@ export async function checkUserRoles(options = {}) {
     }
   });
 
-  fixtureTexts.forEach((text, index) => {
+  const eventRoleSet = new Set(eventRoleIds);
+  browserMockTexts.forEach(({ path: mockPath, text }) => {
     for (const match of text.matchAll(/\brole\s*:\s*["']([^"']+)["']/g)) {
       const role = match[1];
-      if (roleSet.has(role)) continue;
+      if (roleSet.has(role) || eventRoleSet.has(role)) continue;
+      if (isExplicitlyMarkedLegacyRole(text, match.index, role)) continue;
 
       const line = text.slice(0, match.index).split("\n").length;
       throw new Error(
-        `${fixturePaths[index]}:${line} uses unknown account role "${role}"`,
+        `${mockPath}:${line} uses unknown account role "${role}"`,
       );
     }
   });

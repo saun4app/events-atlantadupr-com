@@ -33,16 +33,42 @@ test("rejects a contract with a reordered or missing user role", async () => {
   );
 });
 
-test("rejects an outdated browser fixture role with its file and line", async () => {
-  const fixtureTexts = [
-    'const user = {\n  role: "removed_admin",\n};',
-    "",
-    "",
-    "",
-  ];
+test("rejects an outdated browser mock role with its file and line", async () => {
+  const browserMockTexts = [{
+    path: "e2e/admin-navigation.spec.ts",
+    text: 'const user = {\n  role: "removed_admin",\n};',
+  }];
 
   await assert.rejects(
-    checkUserRoles({ fixtureTexts }),
-    /e2e\/fixtures\/clone-event\.ts:2 uses unknown account role "removed_admin"/,
+    checkUserRoles({ browserMockTexts }),
+    /e2e\/admin-navigation\.spec\.ts:2 uses unknown account role "removed_admin"/,
+  );
+});
+
+test("allows current event roles and explicitly marked legacy account roles", async () => {
+  const browserMockTexts = [{
+    path: "e2e/admin-user-roles.spec.ts",
+    text: [
+      'const assignment = { role: "event_captain" };',
+      '// legacy-account-role: event_participant — verifies historical account-role fallback',
+      'const legacyUser = { role: "event_participant" };',
+    ].join("\n"),
+  }];
+
+  await checkUserRoles({ browserMockTexts });
+});
+
+test("does not accept a legacy marker for a different role", async () => {
+  const browserMockTexts = [{
+    path: "e2e/admin-user-roles.spec.ts",
+    text: [
+      "// legacy-account-role: event_participant — verifies historical account-role fallback",
+      'const user = { role: "removed_admin" };',
+    ].join("\n"),
+  }];
+
+  await assert.rejects(
+    checkUserRoles({ browserMockTexts }),
+    /e2e\/admin-user-roles\.spec\.ts:2 uses unknown account role "removed_admin"/,
   );
 });

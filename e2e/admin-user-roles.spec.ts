@@ -24,6 +24,7 @@ const LEGACY_PARTICIPANT = {
   id: 3,
   name: "Legacy Participant",
   username: "legacy-participant",
+  // legacy-account-role: event_participant — verifies historical account-role fallback
   role: "event_participant",
   createdAt: "2026-01-01T00:00:00.000Z",
   duprId: null,
