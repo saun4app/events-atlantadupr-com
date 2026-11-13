@@ -757,6 +757,12 @@ router.post("/", async (req: Request<EventParams>, res: Response) => {
   if (!event) return res.status(404).json({ error: "Event not found" });
 
   const staff = await canAccessEvent(eventId, eventType, req);
+  // An authenticated user without write access must not fall through to the
+  // public self-registration path. That path remains available to anonymous
+  // visitors, but it is not a way for assigned staff to bypass event access.
+  if ((req as any).session?.userId && !staff) {
+    return res.status(403).json({ error: "Forbidden: not assigned to this event" });
+  }
   if (
     event.status === "cancelled" &&
     (eventType !== ROTATING_PARTNER_FORMAT ||

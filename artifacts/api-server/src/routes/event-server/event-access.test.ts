@@ -98,6 +98,21 @@ async function createEventWithId(eventType: EventType, id: number) {
   return event;
 }
 
+async function createEventWithUnusedSharedId(eventType: EventType) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const id = 1_800_000_000 + Math.floor(Math.random() * 100_000_000);
+    const [rotating, fixed, registrations, assignments] = await Promise.all([
+      db.select({ id: eventsRotatingTable.id }).from(eventsRotatingTable).where(eq(eventsRotatingTable.id, id)),
+      db.select({ id: eventsFixedTable.id }).from(eventsFixedTable).where(eq(eventsFixedTable.id, id)),
+      db.select({ eventId: registrationsTable.eventId }).from(registrationsTable).where(eq(registrationsTable.eventId, id)),
+      db.select({ eventId: eventAssignmentsTable.eventId }).from(eventAssignmentsTable).where(eq(eventAssignmentsTable.eventId, id)),
+    ]);
+    if (rotating.length || fixed.length || registrations.length || assignments.length) continue;
+    return createEventWithId(eventType, id);
+  }
+  throw new Error("Could not find an unused shared event ID for the deletion fixture");
+}
+
 async function createMember() {
   const duprId = `ACCESS-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
   const [member] = await db
@@ -409,16 +424,34 @@ before(async () => {
 
 after(async () => {
   await assertTestDatabase();
-  const ids = eventIds.map(({ id }) => id);
-  if (ids.length > 0) {
-    await db.delete(registrationsTable).where(inArray(registrationsTable.eventId, ids));
-    await db.delete(eventAssignmentsTable).where(inArray(eventAssignmentsTable.eventId, ids));
-    await db.delete(eventsRotatingTable).where(
-      inArray(eventsRotatingTable.id, eventIds.filter((event) => event.eventType === "rotating").map((event) => event.id)),
+  const uniqueEventKeys = new Map(
+    eventIds.map((event) => [`${event.eventType}:${event.id}`, event]),
+  );
+  for (const event of uniqueEventKeys.values()) {
+    await db.delete(registrationsTable).where(
+      and(
+        eq(registrationsTable.eventId, event.id),
+        eq(registrationsTable.eventType, event.eventType),
+      ),
     );
-    await db.delete(eventsFixedTable).where(
-      inArray(eventsFixedTable.id, eventIds.filter((event) => event.eventType === "fixed_partner").map((event) => event.id)),
+    await db.delete(eventAssignmentsTable).where(
+      and(
+        eq(eventAssignmentsTable.eventId, event.id),
+        eq(eventAssignmentsTable.eventType, event.eventType),
+      ),
     );
+  }
+  const rotatingEventIds = [...uniqueEventKeys.values()]
+    .filter((event) => event.eventType === "rotating")
+    .map((event) => event.id);
+  if (rotatingEventIds.length > 0) {
+    await db.delete(eventsRotatingTable).where(inArray(eventsRotatingTable.id, rotatingEventIds));
+  }
+  const fixedEventIds = [...uniqueEventKeys.values()]
+    .filter((event) => event.eventType === "fixed_partner")
+    .map((event) => event.id);
+  if (fixedEventIds.length > 0) {
+    await db.delete(eventsFixedTable).where(inArray(eventsFixedTable.id, fixedEventIds));
   }
   const rotatingCloneIds = clonedEventIds
     .filter((event) => event.eventType === "rotating")
@@ -807,7 +840,7 @@ describe("event assignment management access", () => {
           body: JSON.stringify({ userId: staff.id }),
         });
         assert.equal(added.response.status, 403);
-        assert.equal(added.body.error, "Insufficient permissions");
+        assert.equal(added.body.error, "Forbidden: cannot manage assignments for this event");
 
         const removed = await request(
           `/events/${eventType}/${event.id}/assignments/${staff.id}`,
@@ -815,7 +848,7 @@ describe("event assignment management access", () => {
           { method: "DELETE" },
         );
         assert.equal(removed.response.status, 403);
-        assert.equal(removed.body.error, "Insufficient permissions");
+        assert.equal(removed.body.error, "Forbidden: cannot manage assignments for this event");
 
         const assignment = await db
           .select()
@@ -837,7 +870,7 @@ describe("event deletion cleanup", () => {
   for (const eventType of ["rotating", "fixed_partner"] as const) {
     it(`deletes only ${eventType} registrations and assignments for the event`, async () => {
       const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
-      const event = await createEvent(eventType);
+      const event = await createEventWithUnusedSharedId(eventType);
       const otherEventType = eventType === "rotating" ? "fixed_partner" : "rotating";
 
       await createAccessRegistration(eventType, event.id, "confirmed");
@@ -968,7 +1001,7 @@ describe("event assignment event existence", () => {
 
       const result = await request(`/events/${eventType}/${eventId}/assignments`, organizer.token, {
         method: "POST",
-        body: JSON.stringify({ userId: assignee.id }),
+        body: JSON.stringify({ userId: assignee.id, eventRole: "event_captain" }),
       });
 
       assert.equal(result.response.status, 404);

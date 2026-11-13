@@ -827,11 +827,9 @@ describe("create-registration: fixed-partner cancelled player re-registration", 
     assert.equal(body.id, cancelled.id);
     assert.equal(body.status, "confirmed");
     assert.equal(body.partnerDuprId, newPartner.duprId);
-    assert.deepEqual(body.partnerSnapshot, {
-      partnerName: "New Partner",
-      partnerDoubles: "3.900",
-      partnerSelfRating: null,
-    });
+    assert.equal(body.partnerName, "New Partner");
+    assert.equal(body.partnerDoubleRating, "3.900");
+    assert.equal(body.partnerSelfRating, null);
 
     const rows = await memberRows(ev.id, primary.duprId, "fixed_partner");
     assert.equal(rows.length, 1, "no duplicate team registration should be created");

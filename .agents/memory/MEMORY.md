@@ -22,3 +22,4 @@
 - [Polymorphic event fixtures](polymorphic-event-fixtures.md) — cross-format test rows must reference real counterpart events to avoid dangling-ID collisions
 - [Telemetry timestamps](telemetry-timestamps.md) — use explicit ISO timestamps if the tool runtime rejects JavaScript clock methods.
 - [Validator upgrades](validator-upgrades.md) — force composite declarations to rebuild after major upgrades; catalog-based Query versions may need explicit codegen configuration.
+- [Event registration authorization](event-registration-authorization.md) — authenticated users without event write access must not fall through to public self-registration.
