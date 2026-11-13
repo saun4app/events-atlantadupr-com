@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { usersTable } from "@workspace/db";
-import { and, eq } from "drizzle-orm";
+import { eventAssignmentsTable, usersTable } from "@workspace/db";
+import { and, eq, inArray } from "drizzle-orm";
 import { verifyPassword } from "../../lib/auth.js";
 import { deleteSession, setSession } from "../../lib/session.js";
 import {
@@ -11,6 +11,7 @@ import {
   rateLimitErrorResponse,
 } from "../../lib/rate-limit.js";
 import { canonicalizeUserRole } from "../../lib/user-roles.js";
+import { createSessionToken, sessionCookieOptions, SESSION_MAX_AGE_MS } from "../../lib/security.js";
 
 const router = Router();
 
@@ -22,7 +23,7 @@ const LOGIN_CONFIG = {
 
 router.post("/login", async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) {
+  if (typeof username !== "string" || typeof password !== "string" || !username.trim() || !password || username.length > 256 || password.length > 1024) {
     return res.status(400).json({ error: "Username and password required" });
   }
 
@@ -55,8 +56,14 @@ router.post("/login", async (req, res) => {
     .update(usersTable)
     .set({ role: "app_admin" })
     .where(eq(usersTable.role, "admin"));
+  await db
+    .update(usersTable)
+    .set({ role: "club_member" })
+    .where(inArray(usersTable.role, ["event_participant", "event_organizer", "event_captain", "court_leader"]));
 
-  const role = canonicalizeUserRole(user.role);
+  const role = ["event_organizer", "event_captain", "court_leader"].includes(user.role)
+    ? "club_member"
+    : canonicalizeUserRole(user.role);
   if (role !== user.role) {
     await db
       .update(usersTable)
@@ -73,9 +80,19 @@ router.post("/login", async (req, res) => {
     duprFullname: user.duprFullname,
   };
 
-  const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-  await setSession(token, (req as any).session);
+  const token = createSessionToken();
+  const sessionExpiresAt = await setSession(token, (req as any).session);
+  const previousTokens = new Set<string>([
+    req.signedCookies?.sid,
+    req.headers.authorization?.replace(/^Bearer\s+/i, ""),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0));
+  for (const previousToken of previousTokens) await deleteSession(previousToken);
+  res.cookie("sid", token, { ...sessionCookieOptions(), maxAge: SESSION_MAX_AGE_MS });
 
+  const eventAssignments = await db.select({
+    eventId: eventAssignmentsTable.eventId, eventType: eventAssignmentsTable.eventType,
+    eventRole: eventAssignmentsTable.eventRole,
+  }).from(eventAssignmentsTable).where(eq(eventAssignmentsTable.userId, user.id));
   return res.json({
     id: user.id,
     name: user.name,
@@ -85,24 +102,31 @@ router.post("/login", async (req, res) => {
     duprId: user.duprId,
     duprFullname: user.duprFullname,
     token,
+    sessionExpiresAt,
+    eventAssignments,
   });
 });
 
 router.post("/logout", async (req, res) => {
-  const sid = req.signedCookies?.sid;
-  if (sid) {
-    await deleteSession(sid);
-  }
+  const tokens = new Set<string>([
+    req.signedCookies?.sid,
+    req.headers.authorization?.replace(/^Bearer\s+/i, ""),
+  ].filter((value): value is string => typeof value === "string" && value.length > 0));
+  for (const token of tokens) await deleteSession(token);
   (req as any).session = null;
-  res.clearCookie("sid");
+  res.clearCookie("sid", sessionCookieOptions());
   return res.status(204).send();
 });
 
-router.get("/me", (req, res) => {
+router.get("/me", async (req, res) => {
   const session = (req as any).session;
   if (!session?.userId) {
     return res.status(401).json({ error: "Not authenticated" });
   }
+  const eventAssignments = await db.select({
+    eventId: eventAssignmentsTable.eventId, eventType: eventAssignmentsTable.eventType,
+    eventRole: eventAssignmentsTable.eventRole,
+  }).from(eventAssignmentsTable).where(eq(eventAssignmentsTable.userId, session.userId));
   return res.json({
     id: session.userId,
     name: session.name,
@@ -111,6 +135,8 @@ router.get("/me", (req, res) => {
     createdAt: new Date().toISOString(),
     duprId: session.duprId ?? null,
     duprFullname: session.duprFullname ?? null,
+    sessionExpiresAt: session.sessionExpiresAt,
+    eventAssignments,
   });
 });
 

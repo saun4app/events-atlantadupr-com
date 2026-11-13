@@ -1,21 +1,28 @@
 {
   "$schema": "./user-roles.schema.json",
   "version": 1,
-  "roles": [
+  "accountRoles": [
     {
       "id": "app_admin",
       "label": "App Admin",
       "badgeTone": "primary"
     },
     {
+      "id": "club_director",
+      "label": "Club Director",
+      "badgeTone": "purple"
+    },
+    {
+      "id": "club_member",
+      "label": "Club Member",
+      "badgeTone": "muted"
+    }
+  ],
+  "eventRoles": [
+    {
       "id": "event_organizer",
       "label": "Event Organizer",
       "badgeTone": "blue"
-    },
-    {
-      "id": "event_participant",
-      "label": "Participant",
-      "badgeTone": "muted"
     },
     {
       "id": "event_captain",
@@ -28,9 +35,16 @@
       "badgeTone": "yellow"
     }
   ],
+  "virtualRoles": [
+    {
+      "id": "site_visitor",
+      "label": "Site Visitor",
+      "badgeTone": "muted"
+    }
+  ],
   "defaults": {
-    "databaseRole": "event_participant",
-    "newUserRole": "event_organizer",
+    "databaseRole": "club_member",
+    "newUserRole": "club_member",
     "auditActorRole": "app_admin"
   },
   "groups": {
@@ -39,23 +53,24 @@
     ],
     "adminPanel": [
       "app_admin",
-      "event_organizer",
-      "event_captain",
-      "court_leader"
+      "club_director"
+    ],
+    "globalEventManagers": [
+      "app_admin",
+      "club_director"
     ],
     "eventManagers": [
-      "app_admin",
       "event_organizer"
     ],
     "eventWriters": [
-      "app_admin",
       "event_organizer",
       "event_captain",
       "court_leader"
     ],
     "assignableStaff": [
-      "event_captain",
-      "court_leader"
+      "club_director",
+      "club_member",
+      "app_admin"
     ]
   }
 }

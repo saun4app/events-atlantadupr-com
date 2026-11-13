@@ -24,9 +24,9 @@ import {
   isAuthorizationTestFixture,
 } from "./eventController.js";
 
-const ASSIGNABLE_ROLES = USER_ROLE_GROUPS.assignableStaff;
+const ASSIGNABLE_ROLES = ["club_member"];
 const ORGANIZER_ROLE = userRoleIdMap.app_admin;
-const ORGANIZER_ROLES = USER_ROLE_GROUPS.eventManagers;
+const ORGANIZER_ROLES = USER_ROLE_GROUPS.globalEventManagers;
 const ACCESS_ROLES = [...new Set([...ASSIGNABLE_ROLES, ...ORGANIZER_ROLES])];
 const FORBIDDEN_ERROR = "Forbidden: not assigned to this event";
 
@@ -73,6 +73,44 @@ async function createFixedEvent() {
     .returning();
   eventIds.push({ id: event.id, eventType: "fixed_partner" });
   return event;
+}
+
+async function createEventWithId(eventType: EventType, id: number) {
+  const now = Date.now();
+  const values = {
+    id,
+    name: `Overlapping access test ${eventType} ${Math.random()
+      .toString(36)
+      .slice(2)}`,
+    description: AUTHORIZATION_TEST_FIXTURE_MARKER,
+    startDatetime: new Date(now + 86_400_000),
+    endDatetime: new Date(now + 90_000_000),
+    locationName: "Access Test Courts",
+    signupStartDatetime: new Date(now - 86_400_000),
+    signupEndDatetime: new Date(now + 86_400_000),
+    status: "upcoming" as const,
+  };
+  const [event] =
+    eventType === "rotating"
+      ? await db.insert(eventsRotatingTable).values(values).returning()
+      : await db.insert(eventsFixedTable).values(values).returning();
+  eventIds.push({ id: event.id, eventType });
+  return event;
+}
+
+async function createEventWithUnusedSharedId(eventType: EventType) {
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const id = 1_800_000_000 + Math.floor(Math.random() * 100_000_000);
+    const [rotating, fixed, registrations, assignments] = await Promise.all([
+      db.select({ id: eventsRotatingTable.id }).from(eventsRotatingTable).where(eq(eventsRotatingTable.id, id)),
+      db.select({ id: eventsFixedTable.id }).from(eventsFixedTable).where(eq(eventsFixedTable.id, id)),
+      db.select({ eventId: registrationsTable.eventId }).from(registrationsTable).where(eq(registrationsTable.eventId, id)),
+      db.select({ eventId: eventAssignmentsTable.eventId }).from(eventAssignmentsTable).where(eq(eventAssignmentsTable.eventId, id)),
+    ]);
+    if (rotating.length || fixed.length || registrations.length || assignments.length) continue;
+    return createEventWithId(eventType, id);
+  }
+  throw new Error("Could not find an unused shared event ID for the deletion fixture");
 }
 
 async function createMember() {
@@ -183,6 +221,7 @@ async function runWriteAction(
   action: WriteAction,
   actor: { id: number; token: string },
   assignActor: boolean,
+  eventRole = "event_captain",
 ) {
   const event = await createEvent(eventType);
   if (assignActor) {
@@ -190,6 +229,7 @@ async function runWriteAction(
       userId: actor.id,
       eventId: event.id,
       eventType,
+      eventRole,
     });
   }
 
@@ -384,16 +424,34 @@ before(async () => {
 
 after(async () => {
   await assertTestDatabase();
-  const ids = eventIds.map(({ id }) => id);
-  if (ids.length > 0) {
-    await db.delete(registrationsTable).where(inArray(registrationsTable.eventId, ids));
-    await db.delete(eventAssignmentsTable).where(inArray(eventAssignmentsTable.eventId, ids));
-    await db.delete(eventsRotatingTable).where(
-      inArray(eventsRotatingTable.id, eventIds.filter((event) => event.eventType === "rotating").map((event) => event.id)),
+  const uniqueEventKeys = new Map(
+    eventIds.map((event) => [`${event.eventType}:${event.id}`, event]),
+  );
+  for (const event of uniqueEventKeys.values()) {
+    await db.delete(registrationsTable).where(
+      and(
+        eq(registrationsTable.eventId, event.id),
+        eq(registrationsTable.eventType, event.eventType),
+      ),
     );
-    await db.delete(eventsFixedTable).where(
-      inArray(eventsFixedTable.id, eventIds.filter((event) => event.eventType === "fixed_partner").map((event) => event.id)),
+    await db.delete(eventAssignmentsTable).where(
+      and(
+        eq(eventAssignmentsTable.eventId, event.id),
+        eq(eventAssignmentsTable.eventType, event.eventType),
+      ),
     );
+  }
+  const rotatingEventIds = [...uniqueEventKeys.values()]
+    .filter((event) => event.eventType === "rotating")
+    .map((event) => event.id);
+  if (rotatingEventIds.length > 0) {
+    await db.delete(eventsRotatingTable).where(inArray(eventsRotatingTable.id, rotatingEventIds));
+  }
+  const fixedEventIds = [...uniqueEventKeys.values()]
+    .filter((event) => event.eventType === "fixed_partner")
+    .map((event) => event.id);
+  if (fixedEventIds.length > 0) {
+    await db.delete(eventsFixedTable).where(inArray(eventsFixedTable.id, fixedEventIds));
   }
   const rotatingCloneIds = clonedEventIds
     .filter((event) => event.eventType === "rotating")
@@ -464,6 +522,7 @@ describe("authorization fixture cleanup", () => {
       userId: assignee.id,
       eventId: legacyRotating.id,
       eventType: "rotating",
+      eventRole: "event_captain",
     });
     const [unrelatedEvent] = await db
       .insert(eventsRotatingTable)
@@ -543,6 +602,7 @@ describe("event assignment write access", () => {
         userId: staff.id,
         eventId: event.id,
         eventType: "rotating",
+        eventRole: "event_captain",
       });
 
       const loaded = await request(`/events/rotating/${event.id}`, staff.token);
@@ -601,6 +661,38 @@ describe("event assignment write access", () => {
       assert.equal(bulk.body.error, "Forbidden: not assigned to this event");
     });
   }
+
+  for (const eventType of ["rotating", "fixed_partner"] as const) {
+    it(`an organizer assignment can write only its ${eventType} event`, async () => {
+      const organizer = users.find((user) => user.role === "club_member")!;
+      const result = await runWriteAction(
+        eventType,
+        "update-event",
+        organizer,
+        true,
+        "event_organizer",
+      );
+      assert.equal(result.response.status, 200);
+    });
+  }
+
+  it("an organizer assignment can manage assignments for only its event", async () => {
+    const organizer = users.find((user) => user.role === "club_member")!;
+    const assignee = users.find((user) => user.role === "club_director")!;
+    const event = await createRotatingEvent();
+    await db.insert(eventAssignmentsTable).values({
+      userId: organizer.id,
+      eventId: event.id,
+      eventType: "rotating",
+      eventRole: "event_organizer",
+    });
+    const added = await request(`/events/rotating/${event.id}/assignments`, organizer.token, {
+      method: "POST",
+      body: JSON.stringify({ userId: assignee.id, eventRole: "court_leader" }),
+    });
+    assert.equal(added.response.status, 201);
+    assert.equal(added.body.eventRole, "court_leader");
+  });
 
   it("organizers retain write access without an event assignment", async () => {
     const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
@@ -678,6 +770,7 @@ describe("event assignment management access", () => {
           userId: assignee.id,
           eventId: otherEvent.id,
           eventType: otherEventType,
+          eventRole: "event_captain",
         });
 
         const beforeAdd = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token);
@@ -686,7 +779,7 @@ describe("event assignment management access", () => {
 
         const added = await request(`/events/${eventType}/${event.id}/assignments`, organizer.token, {
           method: "POST",
-          body: JSON.stringify({ userId: assignee.id }),
+          body: JSON.stringify({ userId: assignee.id, eventRole: "event_captain" }),
         });
         assert.equal(added.response.status, 201);
         assert.equal(added.body.userId, assignee.id);
@@ -735,18 +828,19 @@ describe("event assignment management access", () => {
           userId: staff.id,
           eventId: event.id,
           eventType,
+          eventRole: "event_captain",
         });
 
         const listed = await request(`/events/${eventType}/${event.id}/assignments`, staff.token);
         assert.equal(listed.response.status, 403);
-        assert.equal(listed.body.error, "Insufficient permissions");
+        assert.equal(listed.body.error, "Forbidden: cannot manage assignments for this event");
 
         const added = await request(`/events/${eventType}/${event.id}/assignments`, staff.token, {
           method: "POST",
           body: JSON.stringify({ userId: staff.id }),
         });
         assert.equal(added.response.status, 403);
-        assert.equal(added.body.error, "Insufficient permissions");
+        assert.equal(added.body.error, "Forbidden: cannot manage assignments for this event");
 
         const removed = await request(
           `/events/${eventType}/${event.id}/assignments/${staff.id}`,
@@ -754,7 +848,7 @@ describe("event assignment management access", () => {
           { method: "DELETE" },
         );
         assert.equal(removed.response.status, 403);
-        assert.equal(removed.body.error, "Insufficient permissions");
+        assert.equal(removed.body.error, "Forbidden: cannot manage assignments for this event");
 
         const assignment = await db
           .select()
@@ -776,15 +870,15 @@ describe("event deletion cleanup", () => {
   for (const eventType of ["rotating", "fixed_partner"] as const) {
     it(`deletes only ${eventType} registrations and assignments for the event`, async () => {
       const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
-      const event = await createEvent(eventType);
+      const event = await createEventWithUnusedSharedId(eventType);
       const otherEventType = eventType === "rotating" ? "fixed_partner" : "rotating";
 
       await createAccessRegistration(eventType, event.id, "confirmed");
       const otherRegistration = await createAccessRegistration(otherEventType, event.id, "confirmed");
       const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
       await db.insert(eventAssignmentsTable).values([
-        { userId: assignee.id, eventId: event.id, eventType },
-        { userId: organizer.id, eventId: event.id, eventType: otherEventType },
+        { userId: assignee.id, eventId: event.id, eventType, eventRole: "event_captain" },
+        { userId: organizer.id, eventId: event.id, eventType: otherEventType, eventRole: "event_organizer" },
       ]);
 
       const deleted = await request(`/events/${eventType}/${event.id}`, organizer.token, {
@@ -836,6 +930,7 @@ describe("event deletion cleanup", () => {
       userId: assignee.id,
       eventId: event.id,
       eventType: "rotating",
+      eventRole: "event_captain",
     });
 
     const triggerName = `event_delete_rollback_${event.id}`;
@@ -906,7 +1001,7 @@ describe("event assignment event existence", () => {
 
       const result = await request(`/events/${eventType}/${eventId}/assignments`, organizer.token, {
         method: "POST",
-        body: JSON.stringify({ userId: assignee.id }),
+        body: JSON.stringify({ userId: assignee.id, eventRole: "event_captain" }),
       });
 
       assert.equal(result.response.status, 404);
@@ -923,6 +1018,58 @@ describe("event assignment event existence", () => {
           ),
         );
       assert.deepEqual(assignments, []);
+    });
+  }
+
+  for (const eventType of ["rotating", "fixed_partner"] as const) {
+    it(`cleans ${eventType} assignments before an overlapping id can be reused`, async () => {
+      const organizer = users.find((user) => user.role === ORGANIZER_ROLE)!;
+      const assignee = users.find((user) => user.role === ASSIGNABLE_ROLES[0])!;
+      const otherEventType =
+        eventType === "rotating" ? "fixed_partner" : "rotating";
+      const overlapId = 1_500_000_000 + Math.floor(Math.random() * 100_000);
+
+      const event = await createEventWithId(eventType, overlapId);
+      await createEventWithId(otherEventType, overlapId);
+      await db.insert(eventAssignmentsTable).values({
+        userId: assignee.id,
+        eventId: overlapId,
+        eventType,
+        eventRole: "event_captain",
+      });
+
+      const deleted = await request(
+        `/events/${eventType}/${event.id}`,
+        organizer.token,
+        {
+          method: "DELETE",
+        },
+      );
+      assert.equal(deleted.response.status, 204);
+
+      const staleAssignments = await db
+        .select()
+        .from(eventAssignmentsTable)
+        .where(
+          and(
+            eq(eventAssignmentsTable.eventId, overlapId),
+            eq(eventAssignmentsTable.eventType, eventType),
+            eq(eventAssignmentsTable.userId, assignee.id),
+          ),
+        );
+      assert.deepEqual(staleAssignments, []);
+
+      const replacement = await createEventWithId(eventType, overlapId);
+      const unauthorized = await request(
+        `/events/${eventType}/${replacement.id}`,
+        assignee.token,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name: "must remain protected" }),
+        },
+      );
+      assert.equal(unauthorized.response.status, 403);
+      assert.equal(unauthorized.body.error, FORBIDDEN_ERROR);
     });
   }
 });

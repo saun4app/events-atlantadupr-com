@@ -2,6 +2,8 @@ import rawUserRolesConfig from "../../../../app-config/user-roles.json";
 import {
   getUserRole,
   getUserRoleIds,
+  getEventRoleIds,
+  getVirtualUserRoleIds,
   loadUserRolesConfig,
   canonicalizeUserRole as canonicalizeConfiguredUserRole,
   userRoleIsInGroup,
@@ -13,11 +15,23 @@ export const userRolesConfig: UserRolesConfig = loadUserRolesConfig(rawUserRoles
 export const USER_ROLE_IDS = Object.fromEntries(
   getUserRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
 ) as Record<string, string>;
+export const EVENT_ROLE_IDS = Object.fromEntries(
+  getEventRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
+) as Record<string, string>;
+export const VIRTUAL_USER_ROLE_IDS = Object.fromEntries(
+  getVirtualUserRoleIds(userRolesConfig).map((roleId) => [roleId, roleId]),
+) as Record<string, string>;
 export const USER_ROLE_GROUPS = userRolesConfig.groups;
 
 export const defaultDatabaseRole = userRolesConfig.defaults.databaseRole;
 export const auditActorRole = userRolesConfig.defaults.auditActorRole;
+export const siteVisitorRole = VIRTUAL_USER_ROLE_IDS.site_visitor;
 export const canonicalizeUserRole = canonicalizeConfiguredUserRole;
+
+export function getRequestUserRole(req: { userRole?: unknown; session?: { role?: unknown } }): string {
+  const role = req.userRole ?? req.session?.role;
+  return typeof role === "string" ? canonicalizeUserRole(role) : siteVisitorRole;
+}
 
 export function hasUserRole(
   roleId: string | null | undefined,
@@ -27,5 +41,9 @@ export function hasUserRole(
 }
 
 export function isConfiguredUserRole(roleId: string): boolean {
-  return getUserRole(userRolesConfig, roleId) !== undefined;
+  return getUserRoleIds(userRolesConfig).includes(roleId);
+}
+
+export function isConfiguredEventRole(roleId: string): boolean {
+  return getEventRoleIds(userRolesConfig).includes(roleId);
 }

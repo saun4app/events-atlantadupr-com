@@ -1,0 +1,27 @@
+- [Replit proxy auth cookies](replit-auth-cookies.md) — three conditions required for session cookies to survive Replit's iframe proxy
+- [api-server stale dist](api-server-stale-dist.md) — restart api-server workflow after backend/schema edits; it bundles once and doesn't watch
+- [orval path+query collision](orval-path-query-collision.md) — an op with both a path param and query params breaks api-zod codegen (TS2308); drop the query params
+- [Prod data migrations](prod-data-migrations.md) — push has no migration files; write idempotent non-destructive scripts (run before push --force) with a completion marker, not row-count guards
+- [Email-code-gated flow testing](email-code-gated-flow-testing.md) — plant a code row within the send cooldown so request-code returns sent:true without email; deterministic e2e for signup/cancel
+- [api-server node:test](api-server-node-test.md) — built-in test runner needs --test-force-exit (rate-limit setInterval + pg pool); staff bearer session bypasses code/rate-limit branches
+- [Mixed capacity concurrency tests](mixed-capacity-concurrency-tests.md) — allow either operation to win the event lock while asserting capacity and loser state
+- [Fixed-partner schema validation](fixed-partner-schema-validation.md) — Ajv 2020 needs strictTypes disabled for the schema’s conditional fragments; retain all-errors path formatting
+- [Shared runtime configuration package](shared-config-package.md) — shared API/browser config logic needs its own workspace package boundary, not a direct app-config TS import
+- [Stateful browser mutation fixtures](stateful-e2e-mocks.md) — mutation tests should model server state so post-save refetches prove the UI persisted changes
+- [Playwright system browser](playwright-system-browser.md) — use the repository e2e script to select Nix Chromium instead of the bundled browser
+- [Playwright iframe cookie checks](playwright-iframe-cookie-checks.md) — use page-level response monitoring and allHeaders() to verify cookie-only iframe sessions without printing values
+- [Rotating capacity lock discipline](rotating-capacity-locks.md) — rotating limit edits share the event lock and reread the limit after locking
+- [Orval integer Zod output](orval-integer-zod.md) — OpenAPI integer fields generate number() in Zod; minimum/maximum constraints still become validators
+- [Rotating verification boundaries](rotating-verification-boundaries.md) — rotating verification overrides are optional; fixed-partner callers retain independent defaults
+- [Vite build environment variables](vite-build-env.md) — workspace Vite builds require PORT and, for the mockup sandbox, BASE_PATH
+- [Scheduled maintenance deployments](scheduled-maintenance-deployments.md) — use a separate Scheduled Deployment for recurring checks; preserve artifact production commands
+- [Intentional API generation diffs](intentional-api-generation-diffs.md) — the generated-client guard compares against git baseline, so intentional spec changes appear as drift until merged
+- [Production schema preflight](production-schema-preflight.md) — users-table release checks stay read-only and surface legacy rename ambiguity
+- [CI test reporter output](ci-test-reporter-output.md) — Node’s JUnit destination writes to a file and leaves stdout empty, so capture console output separately
+- [GitHub PR check verification](github-pr-check-verification.md) — hosted PR workflow tests need a seeded remote and authenticated GitHub write access
+- [Public event list error states](public-event-list-errors.md) — keep format-specific failure and in-flight retry states separate from loading and empty results
+- [Polymorphic event fixtures](polymorphic-event-fixtures.md) — cross-format test rows must reference real counterpart events to avoid dangling-ID collisions
+- [Telemetry timestamps](telemetry-timestamps.md) — use explicit ISO timestamps if the tool runtime rejects JavaScript clock methods.
+- [Validator upgrades](validator-upgrades.md) — force composite declarations to rebuild after major upgrades; catalog-based Query versions may need explicit codegen configuration.
+- [Event registration authorization](event-registration-authorization.md) — authenticated users without event write access must not fall through to public self-registration.
+- [Playwright Firefox in Nix](playwright-firefox-nix.md) — local Firefox needs Ubuntu runtime libraries unavailable in this Nix image; CI installs them with Playwright's `--with-deps`.

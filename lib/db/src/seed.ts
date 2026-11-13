@@ -1,14 +1,19 @@
 import bcrypt from "bcryptjs";
+import { randomUUID } from "node:crypto";
 import { db } from "./index.js";
 import { usersTable, eventsRotatingTable, eventsFixedTable, membersTable, registrationsTable, appSettingsTable, eventDefaultsTable } from "./schema/index.js";
 import { sql } from "drizzle-orm";
 import { defaultUserRole, userRoleIdMap } from "./user-roles.js";
 
-async function hashPassword(password: string): Promise<string> {
+async function createSeedPasswordHash(): Promise<string> {
+  const password = randomUUID();
   return bcrypt.hash(password, 12);
 }
 
 async function seed() {
+  if (process.env.NODE_ENV === "production" || process.env.ALLOW_DESTRUCTIVE_SEED !== "true") {
+    throw new Error("Demo seeding is development-only and requires ALLOW_DESTRUCTIVE_SEED=true. It deletes existing development data.");
+  }
   console.log("Seeding database...");
 
   await db.execute(sql`TRUNCATE atl_dupr_signups, atl_dupr_events_rotating, atl_dupr_events_fixed, atl_dupr_event_roles, atl_dupr_member_list, app_users, app_settings, atl_dupr_event_defaults RESTART IDENTITY CASCADE`);
@@ -49,9 +54,9 @@ async function seed() {
   });
 
   await db.insert(usersTable).values([
-    { name: "Admin User", username: "admin", passwordHash: await hashPassword("admin123"), role: userRoleIdMap.app_admin },
-    { name: "Organizer One", username: "organizer1", passwordHash: await hashPassword("org123"), role: userRoleIdMap.event_organizer },
-    { name: "Participant User", username: "participant1", passwordHash: await hashPassword("part123"), role: defaultUserRole },
+    { name: "Admin User", username: "admin", passwordHash: await createSeedPasswordHash(), role: userRoleIdMap.app_admin },
+    { name: "Organizer One", username: "organizer1", passwordHash: await createSeedPasswordHash(), role: userRoleIdMap.event_organizer },
+    { name: "Participant User", username: "participant1", passwordHash: await createSeedPasswordHash(), role: defaultUserRole },
   ]);
 
   const [ev1, ev3] = await db.insert(eventsRotatingTable).values([

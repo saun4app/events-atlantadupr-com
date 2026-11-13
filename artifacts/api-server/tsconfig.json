@@ -8,7 +8,7 @@
     "resolveJsonModule": true,
     "types": ["node"]
   },
-  "include": ["src", "../../app-config/**/*.json"],
+  "include": ["src", "scripts/**/*.ts", "../../app-config/**/*.json"],
   "references": [
     {
       "path": "../../lib/db"

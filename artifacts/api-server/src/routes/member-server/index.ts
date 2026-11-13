@@ -4,8 +4,24 @@ import { membersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { requireRole } from "../../lib/auth.js";
 import { USER_ROLE_IDS } from "../../lib/user-roles.js";
+import { parseCsvRecords } from "./csv.js";
 
 const router = Router();
+
+function parseCsvReliability(value: string, fieldName: string): number | null {
+  if (!value) return null;
+
+  if (!/^\d+$/.test(value)) {
+    throw new Error(`Invalid ${fieldName}: must be a whole number from 0 to 100`);
+  }
+
+  const reliability = Number(value);
+  if (reliability > 100) {
+    throw new Error(`Invalid ${fieldName}: must be a whole number from 0 to 100`);
+  }
+
+  return reliability;
+}
 
 router.get("/", async (req, res) => {
   const { search, sortBy, sortDir } = req.query as Record<string, string>;
@@ -72,94 +88,114 @@ router.post("/csv", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {
     return res.status(400).json({ error: "CSV content required" });
   }
 
-  const lines = csvText.split("\n").map((l) => l.trim()).filter(Boolean);
-  if (lines.length < 2) {
+  let records: string[][];
+  try {
+    records = parseCsvRecords(csvText.replace(/^\uFEFF/, "")).filter((row) =>
+      row.some((field) => field.trim() !== ""),
+    );
+  } catch (error) {
+    return res.status(400).json({
+      error: error instanceof Error ? error.message : "Invalid CSV content",
+    });
+  }
+
+  if (records.length < 2) {
     return res.status(400).json({ error: "CSV must have a header row and at least one data row" });
   }
 
-  const headers = lines[0].split(",").map((h) => h.trim().toLowerCase());
+  const headers = records[0].map((h) => h.trim().toLowerCase());
   const errors: string[] = [];
-  const csvDuprIds: string[] = [];
   let imported = 0;
   let skipped = 0;
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",").map((c) => c.trim());
+  const rows = records.slice(1).map((record, index) => {
+    const cols = record.map((c) => c.trim());
     const row: Record<string, string> = {};
     headers.forEach((h, idx) => {
       row[h] = cols[idx] ?? "";
     });
 
-    const duprId = row["dupr_id"] || row["duprid"] || row["dupr id"];
-    const name = row["name"] || row["player_name"] || row["playername"];
+    return {
+      rowNumber: index + 2,
+      row,
+      duprId: row["dupr_id"] || row["duprid"] || row["dupr id"],
+      name: row["name"] || row["player_name"] || row["playername"],
+    };
+  });
+  const rowsByDuprId = new Map<string, number[]>();
+  for (const { duprId, rowNumber } of rows) {
+    if (!duprId) continue;
+    const matchingRows = rowsByDuprId.get(duprId) ?? [];
+    matchingRows.push(rowNumber);
+    rowsByDuprId.set(duprId, matchingRows);
+  }
 
-    if (!duprId || !name) {
-      errors.push(`Row ${i + 1}: Missing dupr_id or name`);
-      skipped++;
-      continue;
-    }
+  try {
+    await db.transaction(async (tx) => {
+      for (const { rowNumber, row, duprId, name } of rows) {
+        if (!duprId || !name) {
+          errors.push(`Row ${rowNumber}: Missing dupr_id or name`);
+          skipped++;
+          continue;
+        }
 
-    csvDuprIds.push(duprId);
+        const matchingRows = rowsByDuprId.get(duprId) ?? [];
+        if (matchingRows.length > 1) {
+          const otherRows = matchingRows.filter((number) => number !== rowNumber);
+          errors.push(
+            `Row ${rowNumber}: Duplicate dupr_id "${duprId}" also appears on row${otherRows.length === 1 ? "" : "s"} ${otherRows.join(", ")}`,
+          );
+          skipped++;
+          continue;
+        }
 
-    const dRelRaw = row["doubles_reliability"] || row["double_reliability"] || row["doublesreliability"] || row["doublereliability"];
-    const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
+        const dRelRaw = row["doubles_reliability"] || row["double_reliability"] || row["doublesreliability"] || row["doublereliability"];
+        const sRelRaw = row["singles_reliability"] || row["single_reliability"] || row["singlesreliability"] || row["singlereliability"];
+        let doublesReliability: number | null;
+        let singlesReliability: number | null;
+        try {
+          doublesReliability = parseCsvReliability(dRelRaw ?? "", "doubles_reliability");
+          singlesReliability = parseCsvReliability(sRelRaw ?? "", "singles_reliability");
+        } catch (error) {
+          errors.push(`Row ${rowNumber}: ${error instanceof Error ? error.message : "Invalid reliability value"}`);
+          skipped++;
+          continue;
+        }
 
-    try {
-      await db
-        .insert(membersTable)
-        .values({
-          duprId,
-          name,
-          doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
-          doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
-          singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
-          singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
-          selfRating: row["self_rating"] || row["selfrating"] || null,
-          email: row["email"] || null,
-          phone: row["phone"] || null,
-        })
-        .onConflictDoUpdate({
-          target: membersTable.duprId,
-          set: {
+        const doubles = row["doubles"] || row["double_rating"] || row["doublerating"] || null;
+        const singles = row["singles"] || row["single_rating"] || row["singlerating"] || null;
+        await tx
+          .insert(membersTable)
+          .values({
+            duprId,
             name,
-            doubles: row["doubles"] || row["double_rating"] || row["doublerating"] || null,
-            doublesReliability: dRelRaw ? parseInt(dRelRaw) : null,
-            singles: row["singles"] || row["single_rating"] || row["singlerating"] || null,
-            singlesReliability: sRelRaw ? parseInt(sRelRaw) : null,
+            doubles,
+            doublesReliability,
+            singles,
+            singlesReliability,
             selfRating: row["self_rating"] || row["selfrating"] || null,
             email: row["email"] || null,
             phone: row["phone"] || null,
-          },
-        });
-      imported++;
-    } catch (err: any) {
-      errors.push(`Row ${i + 1}: ${err.message}`);
-      skipped++;
-    }
-  }
-
-  // Remove existing members that are not in the CSV. Registrations keep their
-  // own snapshots, so removing a member never affects existing registrations.
-  let removed = 0;
-  const regSkipped: string[] = [];
-  if (csvDuprIds.length > 0) {
-    const allMembers = await db.select().from(membersTable);
-    const csvIdSet = new Set(csvDuprIds);
-    for (const m of allMembers) {
-      if (!csvIdSet.has(m.duprId)) {
-        await db.delete(membersTable).where(eq(membersTable.duprId, m.duprId));
-        removed++;
+          })
+          .onConflictDoUpdate({
+            target: membersTable.duprId,
+            set: {
+              doubles,
+              doublesReliability,
+              singles,
+              singlesReliability,
+            },
+          });
+        imported++;
       }
-    }
+    });
+  } catch {
+    return res.status(500).json({
+      error: "CSV import failed; no member changes were saved",
+    });
   }
 
-  return res.json({ imported, skipped, removed, regSkipped, errors });
-});
-
-router.get("/:duprId", async (req, res) => {
-  const [member] = await db.select().from(membersTable).where(eq(membersTable.duprId, req.params.duprId));
-  if (!member) return res.status(404).json({ error: "Member not found" });
-  return res.json(member);
+  return res.json({ imported, skipped, removed: 0, regSkipped: [], errors });
 });
 
 router.patch("/:duprId", requireRole(USER_ROLE_IDS.app_admin), async (req, res) => {

@@ -1,0 +1,73 @@
+modules = ["nodejs-24", "python-3.11", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+# Event-link maintenance is a separate Replit Scheduled Deployment so it
+# cannot replace the web application production process. Configure it in
+# Publishing with the recurring schedule "daily at 03:00 UTC" and run:
+#   pnpm run maintenance:event-integrity
+# The command is read-only and exits nonzero when drift is found; Scheduled
+# Deployment failure alerts surface the reported rows to maintainers. Cleanup
+# remains explicit: pnpm run audit:event-assignments -- --apply
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "api-generated"
+
+[[workflows.workflow]]
+name = "api-generated"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm run check:api-generated"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+integrations = ["resend:1.0.0", "github:1.0.0"]
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[[ports]]
+localPort = 8081
+externalPort = 8081
+
+[[ports]]
+localPort = 8082
+externalPort = 3002
+
+[[ports]]
+localPort = 20563
+externalPort = 3000
+
+[nix]
+channel = "stable-25_05"
+packages = ["chromium"]
+
+[userenv]
+
+[userenv.shared]
+VERIFICATION_EMAIL_FROM = "saun@atlantadupr.com"
