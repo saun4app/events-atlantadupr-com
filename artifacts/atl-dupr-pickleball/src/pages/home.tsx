@@ -5,6 +5,7 @@ import { useListEvents, useGetEventsSummary, useGetSettings, getListEventsQueryK
 import { PublicNav } from "@/components/public-nav";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { MapPin, Calendar, Users, Clock, WrenchIcon, DollarSign, Shuffle, Link2, AlertCircle } from "lucide-react";
 import { format } from "date-fns";
 
@@ -16,7 +17,7 @@ function teamFormat(t: string) {
 
 function EventCard({ event }: { event: any }) {
   return (
-    <Link href={`/events/${event.teamFormat}/${event.id}`} data-testid={`card-event-${event.id}`}>
+    <Link href={`/events/${event.teamFormat}/${event.id}`} data-testid={`card-event-${event.teamFormat}-${event.id}`}>
       <div className="bg-card border border-card-border rounded-lg p-5 hover:shadow-md transition-all cursor-pointer hover:border-primary/40 group">
         <div className="flex items-start justify-between gap-3 mb-3">
           <h2 className="font-semibold text-foreground text-base leading-snug group-hover:text-primary transition-colors">
@@ -77,8 +78,15 @@ function isUpcoming(e: any): boolean {
 
 export default function Home() {
   const [tab, setTab] = useState<EventType>("rotating");
-  const [retryingFormat, setRetryingFormat] = useState<EventType | null>(null);
-  const retryingFormatRef = useRef<EventType | null>(null);
+  const [listMode, setListMode] = useState<"combined" | "separate">("combined");
+  const [retryingFormats, setRetryingFormats] = useState<Record<EventType, boolean>>({
+    rotating: false,
+    fixed_partner: false,
+  });
+  const retryingFormatsRef = useRef<Record<EventType, boolean>>({
+    rotating: false,
+    fixed_partner: false,
+  });
 
   const {
     data: rotatingEvents,
@@ -103,24 +111,37 @@ export default function Home() {
   });
   const { data: settings } = useGetSettings();
 
-  const isLoading = tab === "rotating" ? rotLoading : fixedLoading;
-  const hasError = tab === "rotating" ? rotError : fixedError;
-  const isRetrying =
-    (tab === "rotating" ? rotFetching : fixedFetching) ||
-    retryingFormat === tab;
-  const refetchEvents = tab === "rotating" ? refetchRotating : refetchFixed;
-  const events = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
-  const handleRetry = () => {
-    const retryFormat = tab;
-    if (retryingFormatRef.current === retryFormat || isRetrying) return;
+  const selectedFormats: EventType[] = listMode === "combined"
+    ? ["rotating", "fixed_partner"]
+    : [tab];
+  const combinedEvents = [...(rotatingEvents ?? []), ...(fixedEvents ?? [])]
+    .filter(isUpcoming)
+    .sort((a, b) => new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime());
+  const selectedEvents = ((tab === "rotating" ? rotatingEvents : fixedEvents) ?? []).filter(isUpcoming);
+  const events = listMode === "combined" ? combinedEvents : selectedEvents;
+  const isLoading = listMode === "combined"
+    ? rotLoading || fixedLoading
+    : tab === "rotating" ? rotLoading : fixedLoading;
+  const getFormatStatus = (eventType: EventType) => eventType === "rotating"
+    ? { isError: rotError, isFetching: rotFetching, refetch: refetchRotating, label: "rotating" }
+    : { isError: fixedError, isFetching: fixedFetching, refetch: refetchFixed, label: "fixed-partner" };
+  const errorFormats = selectedFormats.filter((eventType) => {
+    const status = getFormatStatus(eventType);
+    return status.isError || retryingFormats[eventType];
+  });
+  const handleRetry = (eventType: EventType) => {
+    const status = getFormatStatus(eventType);
+    if (retryingFormatsRef.current[eventType] || status.isFetching) return;
 
-    retryingFormatRef.current = retryFormat;
-    setRetryingFormat(retryFormat);
-    void refetchEvents().finally(() => {
-      if (retryingFormatRef.current === retryFormat) {
-        retryingFormatRef.current = null;
-        setRetryingFormat(null);
-      }
+    const nextRetryingFormats = { ...retryingFormatsRef.current, [eventType]: true };
+    retryingFormatsRef.current = nextRetryingFormats;
+    setRetryingFormats(nextRetryingFormats);
+    void status.refetch().finally(() => {
+      const latestRetryingFormats = retryingFormatsRef.current;
+      if (!latestRetryingFormats[eventType]) return;
+      const clearedRetryingFormats = { ...latestRetryingFormats, [eventType]: false };
+      retryingFormatsRef.current = clearedRetryingFormats;
+      setRetryingFormats(clearedRetryingFormats);
     });
   };
 
@@ -156,67 +177,100 @@ export default function Home() {
       </div>
 
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-        <div className="flex items-center gap-1 mb-6 border-b border-border">
-          {formatTabs.map(t => {
-            const active = tab === t.value;
-            const Icon = t.icon;
-            return (
-              <button
-                key={t.value}
-                type="button"
-                data-testid={`tab-${t.value}`}
-                onClick={() => setTab(t.value)}
-                className={`flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
-                  active
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {t.label}
-              </button>
-            );
-          })}
-        </div>
-        {hasError || retryingFormat === tab ? (
-          <div
-            className="flex flex-col items-center justify-center text-center py-16 text-muted-foreground"
-            role="alert"
-            data-testid={`event-list-error-${tab}`}
-          >
-            <AlertCircle className="w-12 h-12 mx-auto mb-3 text-destructive/70" />
-            <p className="font-medium text-foreground">
-              Unable to load {tab === "fixed_partner" ? "fixed-partner" : "rotating"} events
-            </p>
-            <p className="text-sm mt-1">Please try again later.</p>
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-5"
-              onClick={handleRetry}
-              disabled={isRetrying}
-              data-testid={`button-retry-event-list-${tab}`}
-            >
-              {isRetrying ? "Trying again..." : "Try again"}
-            </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="flex items-center gap-3">
+            <Switch
+              id="public-event-list-mode"
+              data-testid="toggle-public-event-list-mode"
+              checked={listMode === "combined"}
+              onCheckedChange={(checked) => setListMode(checked ? "combined" : "separate")}
+              aria-label="Combine rotating and fixed-partner events"
+            />
+            <div>
+              <label htmlFor="public-event-list-mode" className="text-sm font-medium cursor-pointer">
+                Combine event lists
+              </label>
+              <p className="text-xs text-muted-foreground">
+                {listMode === "combined"
+                  ? "Rotating and fixed-partner events are shown together."
+                  : "Choose an event format to view its events."}
+              </p>
+            </div>
           </div>
-        ) : isLoading ? (
+          {listMode === "separate" && (
+            <div className="flex items-center gap-1 border-b border-border">
+              {formatTabs.map(t => {
+                const active = tab === t.value;
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    data-testid={`tab-${t.value}`}
+                    onClick={() => setTab(t.value)}
+                    className={`flex items-center gap-1.5 px-4 py-2 -mb-px text-sm font-medium border-b-2 transition-colors ${
+                      active
+                        ? "border-primary text-primary"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    {t.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {errorFormats.length > 0 && (
+          <div className="space-y-3 mb-4">
+            {errorFormats.map((eventType) => {
+              const status = getFormatStatus(eventType);
+              const isRetrying = retryingFormats[eventType] || status.isFetching;
+              return (
+                <div
+                  key={eventType}
+                  className="flex flex-col items-center justify-center text-center py-8 text-muted-foreground border border-border rounded-lg"
+                  role="alert"
+                  data-testid={`event-list-error-${eventType}`}
+                >
+                  <AlertCircle className="w-10 h-10 mx-auto mb-3 text-destructive/70" />
+                  <p className="font-medium text-foreground">
+                    Unable to load {status.label} events
+                  </p>
+                  <p className="text-sm mt-1">Please try again later.</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-4"
+                    onClick={() => handleRetry(eventType)}
+                    disabled={isRetrying}
+                    data-testid={`button-retry-event-list-${eventType}`}
+                  >
+                    {isRetrying ? "Trying again..." : "Try again"}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {isLoading && events.length === 0 ? (
           <div className="space-y-4">
             {[1, 2, 3].map(i => (
               <Skeleton key={i} className="h-36 w-full rounded-lg" />
             ))}
           </div>
-        ) : events && events.length > 0 ? (
+        ) : events.length > 0 && (listMode === "combined" || errorFormats.length === 0) ? (
           <div className="space-y-4">
-            {events.map(ev => <EventCard key={ev.id} event={ev} />)}
+            {events.map(ev => <EventCard key={`${ev.teamFormat}-${ev.id}`} event={ev} />)}
           </div>
-        ) : (
+        ) : !isLoading && errorFormats.length === 0 ? (
           <div className="text-center py-16 text-muted-foreground">
             <Users className="w-12 h-12 mx-auto mb-3 opacity-20" />
             <p className="font-medium">No upcoming events</p>
             <p className="text-sm mt-1">Check back soon for new events.</p>
           </div>
-        )}
+        ) : null}
       </main>
     </div>
   );
