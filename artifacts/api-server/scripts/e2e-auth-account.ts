@@ -8,9 +8,11 @@ import {
   usersTable,
 } from "@workspace/db";
 import { hashPassword } from "../src/lib/auth.js";
+import { SESSION_MAX_AGE_MS } from "../src/lib/security.js";
 
 type FixtureCommand =
   | { action: "create" }
+  | { action: "expire"; userId: number; username: string }
   | { action: "cleanup"; userId: number; username: string };
 
 function isFixtureCommand(value: unknown): value is FixtureCommand {
@@ -18,7 +20,7 @@ function isFixtureCommand(value: unknown): value is FixtureCommand {
   const command = value as Record<string, unknown>;
   if (command.action === "create") return true;
   return (
-    command.action === "cleanup" &&
+    (command.action === "expire" || command.action === "cleanup") &&
     Number.isSafeInteger(command.userId) &&
     Number(command.userId) > 0 &&
     typeof command.username === "string" &&
@@ -48,14 +50,44 @@ async function run(command: FixtureCommand) {
     return;
   }
 
-  await db
-    .delete(sessionsTable)
-    .where(sql`${sessionsTable.data}->>'userId' = ${String(command.userId)}`);
+  const matchingSessions = sql`${sessionsTable.data}->>'userId' = ${String(command.userId)} AND ${sessionsTable.data}->>'username' = ${command.username}`;
+
+  if (command.action === "expire") {
+    const result = await db
+      .update(sessionsTable)
+      .set({ createdAt: new Date(Date.now() - SESSION_MAX_AGE_MS - 1000) })
+      .where(matchingSessions)
+      .returning({ createdAt: sessionsTable.createdAt });
+    if (result.length === 0) {
+      throw new Error("No disposable account session was available to expire.");
+    }
+    process.stdout.write(JSON.stringify({ expired: true }));
+    return;
+  }
+
+  await db.delete(sessionsTable).where(matchingSessions);
   await db
     .delete(usersTable)
     .where(
       sql`${usersTable.id} = ${command.userId} AND ${usersTable.username} = ${command.username}`,
     );
+
+  const [remainingUser] = await db
+    .select({ id: usersTable.id })
+    .from(usersTable)
+    .where(
+      sql`${usersTable.id} = ${command.userId} AND ${usersTable.username} = ${command.username}`,
+    );
+  const [remainingSession] = await db
+    .select({ createdAt: sessionsTable.createdAt })
+    .from(sessionsTable)
+    .where(matchingSessions);
+  if (remainingUser || remainingSession) {
+    throw new Error(
+      "Disposable account cleanup did not remove all fixture data.",
+    );
+  }
+  process.stdout.write(JSON.stringify({ cleaned: true }));
 }
 
 let input = "";

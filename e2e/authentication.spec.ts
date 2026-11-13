@@ -13,6 +13,10 @@ type TestAccount = {
   password: string;
 };
 
+type FixtureResult = {
+  cleaned?: boolean;
+};
+
 function runAccountFixture(input: object): string {
   try {
     return execFileSync(
@@ -85,10 +89,65 @@ test("admin sign-in persists through reload and logout blocks App Settings", asy
       page.getByRole("heading", { name: "Admin Sign In" }),
     ).toBeVisible();
   } finally {
-    runAccountFixture({
-      action: "cleanup",
-      userId: account.userId,
-      username: account.username,
-    });
+    const cleanup = JSON.parse(
+      runAccountFixture({
+        action: "cleanup",
+        userId: account.userId,
+        username: account.username,
+      }),
+    ) as FixtureResult;
+    expect(cleanup.cleaned).toBe(true);
+  }
+});
+
+test("expired admin sessions redirect protected pages to sign-in", async ({
+  page,
+}) => {
+  const account = JSON.parse(
+    runAccountFixture({ action: "create" }),
+  ) as TestAccount;
+
+  try {
+    await page.goto("/login");
+    await page.getByTestId("input-username").fill(account.username);
+    await page.getByTestId("input-password").fill(account.password);
+    await page.getByTestId("button-submit").click();
+    await expect(page).toHaveURL(/\/admin\/events\/rotating$/);
+
+    await page.goto("/admin/settings");
+    await expect(
+      page.getByRole("heading", { name: "App Settings" }),
+    ).toBeVisible();
+
+    const expired = JSON.parse(
+      runAccountFixture({
+        action: "expire",
+        userId: account.userId,
+        username: account.username,
+      }),
+    ) as { expired?: boolean };
+    expect(expired.expired).toBe(true);
+
+    const meResponsePromise = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/auth/me" &&
+        response.request().method() === "GET",
+    );
+    await page.reload();
+    const meResponse = await meResponsePromise;
+    expect(meResponse.status()).toBe(401);
+    await expect(page).toHaveURL(/\/login$/);
+    await expect(
+      page.getByRole("heading", { name: "Admin Sign In" }),
+    ).toBeVisible();
+  } finally {
+    const cleanup = JSON.parse(
+      runAccountFixture({
+        action: "cleanup",
+        userId: account.userId,
+        username: account.username,
+      }),
+    ) as FixtureResult;
+    expect(cleanup.cleaned).toBe(true);
   }
 });
