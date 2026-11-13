@@ -13,6 +13,55 @@ permissions:
   checks: write
 
 jobs:
+  browser-authentication:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: api_test
+          POSTGRES_USER: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d api_test"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.26.1
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialize isolated browser test database
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/api_test
+        run: pnpm run test:api:setup
+
+      - name: Install Chromium
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run Playwright browser tests
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/api_test
+        run: pnpm run test:e2e e2e/authentication.spec.ts
+
   api-tests:
     runs-on: ubuntu-latest
     services:

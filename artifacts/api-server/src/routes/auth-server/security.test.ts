@@ -6,7 +6,11 @@ import { eq, sql } from "drizzle-orm";
 import { assertTestDatabase, db, sessionsTable, usersTable } from "@workspace/db";
 import app from "../../app.js";
 import { hashPassword } from "../../lib/auth.js";
-import { createSessionToken, SESSION_MAX_AGE_MS } from "../../lib/security.js";
+import {
+  createSessionToken,
+  sessionCookieOptions,
+  SESSION_MAX_AGE_MS,
+} from "../../lib/security.js";
 import { setSession } from "../../lib/session.js";
 
 let server: Server;
@@ -57,6 +61,24 @@ test("login persists a strong bearer token and matching signed HttpOnly cookie",
   const me = await fetch(`${base}/auth/me`, { headers: { Authorization: `Bearer ${token}` } });
   assert.equal(me.status, 200);
   assert.equal((await me.json() as { id: number }).id, userId);
+});
+
+test("Replit preview sessions keep cross-site iframe cookie settings", () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDevDomain = process.env.REPLIT_DEV_DOMAIN;
+  try {
+    process.env.NODE_ENV = "development";
+    process.env.REPLIT_DEV_DOMAIN = "preview.example.replit.dev";
+    const options = sessionCookieOptions();
+    assert.equal(options.secure, true);
+    assert.equal(options.sameSite, "none");
+    assert.equal(options.httpOnly, true);
+  } finally {
+    if (previousNodeEnv === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = previousNodeEnv;
+    if (previousDevDomain === undefined) delete process.env.REPLIT_DEV_DOMAIN;
+    else process.env.REPLIT_DEV_DOMAIN = previousDevDomain;
+  }
 });
 
 test("untrusted origins cannot read or mutate authenticated APIs", async () => {

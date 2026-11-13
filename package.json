@@ -28,7 +28,7 @@
     "test:hosted-cleanup": "node --test scripts/verify-hosted-cleanup.test.mjs",
     "redact:ci-diagnostics": "node scripts/redact-ci-diagnostics.mjs",
     "verify:hosted-cleanup": "node scripts/verify-hosted-cleanup.mjs",
-    "test:e2e": "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",
+    "test:e2e": "NODE_ENV=test PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=\"${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-$(command -v chromium || true)}\" playwright test",
     "test:e2e:install": "playwright install chromium",
     "audit:event-assignments": "pnpm --filter @workspace/db exec tsx ../../scripts/audit-event-assignments.ts",
     "audit:production-schema": "pnpm --filter @workspace/db exec tsx ../../scripts/audit-production-schema.ts"
