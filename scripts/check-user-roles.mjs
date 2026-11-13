@@ -11,6 +11,7 @@ const generatedPaths = [
   "lib/api-zod/src/generated/types/eventAssignmentEventRole.ts",
 ];
 const browserMockExtensions = new Set([".js", ".mjs", ".ts", ".tsx"]);
+const eventRoleMockPath = "e2e/admin-navigation.spec.ts";
 
 function sameValues(actual, expected) {
   return actual.length === expected.length && actual.every((value, index) => value === expected[index]);
@@ -62,6 +63,7 @@ export async function checkUserRoles(options = {}) {
   const roleIds = config.accountRoles.map((role) => role.id);
   const eventRoleIds = config.eventRoles.map((role) => role.id);
   const roleSet = new Set(roleIds);
+  const eventRoleSet = new Set(eventRoleIds);
   if (roleSet.size !== roleIds.length) throw new Error("user-roles.json contains duplicate role IDs");
 
   const openApiRoleEnum = parseOpenApiRoleEnums(openApiText, roleIds);
@@ -83,7 +85,19 @@ export async function checkUserRoles(options = {}) {
     }
   });
 
-  const eventRoleSet = new Set(eventRoleIds);
+  browserMockTexts.forEach(({ path: mockPath, text }) => {
+    if (mockPath !== eventRoleMockPath) return;
+    for (const match of text.matchAll(/\b(?:eventRole|userRole|role)\s*:\s*["']([^"']+)["']/g)) {
+      const role = match[1];
+      if (eventRoleSet.has(role)) continue;
+
+      const line = text.slice(0, match.index).split("\n").length;
+      throw new Error(
+        `${mockPath}:${line} uses unknown event role "${role}"`,
+      );
+    }
+  });
+
   browserMockTexts.forEach(({ path: mockPath, text }) => {
     for (const match of text.matchAll(/\brole\s*:\s*["']([^"']+)["']/g)) {
       const role = match[1];

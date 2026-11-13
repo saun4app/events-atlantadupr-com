@@ -35,13 +35,13 @@ test("rejects a contract with a reordered or missing user role", async () => {
 
 test("rejects an outdated browser mock role with its file and line", async () => {
   const browserMockTexts = [{
-    path: "e2e/admin-navigation.spec.ts",
+    path: "e2e/admin-user-roles.spec.ts",
     text: 'const user = {\n  role: "removed_admin",\n};',
   }];
 
   await assert.rejects(
     checkUserRoles({ browserMockTexts }),
-    /e2e\/admin-navigation\.spec\.ts:2 uses unknown account role "removed_admin"/,
+    /e2e\/admin-user-roles\.spec\.ts:2 uses unknown account role "removed_admin"/,
   );
 });
 
@@ -71,4 +71,20 @@ test("does not accept a legacy marker for a different role", async () => {
     checkUserRoles({ browserMockTexts }),
     /e2e\/admin-user-roles\.spec\.ts:2 uses unknown account role "removed_admin"/,
   );
+});
+
+test("rejects outdated event-role literals in browser API mocks with file and line", async () => {
+  for (const field of ["eventRole", "userRole", "role"]) {
+    await assert.rejects(
+      checkUserRoles({
+        browserMockTexts: [{
+          path: "e2e/admin-navigation.spec.ts",
+          text: `const mock = {\n  ${field}: "removed_event_role",\n};`,
+        }],
+      }),
+      new RegExp(
+        `e2e/admin-navigation\\.spec\\.ts:2 uses unknown event role "removed_event_role"`,
+      ),
+    );
+  }
 });
