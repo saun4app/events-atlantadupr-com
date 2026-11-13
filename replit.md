@@ -7,6 +7,7 @@ This is the **Events** app for Atlanta DUPR Pickleball, served at `events.atlant
 - `pnpm --filter @workspace/api-server run dev` — run the API server (port 5000)
 - `pnpm run test:api` — run API integration tests; set `TEST_DATABASE_URL` to an isolated PostgreSQL database first (or pair it with a dedicated non-public `TEST_DATABASE_SCHEMA`)
 - `pnpm run test:api:isolated` — provision a disposable local PostgreSQL cluster, initialize its schema, run API tests, and remove the cluster; requires PostgreSQL tools on PATH and never uses existing application data
+- `pnpm run test:e2e:isolated` — provision a disposable local PostgreSQL cluster, initialize its schema, run desktop and mobile browser tests, and remove the cluster; requires PostgreSQL tools on PATH and never uses existing application data
 - `pnpm --filter @workspace/atl-dupr-pickleball run dev` — run the web frontend (port 20563)
 - `pnpm run typecheck` — full typecheck across all packages
 - `pnpm run build` — typecheck + build all packages

@@ -66,7 +66,7 @@ export async function mockCloneEventApi(
           id: 1,
           name: "Test Organizer",
           username: "organizer",
-          role: "admin",
+          role: "app_admin",
           createdAt: "2026-01-01T00:00:00.000Z",
         },
       });

@@ -4,7 +4,6 @@ import rawUserRolesConfig from "../app-config/user-roles.json";
 
 const userRolesConfig = rawUserRolesConfig;
 const ADMIN_ROLE = userRolesConfig.defaults.auditActorRole;
-const EVENT_MANAGER_ROLE = userRolesConfig.defaults.newUserRole;
 const EVENT_ORGANIZER_ROLE =
   userRolesConfig.groups.eventManagers[0] ?? "event_organizer";
 const PARTICIPANT_ROLE = userRolesConfig.defaults.databaseRole;
@@ -87,6 +86,19 @@ const FIXED_PARTNER_EVENT = {
   maxTeams: 8,
 };
 
+const EVENT_ORGANIZER_ASSIGNMENTS = [
+  {
+    eventId: ROTATING_EVENT.id,
+    eventType: "rotating",
+    eventRole: EVENT_ORGANIZER_ROLE,
+  },
+  {
+    eventId: FIXED_PARTNER_EVENT.id,
+    eventType: "fixed_partner",
+    eventRole: EVENT_ORGANIZER_ROLE,
+  },
+];
+
 const ASSIGNABLE_STAFF = [
   {
     id: 11,
@@ -141,12 +153,31 @@ async function mockAdminNavigationApi(
     }
 
     if (pathname === `/api/events/rotating/${ROTATING_EVENT.id}`) {
-      await route.fulfill({ json: { ...ROTATING_EVENT, canWrite: canWriteEvent } });
+      await route.fulfill({
+        json: {
+          ...ROTATING_EVENT,
+          canWrite: canWriteEvent,
+          canManageAssignments: options.eventAssignments?.some(
+            ({ eventId, eventType }) =>
+              eventId === ROTATING_EVENT.id && eventType === "rotating",
+          ) ?? false,
+        },
+      });
       return;
     }
 
     if (pathname === `/api/events/fixed_partner/${FIXED_PARTNER_EVENT.id}`) {
-      await route.fulfill({ json: { ...FIXED_PARTNER_EVENT, canWrite: canWriteEvent } });
+      await route.fulfill({
+        json: {
+          ...FIXED_PARTNER_EVENT,
+          canWrite: canWriteEvent,
+          canManageAssignments: options.eventAssignments?.some(
+            ({ eventId, eventType }) =>
+              eventId === FIXED_PARTNER_EVENT.id &&
+              eventType === "fixed_partner",
+          ) ?? false,
+        },
+      });
       return;
     }
 
@@ -321,7 +352,7 @@ async function expectEventsNavigation(
   }
 }
 
-for (const staffRole of userRolesConfig.groups.assignableStaff) {
+for (const staffRole of userRolesConfig.groups.globalEventManagers) {
   const roleLabel =
     userRolesConfig.accountRoles.find((role) => role.id === staffRole)?.label ??
     staffRole;
@@ -331,11 +362,7 @@ for (const staffRole of userRolesConfig.groups.assignableStaff) {
   }) => {
     const canAccessAdminPanel =
       userRolesConfig.groups.adminPanel.includes(staffRole);
-    const canWriteEvents =
-      userRolesConfig.groups.eventWriters.includes(staffRole);
-
     expect(canAccessAdminPanel).toBe(true);
-    expect(canWriteEvents).toBe(true);
 
     await mockAdminNavigationApi(page, staffRole);
     await page.goto("/admin/events/rotating");
@@ -345,32 +372,26 @@ for (const staffRole of userRolesConfig.groups.assignableStaff) {
     ).toBeVisible();
     await expectAdminNavigation(page, staffRole, "nav-manage-events");
     await expectEventsNavigation(page, "rotating", "events-nav-rotating");
-    await expect(page.getByTestId("button-event-setup")).toHaveCount(
-      canWriteEvents ? 1 : 0,
-    );
+    await expect(page.getByTestId("button-event-setup")).toBeVisible();
 
     await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
     await expect(
       page.getByRole("heading", { name: ROTATING_EVENT.name }),
     ).toBeVisible();
-    await expect(page.getByTestId("button-edit-event")).toHaveCount(
-      canWriteEvents ? 1 : 0,
-    );
-     await expect(page.getByTestId("panel-event-assignments")).toHaveCount(0);
+    await expect(page.getByTestId("button-edit-event")).toBeVisible();
+    await expect(page.getByTestId("panel-event-assignments")).toHaveCount(0);
 
-    if (canWriteEvents) {
-      await page.getByTestId("button-edit-event").click();
-      await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
-      await expect(
-        page.getByRole("button", { name: "Delete Event", exact: true }),
-      ).toHaveCount(
-        userRolesConfig.groups.adminOnly.includes(staffRole) ? 1 : 0,
-      );
-    }
+    await page.getByTestId("button-edit-event").click();
+    await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: "Delete Event", exact: true }),
+    ).toHaveCount(
+      userRolesConfig.groups.adminOnly.includes(staffRole) ? 1 : 0,
+    );
   });
 }
 
-for (const staffRole of userRolesConfig.groups.assignableStaff) {
+for (const staffRole of userRolesConfig.groups.globalEventManagers) {
   const roleLabel =
     userRolesConfig.accountRoles.find((role) => role.id === staffRole)?.label ??
     staffRole;
@@ -379,14 +400,23 @@ for (const staffRole of userRolesConfig.groups.assignableStaff) {
     await mockAdminNavigationApi(page, staffRole, { canWriteEvent: false });
     await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
 
-    await expect(
-      page.getByRole("heading", { name: ROTATING_EVENT.name }),
-    ).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
     await expect(page.getByTestId("button-edit-event")).toHaveCount(0);
     await expect(page.getByTestId("input-add-emails")).toHaveCount(0);
     await expect(page.getByTestId("button-add-participant")).toHaveCount(0);
   });
 }
+
+test("club members cannot enter global event-management pages", async ({
+  page,
+}) => {
+  await mockAdminNavigationApi(page, userRolesConfig.defaults.databaseRole);
+  await page.goto("/admin/events/rotating");
+
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.getByTestId("button-event-setup")).toHaveCount(0);
+  await expect(page.getByTestId("nav-manage-events")).toHaveCount(0);
+});
 
 test("admin can navigate every admin area and event format", async ({
   page,
@@ -544,16 +574,23 @@ test("admin pages keep their route and active navigation after refresh", async (
 test("event organizers see event navigation but not admin-only areas", async ({
   page,
 }) => {
-  await mockAdminNavigationApi(page, EVENT_MANAGER_ROLE);
+  await mockAdminNavigationApi(page, PARTICIPANT_ROLE, {
+    eventAssignments: [EVENT_ORGANIZER_ASSIGNMENTS[0]],
+  });
   await page.goto("/admin/events/rotating");
 
   await expect(
     page.getByRole("heading", { name: "Manage Events — Rotating Partners" }),
   ).toBeVisible();
-  await expectAdminNavigation(page, EVENT_MANAGER_ROLE, "nav-manage-events");
-  await expectEventsNavigation(page, "rotating", "events-nav-rotating");
+  await expectAdminNavigation(
+    page,
+    PARTICIPANT_ROLE,
+    "nav-manage-events",
+    true,
+  );
+  await expectEventsNavigation(page, "rotating", "events-nav-rotating", false);
 
-  await expect(page.getByTestId("button-event-setup")).toBeVisible();
+  await expect(page.getByTestId("button-event-setup")).toHaveCount(0);
 
   await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
   await expect(
@@ -564,9 +601,7 @@ test("event organizers see event navigation but not admin-only areas", async ({
   await expect(page.getByTestId("button-submit-edit-event")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Delete Event", exact: true }),
-  ).toHaveCount(
-    userRolesConfig.groups.adminOnly.includes(EVENT_MANAGER_ROLE) ? 1 : 0,
-  );
+  ).toHaveCount(0);
 });
 
 test("event organizers keep event access and navigation after refresh", async ({
@@ -577,21 +612,8 @@ test("event organizers keep event access and navigation after refresh", async ({
     "The desktop organizer refresh coverage is covered by the desktop browser project",
   );
 
-  const eventAssignments = [
-    {
-      eventId: ROTATING_EVENT.id,
-      eventType: "rotating",
-      eventRole: EVENT_ORGANIZER_ROLE,
-    },
-    {
-      eventId: FIXED_PARTNER_EVENT.id,
-      eventType: "fixed_partner",
-      eventRole: EVENT_ORGANIZER_ROLE,
-    },
-  ];
-
   await mockAdminNavigationApi(page, PARTICIPANT_ROLE, {
-    eventAssignments,
+    eventAssignments: EVENT_ORGANIZER_ASSIGNMENTS,
   });
 
   const routes = [
@@ -654,11 +676,16 @@ test("event organizers keep event access and navigation after refresh", async ({
 test("event organizers can manage separate rotating and fixed-partner assignments", async ({
   page,
 }) => {
-  await mockAdminNavigationApi(page, EVENT_MANAGER_ROLE);
+  await mockAdminNavigationApi(page, PARTICIPANT_ROLE, {
+    eventAssignments: EVENT_ORGANIZER_ASSIGNMENTS,
+  });
 
   await page.goto(`/admin/events/rotating/${ROTATING_EVENT.id}`);
   await expect(page.getByTestId("panel-event-assignments")).toBeVisible();
   await page.getByTestId("select-assignment-staff").selectOption("11");
+  await page
+    .getByTestId("select-assignment-role")
+    .selectOption(EVENT_ORGANIZER_ROLE);
   await page.getByTestId("button-assign-staff").click();
   await expect(page.getByTestId("assignment-row-11")).toContainText(
     "Captain Casey",
@@ -668,6 +695,9 @@ test("event organizers can manage separate rotating and fixed-partner assignment
   await expect(page.getByTestId("panel-event-assignments")).toBeVisible();
   await expect(page.getByTestId("assignment-row-11")).toHaveCount(0);
   await page.getByTestId("select-assignment-staff").selectOption("12");
+  await page
+    .getByTestId("select-assignment-role")
+    .selectOption(EVENT_ORGANIZER_ROLE);
   await page.getByTestId("button-assign-staff").click();
   await expect(page.getByTestId("assignment-row-12")).toContainText(
     "Leader Lee",
