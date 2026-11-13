@@ -83,7 +83,7 @@ test("detects sensitive values before diagnostics are uploaded", () => {
   }
 });
 
-test("CI uploads diagnostics only after redaction succeeds", async () => {
+test("CI uploads API diagnostics only after redaction succeeds", async () => {
   const workflow = await readFile(
     join(repositoryRoot, ".github/workflows/api-tests.yml"),
     "utf8",
@@ -93,5 +93,30 @@ test("CI uploads diagnostics only after redaction succeeds", async () => {
   assert.match(
     workflow,
     /if: failure\(\) && steps\.redact-api-test-diagnostics\.outcome == 'success'/,
+  );
+});
+
+test("CI runs both browser projects against an isolated database", async () => {
+  const workflow = await readFile(
+    join(repositoryRoot, ".github/workflows/api-tests.yml"),
+    "utf8",
+  );
+
+  assert.match(workflow, /browser-tests:[\s\S]*?POSTGRES_DB: e2e_test/);
+  assert.match(
+    workflow,
+    /TEST_DATABASE_URL: postgresql:\/\/postgres@127\.0\.0\.1:5432\/e2e_test/,
+  );
+  assert.match(
+    workflow,
+    /pnpm run test:e2e -- --project=desktop-chromium --project=mobile-chromium/,
+  );
+  assert.match(
+    workflow,
+    /PLAYWRIGHT_OUTPUT_DIR: \$\{\{ github\.workspace \}\}\/test-results\/playwright/,
+  );
+  assert.match(
+    workflow,
+    /if: failure\(\) && steps\.redact-browser-test-logs\.outcome == 'success'[\s\S]*?name: playwright-failure-diagnostics/,
   );
 });
